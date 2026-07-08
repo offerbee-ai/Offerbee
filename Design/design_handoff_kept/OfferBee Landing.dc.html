@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #FBF8F0; }
+  a { color: #E8680E; text-decoration: none; }
+  a:hover { color: #C4560B; }
+  ::selection { background: #FBEAD5; }
+</style>
+</helmet>
+
+<div style="font-family:'Public Sans',sans-serif;color:#211D16;background:#FBF8F0;overflow:hidden;">
+
+  <!-- ============ NAV ============ -->
+  <div style="position:sticky;top:0;z-index:50;background:rgba(251,248,240,.82);backdrop-filter:blur(16px) saturate(160%);-webkit-backdrop-filter:blur(16px) saturate(160%);border-bottom:1px solid #EAE3D4;">
+    <div style="max-width:1200px;margin:0 auto;padding:16px 40px;display:flex;align-items:center;justify-content:space-between;">
+      <div style="display:flex;align-items:center;gap:11px;">
+        <svg width="34" height="34" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberNav" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beebodyNav"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberNav)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beebodyNav)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+        <span style="font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:36px;font-size:15px;font-weight:500;color:#4A453B;">
+        <a href="#features" style="color:#4A453B;">Features</a>
+        <a href="#how" style="color:#4A453B;">How it works</a>
+        <a href="#themes" style="color:#4A453B;">Design</a>
+        <a href="#pricing" style="color:#4A453B;">Pricing</a>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <a href="#" style="font-size:15px;font-weight:600;color:#211D16;">Sign in</a>
+        <a href="#pricing" style="background:#E8680E;color:#fff;font-size:15px;font-weight:600;padding:9px 18px;border-radius:11px;">Get OfferBee</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ HERO ============ -->
+  <div style="max-width:1200px;margin:0 auto;padding:76px 40px 40px;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;">
+    <div>
+      <div style="display:inline-flex;align-items:center;gap:8px;background:#FBEAD5;color:#E8680E;font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.02em;padding:7px 13px;border-radius:999px;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#E8680E;"></span>iOS 26 · now in beta
+      </div>
+      <h1 style="font-family:'Source Serif 4',serif;font-size:60px;line-height:1.04;font-weight:600;letter-spacing:-.025em;margin:22px 0 0;">Your card perks,<br>actually <span style="font-style:italic;color:#E8680E;">used.</span></h1>
+      <p style="font-size:19px;line-height:1.55;color:#5C5647;max-width:30em;margin:22px 0 0;">OfferBee tracks every statement credit and benefit across your premium cards — so you use them before they reset, and know which annual fees are still worth it.</p>
+      <div style="display:flex;gap:14px;margin-top:32px;align-items:center;">
+        <a href="#pricing" style="background:#E8680E;color:#fff;font-size:16px;font-weight:600;padding:14px 26px;border-radius:13px;box-shadow:0 8px 20px rgba(232,104,14,.24);">Start free</a>
+        <a href="#how" style="border:1px solid #DAD2C2;color:#211D16;font-size:16px;font-weight:600;padding:14px 24px;border-radius:13px;background:#FFFEFB;">See how it works</a>
+      </div>
+      <div style="display:flex;align-items:center;gap:22px;margin-top:30px;color:#7A7263;font-size:14px;font-weight:500;">
+        <div style="display:flex;align-items:center;gap:7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>No bank login</div>
+        <div style="display:flex;align-items:center;gap:7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>65+ cards</div>
+        <div style="display:flex;align-items:center;gap:7px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Private by default</div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;position:relative;">
+      <div style="position:absolute;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,#FBEAD5,transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);"></div>
+      <!-- PHONE: Review -->
+      <div data-phone="review" style="position:relative;"></div>
+    </div>
+  </div>
+
+  <!-- ============ TRUST STRIP ============ -->
+  <div style="max-width:1200px;margin:24px auto 0;padding:0 40px;">
+    <div style="border-top:1px solid #EAE3D4;border-bottom:1px solid #EAE3D4;padding:22px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:18px;">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:500;letter-spacing:.08em;text-transform:uppercase;color:#9A927F;">Tracks credits on</span>
+      <div style="display:flex;align-items:center;gap:30px;font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;color:#8B8271;">
+        <span>Amex Platinum</span><span>Chase Sapphire</span><span>Amex Gold</span><span>Cap One Venture X</span><span>Hilton Aspire</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ SECTION HEADER ============ -->
+  <div id="features" style="max-width:1200px;margin:0 auto;padding:86px 40px 0;text-align:center;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#E8680E;">What OfferBee does</div>
+    <h2 style="font-family:'Source Serif 4',serif;font-size:42px;font-weight:600;letter-spacing:-.02em;margin:14px 0 0;">Every perk, in one calm place</h2>
+    <p style="font-size:18px;line-height:1.55;color:#5C5647;max-width:34em;margin:16px auto 0;">Premium cards bury hundreds of dollars in credits behind fine print. OfferBee surfaces them, tracks what you've used, and reminds you before the clock runs out.</p>
+  </div>
+
+  <!-- ============ FEATURE 1 · Benefits ============ -->
+  <div style="max-width:1200px;margin:0 auto;padding:64px 40px 0;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;">
+    <div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#FBEAD5;margin-bottom:18px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 5.3 7.8 7.5 5.5"/><path d="M4 12.5 5.3 13.8 7.5 11.5"/><path d="M4 18.3 5.3 19.6 7.5 17.3"/><path d="M11 6.5h9M11 12.5h9M11 18.5h6"/></svg></div>
+      <h3 style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.015em;margin:0;">See every credit at a glance</h3>
+      <p style="font-size:17px;line-height:1.6;color:#5C5647;margin:14px 0 0;max-width:26em;">Monthly, quarterly, and annual credits from all your cards in one list. Mark one used and your captured total updates instantly — like a statement that keeps its own score.</p>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:26px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg><span style="font-size:16px;color:#3A342B;"><strong style="font-weight:600;">Grouped by reset cycle</strong> — nothing slips through the cracks.</span></div>
+        <div style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg><span style="font-size:16px;color:#3A342B;"><strong style="font-weight:600;">One-tap "mark used"</strong> keeps totals honest.</span></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;"><div data-phone="benefits" style="position:relative;"></div></div>
+  </div>
+
+  <!-- ============ FEATURE 2 · Expiring ============ -->
+  <div style="max-width:1200px;margin:0 auto;padding:96px 40px 0;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;">
+    <div style="display:flex;justify-content:center;order:0;"><div data-phone="expiring" style="position:relative;"></div></div>
+    <div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#F6E9DF;margin-bottom:18px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B4693A" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 1.8"/></svg></div>
+      <h3 style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.015em;margin:0;">Never miss a reset</h3>
+      <p style="font-size:17px;line-height:1.6;color:#5C5647;margin:14px 0 0;max-width:26em;">OfferBee counts down the credits about to expire and nudges you while there's still time. Snooze the ones you'll get to; act on the ones that matter this week.</p>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:26px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B4693A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg><span style="font-size:16px;color:#3A342B;"><strong style="font-weight:600;">Day-level countdowns</strong> for every at-risk credit.</span></div>
+        <div style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B4693A" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg><span style="font-size:16px;color:#3A342B;"><strong style="font-weight:600;">Smart reminders</strong> — timed to how you actually spend.</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FEATURE 3 · Cards ============ -->
+  <div style="max-width:1200px;margin:0 auto;padding:96px 40px 0;display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:center;">
+    <div>
+      <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#FBEAD5;margin-bottom:18px;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="1.9"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/></svg></div>
+      <h3 style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.015em;margin:0;">Know which cards to keep</h3>
+      <p style="font-size:17px;line-height:1.6;color:#5C5647;margin:14px 0 0;max-width:26em;">Every card shows captured value against its annual fee, with a clear <em>keep</em> or <em>review</em> verdict at renewal. Downgrade with confidence, not guilt.</p>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:26px;">
+        <div style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg><span style="font-size:16px;color:#3A342B;"><strong style="font-weight:600;">Fee-vs-value math</strong> done automatically.</span></div>
+        <div style="display:flex;gap:12px;align-items:flex-start;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="margin-top:2px;flex-shrink:0;"><path d="M20 6 9 17l-5-5"/></svg><span style="font-size:16px;color:#3A342B;"><strong style="font-weight:600;">Renewal alerts</strong> before the fee posts.</span></div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;"><div data-phone="cards" style="position:relative;"></div></div>
+  </div>
+
+  <!-- ============ DARK / THEMES SHOWCASE ============ -->
+  <div id="themes" style="margin-top:100px;background:#17181B;color:#ECEBE6;">
+    <div style="max-width:1200px;margin:0 auto;padding:84px 40px;display:grid;grid-template-columns:.95fr 1.05fr;gap:56px;align-items:center;">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#F59E3C;">Light &amp; dark</div>
+        <h2 style="font-family:'Source Serif 4',serif;font-size:40px;font-weight:600;letter-spacing:-.02em;margin:14px 0 0;color:#ECEBE6;">Beautiful at 7am<br>and midnight</h2>
+        <p style="font-size:17px;line-height:1.6;color:#A6A399;margin:16px 0 0;max-width:28em;">OfferBee ships two hand-tuned themes — warm <span style="color:#F0A85C;font-weight:600;">Honey</span> for daylight and deep <span style="color:#F0A85C;font-weight:600;">Onyx</span> for night. Same layout, same clarity, matched to your system automatically.</p>
+        <div style="display:flex;gap:12px;margin-top:28px;">
+          <div style="display:flex;align-items:center;gap:9px;background:#212328;border:1px solid #2E3036;border-radius:11px;padding:9px 14px;"><span style="width:16px;height:16px;border-radius:5px;background:#FBF8F0;"></span><span style="font-size:14px;font-weight:600;">Honey</span></div>
+          <div style="display:flex;align-items:center;gap:9px;background:#212328;border:1px solid #2E3036;border-radius:11px;padding:9px 14px;"><span style="width:16px;height:16px;border-radius:5px;background:#F59E3C;"></span><span style="font-size:14px;font-weight:600;">Onyx</span></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:center;gap:26px;">
+        <div data-phone="review-onyx" style="position:relative;"></div>
+        <div data-phone="carddetail-onyx" style="position:relative;margin-top:34px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <div id="how" style="max-width:1200px;margin:0 auto;padding:90px 40px 0;">
+    <div style="text-align:center;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#E8680E;">How it works</div>
+      <h2 style="font-family:'Source Serif 4',serif;font-size:42px;font-weight:600;letter-spacing:-.02em;margin:14px 0 0;">Set up in three minutes</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:26px;margin-top:48px;">
+      <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:20px;padding:30px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#E8680E;">01</div>
+        <h4 style="font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;margin:14px 0 0;">Add your cards</h4>
+        <p style="font-size:15.5px;line-height:1.6;color:#5C5647;margin:10px 0 0;">Pick from 65+ premium cards, or import a wallet CSV. No bank login, ever.</p>
+      </div>
+      <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:20px;padding:30px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#E8680E;">02</div>
+        <h4 style="font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;margin:14px 0 0;">OfferBee maps the perks</h4>
+        <p style="font-size:15.5px;line-height:1.6;color:#5C5647;margin:10px 0 0;">Every credit, cycle, and reset date is loaded automatically — nothing to type.</p>
+      </div>
+      <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:20px;padding:30px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:#E8680E;">03</div>
+        <h4 style="font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;margin:14px 0 0;">Use them, keep score</h4>
+        <p style="font-size:15.5px;line-height:1.6;color:#5C5647;margin:10px 0 0;">Mark credits used, watch your captured total climb past every annual fee.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ STATS ============ -->
+  <div style="max-width:1200px;margin:0 auto;padding:80px 40px 0;">
+    <div style="background:#E8680E;border-radius:26px;padding:52px 48px;display:grid;grid-template-columns:repeat(3,1fr);gap:32px;color:#FDF1E4;">
+      <div><div style="font-family:'IBM Plex Mono',monospace;font-size:46px;font-weight:600;letter-spacing:-.02em;">$1,240</div><div style="font-size:15px;color:#F3D3AE;margin-top:6px;">avg. credits left unused per cardholder each year</div></div>
+      <div style="border-left:1px solid rgba(255,255,255,.16);padding-left:32px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:46px;font-weight:600;letter-spacing:-.02em;">65+</div><div style="font-size:15px;color:#F3D3AE;margin-top:6px;">premium cards with perks mapped out of the box</div></div>
+      <div style="border-left:1px solid rgba(255,255,255,.16);padding-left:32px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:46px;font-weight:600;letter-spacing:-.02em;">3 min</div><div style="font-size:15px;color:#F3D3AE;margin-top:6px;">to set up your whole wallet, no bank login</div></div>
+    </div>
+  </div>
+
+  <!-- ============ PRICING / CTA ============ -->
+  <div id="pricing" style="max-width:1200px;margin:0 auto;padding:96px 40px 0;text-align:center;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:#E8680E;">Pricing</div>
+    <h2 style="font-family:'Source Serif 4',serif;font-size:42px;font-weight:600;letter-spacing:-.02em;margin:14px 0 0;">Pays for itself in one credit</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;max-width:760px;margin:44px auto 0;text-align:left;">
+      <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:22px;padding:32px;">
+        <div style="font-size:15px;font-weight:600;color:#6F6757;">Free</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-top:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:600;">$0</span></div>
+        <div style="font-size:14px;color:#8B8271;margin-top:2px;">Up to 2 cards</div>
+        <div style="height:1px;background:#EDE6D8;margin:20px 0;"></div>
+        <div style="display:flex;flex-direction:column;gap:11px;font-size:15px;color:#3A342B;">
+          <div style="display:flex;gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Credit tracking &amp; resets</div>
+          <div style="display:flex;gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Expiry reminders</div>
+        </div>
+        <a href="#" style="display:block;text-align:center;margin-top:24px;border:1px solid #DAD2C2;color:#211D16;font-size:15px;font-weight:600;padding:12px;border-radius:12px;background:#FBF8F0;">Start free</a>
+      </div>
+      <div style="background:#211D16;border-radius:22px;padding:32px;position:relative;color:#F5F1E9;">
+        <div style="position:absolute;top:20px;right:20px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;background:#E8680E;color:#fff;padding:5px 9px;border-radius:7px;">POPULAR</div>
+        <div style="font-size:15px;font-weight:600;color:#C9C0AE;">Pro</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-top:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:600;">$4</span><span style="font-size:15px;color:#A69C86;">/mo</span></div>
+        <div style="font-size:14px;color:#A69C86;margin-top:2px;">Unlimited cards</div>
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:20px 0;"></div>
+        <div style="display:flex;flex-direction:column;gap:11px;font-size:15px;color:#E8E1D2;">
+          <div style="display:flex;gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F0A85C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Everything in Free</div>
+          <div style="display:flex;gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F0A85C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Fee-vs-value verdicts</div>
+          <div style="display:flex;gap:10px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#F0A85C" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>CSV import &amp; export</div>
+        </div>
+        <a href="#" style="display:block;text-align:center;margin-top:24px;background:#E8680E;color:#fff;font-size:15px;font-weight:600;padding:12px;border-radius:12px;">Get OfferBee Pro</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FOOTER ============ -->
+  <div style="margin-top:96px;border-top:1px solid #EAE3D4;">
+    <div style="max-width:1200px;margin:0 auto;padding:48px 40px;display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:32px;">
+      <div style="max-width:22em;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <svg width="28" height="28" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberFoot" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beebodyFoot"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberFoot)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beebodyFoot)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+          <span style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;">OfferBee</span>
+        </div>
+        <p style="font-size:14px;line-height:1.6;color:#8B8271;margin:14px 0 0;">Keep more of what your cards already promised. Made for people who read the fine print.</p>
+      </div>
+      <div style="display:flex;gap:64px;">
+        <div style="display:flex;flex-direction:column;gap:11px;font-size:14.5px;color:#5C5647;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9A927F;margin-bottom:3px;">Product</span><a href="#features" style="color:#5C5647;">Features</a><a href="#how" style="color:#5C5647;">How it works</a><a href="#pricing" style="color:#5C5647;">Pricing</a></div>
+        <div style="display:flex;flex-direction:column;gap:11px;font-size:14.5px;color:#5C5647;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9A927F;margin-bottom:3px;">Company</span><a href="#" style="color:#5C5647;">About</a><a href="#" style="color:#5C5647;">Privacy</a><a href="#" style="color:#5C5647;">Contact</a></div>
+      </div>
+    </div>
+    <div style="max-width:1200px;margin:0 auto;padding:0 40px 40px;font-size:13px;color:#9A927F;">© 2026 OfferBee.ai · Not affiliated with any card issuer. Card names are trademarks of their respective owners.</div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  componentDidMount() {
+    this.renderPhones();
+  }
+  // Lightweight iPhone bezel wrapper
+  phone(inner, scale) {
+    const s = scale || 1;
+    return `<div style="width:${300*s}px;height:${620*s}px;border-radius:${46*s}px;background:#0D0D0F;padding:${9*s}px;box-shadow:0 30px 60px rgba(33,29,22,.22),0 8px 20px rgba(33,29,22,.12);position:relative;">
+      <div style="position:absolute;top:${20*s}px;left:50%;transform:translateX(-50%);width:${92*s}px;height:${24*s}px;background:#0D0D0F;border-radius:${14*s}px;z-index:5;"></div>
+      <div style="width:100%;height:100%;border-radius:${38*s}px;overflow:hidden;position:relative;">${inner}</div>
+    </div>`;
+  }
+  renderPhones() {
+    const root = this.el || document;
+    const map = {
+      'review': this.screenReview('forest'),
+      'benefits': this.screenBenefits(),
+      'expiring': this.screenExpiring(),
+      'cards': this.screenCards(),
+      'review-onyx': this.screenReview('onyx'),
+      'carddetail-onyx': this.screenCardDetail('onyx'),
+    };
+    Object.keys(map).forEach((k) => {
+      const holder = root.querySelector(`[data-phone="${k}"]`);
+      if (holder && !holder.dataset.filled) {
+        const scale = (k === 'review') ? 1.12 : (k.endsWith('-onyx') ? 0.92 : 1);
+        holder.innerHTML = this.phone(map[k], scale);
+        holder.dataset.filled = '1';
+      }
+    });
+  }
+  theme(name) {
+    if (name === 'onyx') return { bg:'#17181B', card:'#212328', border:'#2E3036', sep:'#282A2F', ink:'#ECEBE6', sec:'#9C9A93', ter:'#6E6C67', track:'#2E3036', accent:'#F59E3C', soft:'#3A2C17', warn:'#D18A4E', warnSoft:'#3A2E24', tabUnsel:'#6E6C67', glass:'rgba(22,23,26,.72)' };
+    return { bg:'#FBF8F0', card:'#FFFEFB', border:'#E8E1D2', sep:'#ECE5D6', ink:'#211D16', sec:'#6F6757', ter:'#9A927F', track:'#E4DECF', accent:'#E8680E', soft:'#FBEAD5', warn:'#B4693A', warnSoft:'#F6E9DF', tabUnsel:'#A69C86', glass:'rgba(251,248,240,.72)' };
+  }
+  statusBar(t) {
+    return `<div style="height:52px;display:flex;align-items:flex-end;justify-content:space-between;padding:0 26px 6px;font-family:'Public Sans';font-size:14px;font-weight:600;color:${t.ink};"><span>9:41</span><span style="display:flex;gap:5px;align-items:center;"><svg width="17" height="12" viewBox="0 0 17 12" fill="${t.ink}"><rect x="0" y="7" width="3" height="5" rx="1"/><rect x="4.5" y="4.5" width="3" height="7.5" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1" opacity="0.35"/></svg><svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x="1" y="1" width="19" height="10" rx="3" stroke="${t.ink}" stroke-opacity="0.5"/><rect x="2.5" y="2.5" width="14" height="7" rx="1.5" fill="${t.ink}"/><rect x="21" y="4" width="1.6" height="4" rx="0.8" fill="${t.ink}" fill-opacity="0.5"/></svg></span></div>`;
+  }
+  tabBar(t, active) {
+    const items = [
+      ['Review','<path d="M4 11.5 12 4.5l8 7"/><path d="M6 10.5V20h4v-5h4v5h4v-9.5"/>'],
+      ['Benefits','<path d="M4 6.5 5.3 7.8 7.5 5.5"/><path d="M4 12.5 5.3 13.8 7.5 11.5"/><path d="M4 18.3 5.3 19.6 7.5 17.3"/><path d="M11 6.5h9M11 12.5h9M11 18.5h6"/>'],
+      ['Expiring','<circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 1.8"/>'],
+      ['Cards','<rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/>'],
+    ];
+    const cells = items.map((it) => {
+      const on = it[0] === active;
+      const col = on ? t.accent : t.tabUnsel;
+      return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:${col};"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${it[1]}</svg><span style="font-size:10px;font-weight:600;">${it[0]}</span></div>`;
+    }).join('');
+    return `<div style="position:absolute;left:14px;right:14px;bottom:12px;display:flex;padding:9px 6px;background:${t.glass};backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);border-radius:28px;border:1px solid ${t.border};box-shadow:0 10px 26px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.5);">${cells}</div>`;
+  }
+  frame(t, title, eyebrow, trailing, body, active) {
+    return `<div style="width:100%;height:100%;background:${t.bg};font-family:'Public Sans',sans-serif;color:${t.ink};position:relative;overflow:hidden;">
+      ${this.statusBar(t)}
+      <div style="padding:4px 20px 8px;display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>${eyebrow ? `<div style="font-family:'IBM Plex Mono';font-size:10.5px;font-weight:500;letter-spacing:.04em;color:${t.ter};">${eyebrow}</div>` : ''}<div style="font-family:'Source Serif 4',serif;font-size:27px;font-weight:600;letter-spacing:-.02em;line-height:1.05;">${title}</div></div>
+        ${trailing || ''}
+      </div>
+      <div style="position:absolute;top:${eyebrow?128:112}px;left:0;right:0;bottom:0;overflow:hidden;padding:6px 16px 90px;">${body}</div>
+      ${this.tabBar(t, active)}
+    </div>`;
+  }
+  circleBtn(t, svg) {
+    return `<div style="width:34px;height:34px;border-radius:50%;background:${t.card};border:1px solid ${t.border};display:flex;align-items:center;justify-content:center;">${svg}</div>`;
+  }
+  sectionLabel(t, txt) {
+    return `<div style="font-family:'IBM Plex Mono';font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:${t.ter};padding:0 6px 8px;">${txt}</div>`;
+  }
+  // ---------- SCREENS ----------
+  screenReview(name) {
+    const t = this.theme(name);
+    const plus = `<div style="width:34px;height:34px;border-radius:50%;background:${t.card};border:1px solid ${t.border};display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.accent}" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></div>`;
+    const body = `
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:18px;padding:16px 17px;">
+        <div style="font-family:'IBM Plex Mono';font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:${t.ter};">Captured value · 2026</div>
+        <div style="display:flex;align-items:baseline;gap:9px;margin-top:5px;"><span style="font-family:'IBM Plex Mono';font-size:34px;font-weight:600;letter-spacing:-.03em;">$2,050</span><span style="font-size:13px;font-weight:600;color:${t.accent};">+$330</span></div>
+        <div style="font-size:12px;color:${t.sec};margin-top:2px;">across 4 cards · beating $1,720 in fees</div>
+        <div style="height:8px;border-radius:5px;background:${t.track};margin-top:13px;overflow:hidden;"><div style="width:84%;height:100%;background:${t.accent};border-radius:5px;"></div></div>
+        <div style="display:flex;justify-content:space-between;margin-top:7px;font-family:'IBM Plex Mono';font-size:10.5px;color:${t.ter};"><span>84% captured</span><span>$2,435 total</span></div>
+      </div>
+      ${this.sectionLabel(t,'At a glance')}
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;overflow:hidden;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid ${t.sep};"><div style="width:30px;height:30px;border-radius:9px;background:${t.soft};display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.accent}" stroke-width="1.9"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/></svg></div><div style="flex:1;font-size:14px;font-weight:600;">Remaining this month</div><span style="font-family:'IBM Plex Mono';font-size:14px;font-weight:600;">$285</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:13px 15px;"><div style="width:30px;height:30px;border-radius:9px;background:${t.warnSoft};display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.warn}" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 1.8"/></svg></div><div style="flex:1;font-size:14px;font-weight:600;">Expiring in ≤3 days</div><span style="font-family:'IBM Plex Mono';font-size:14px;font-weight:600;color:${t.warn};">$40</span></div>
+      </div>
+      ${this.sectionLabel(t,'Use before they reset')}
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid ${t.sep};"><div style="width:30px;height:20px;border-radius:5px;background:#B08A3E;"></div><div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Dining credit</div><div style="font-size:11.5px;color:${t.sec};">Amex Gold · $10</div></div><span style="font-size:13px;font-weight:600;color:${t.accent};">Use</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 15px;"><div style="width:30px;height:20px;border-radius:5px;background:#3A4048;"></div><div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Uber Cash</div><div style="font-size:11.5px;color:${t.sec};">Amex Platinum · $15</div></div><span style="font-size:13px;font-weight:600;color:${t.accent};">Use</span></div>
+      </div>`;
+    return this.frame(t, 'Review', 'Wednesday, July 8', plus, body, 'Review');
+  }
+  screenBenefits() {
+    const t = this.theme('forest');
+    const filter = this.circleBtn(t, `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.ink}" stroke-width="1.9" stroke-linecap="round"><path d="M3 5h18M6 12h12M10 19h4"/></svg>`);
+    const row = (art, name, sub, used, warn) => `<div style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid ${t.sep};"><div style="width:30px;height:20px;border-radius:5px;background:${art};"></div><div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">${name}</div><div style="font-size:11.5px;color:${warn?t.warn:t.sec};">${sub}</div></div>${used?`<span style="font-size:11.5px;font-weight:600;color:${t.accent};background:${t.soft};padding:5px 9px;border-radius:8px;">Used ✓</span>`:`<span style="font-size:11.5px;font-weight:600;color:#fff;background:${t.accent};padding:5px 10px;border-radius:8px;">Mark used</span>`}</div>`;
+    const body = `
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:12px;padding:10px 13px;display:flex;align-items:center;gap:9px;margin-bottom:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.ter}" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span style="font-size:13.5px;color:${t.ter};">Search credits</span></div>
+      <div style="display:flex;background:#E9E3D6;border-radius:10px;padding:2px;font-size:12.5px;margin-bottom:14px;"><div style="flex:1;text-align:center;padding:6px;border-radius:8px;background:${t.card};box-shadow:0 1px 3px rgba(33,29,22,.14);font-weight:600;">Monthly</div><div style="flex:1;text-align:center;padding:6px;color:${t.sec};font-weight:500;">Quarterly</div><div style="flex:1;text-align:center;padding:6px;color:${t.sec};font-weight:500;">Annual</div></div>
+      ${this.sectionLabel(t,'Monthly credits · 5')}
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;overflow:hidden;">
+        ${row('#B08A3E','Dining credit','Amex Gold · $10 · resets 3d',false,true)}
+        ${row('#3A4048','Uber Cash','Amex Platinum · $15',true,false)}
+        ${row('#1E6FB8','Travel credit','Sapphire · $25',false,false)}
+        ${row('#0B6E4F','Streaming','Amex Platinum · $20',true,false)}
+      </div>
+      <div style="font-size:11.5px;color:${t.ter};padding:9px 6px 0;">$100 still available across 3 credits.</div>`;
+    return this.frame(t, 'Benefits', '', filter, body, 'Benefits');
+  }
+  screenExpiring() {
+    const t = this.theme('forest');
+    const bell = this.circleBtn(t, `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.ink}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 0 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>`);
+    const tile = (n, col, bg) => `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border-radius:11px;background:${bg};color:${col};flex-shrink:0;"><span style="font-family:'IBM Plex Mono';font-size:15px;font-weight:600;line-height:1;">${n}</span><span style="font-size:8.5px;font-weight:600;">days</span></div>`;
+    const body = `
+      <div style="display:flex;background:#E9E3D6;border-radius:10px;padding:2px;font-size:12.5px;margin-bottom:14px;"><div style="flex:1;text-align:center;padding:6px;border-radius:8px;background:${t.card};box-shadow:0 1px 3px rgba(33,29,22,.14);font-weight:600;">This week</div><div style="flex:1;text-align:center;padding:6px;color:${t.sec};font-weight:500;">This month</div></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;padding:0 6px 8px;"><span style="font-family:'IBM Plex Mono';font-size:10.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#C0503F;">This week</span><span style="font-family:'IBM Plex Mono';font-size:10.5px;font-weight:600;color:#C0503F;">$40 at risk</span></div>
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;overflow:hidden;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid ${t.sep};">${tile('2','#B4693A',t.warnSoft)}<div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Dining credit</div><div style="font-size:11.5px;color:${t.sec};">Amex Gold · $10</div></div><span style="font-size:13px;font-weight:600;color:${t.accent};">Use</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">${tile('5','#B4693A',t.warnSoft)}<div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Airline fee credit</div><div style="font-size:11.5px;color:${t.sec};">Amex Platinum · $30</div></div><span style="font-size:13px;font-weight:600;color:${t.accent};">Use</span></div>
+      </div>
+      ${this.sectionLabel(t,'Later this month')}
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid ${t.sep};">${tile('14','#6F6757','#EDE6D8')}<div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Streaming credit</div><div style="font-size:11.5px;color:${t.sec};">Amex Platinum · $20</div></div><span style="font-size:12px;font-weight:600;color:${t.sec};border:1px solid ${t.border};padding:5px 10px;border-radius:8px;">Snooze</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;">${tile('23','#6F6757','#EDE6D8')}<div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Lyft credit</div><div style="font-size:11.5px;color:${t.sec};">Chase Sapphire · $15</div></div><span style="font-size:12px;font-weight:600;color:${t.sec};border:1px solid ${t.border};padding:5px 10px;border-radius:8px;">Snooze</span></div>
+      </div>`;
+    return this.frame(t, 'Expiring', '', bell, body, 'Expiring');
+  }
+  screenCards() {
+    const t = this.theme('forest');
+    const plus = this.circleBtn(t, `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${t.accent}" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>`);
+    const row = (art, name, sub, net, pos, verdict) => `<div style="display:flex;align-items:center;gap:12px;padding:13px 15px;border-bottom:1px solid ${t.sep};"><div style="width:34px;height:23px;border-radius:5px;background:${art};"></div><div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">${name}</div><div style="font-size:11.5px;color:${t.sec};">${sub}</div></div><div style="text-align:right;"><div style="font-family:'IBM Plex Mono';font-size:13.5px;font-weight:600;color:${pos?t.accent:t.warn};">${net}</div><div style="font-size:10.5px;font-weight:600;color:${pos?t.accent:t.warn};">${verdict}</div></div></div>`;
+    const body = `
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:18px;padding:16px 17px;margin-bottom:14px;">
+        <div style="font-family:'IBM Plex Mono';font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:${t.ter};">Net across 4 cards</div>
+        <div style="font-family:'IBM Plex Mono';font-size:32px;font-weight:600;letter-spacing:-.03em;color:${t.accent};margin-top:4px;">+$330</div>
+        <div style="font-size:12px;color:${t.sec};margin-top:2px;">$2,050 captured · $1,720 in fees</div>
+      </div>
+      ${this.sectionLabel(t,'Your wallet')}
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;overflow:hidden;">
+        ${row('#3A4048','Amex Platinum','$695 fee · $840 captured','+$145',true,'Keep')}
+        ${row('#B08A3E','Amex Gold','$325 fee · $410 captured','+$85',true,'Keep')}
+        ${row('#1E6FB8','Sapphire Reserve','$550 fee · $600 captured','+$50',true,'Keep')}
+        ${row('#7A2E3B','Hilton Aspire','$550 fee · $500 captured','−$50',false,'Review')}
+      </div>`;
+    return this.frame(t, 'Cards', '', plus, body, 'Cards');
+  }
+  screenCardDetail(name) {
+    const t = this.theme(name);
+    const back = `<div style="display:flex;align-items:center;gap:5px;color:${t.accent};font-size:14px;font-weight:600;"><svg width="8" height="14" viewBox="0 0 9 16" fill="none" stroke="${t.accent}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1 1 8l7 7"/></svg>Cards</div>`;
+    const body = `
+      <div style="height:120px;border-radius:16px;background:#2B2F36;position:relative;overflow:hidden;padding:16px;display:flex;flex-direction:column;justify-content:space-between;margin-bottom:14px;">
+        <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.14),rgba(0,0,0,.14));"></div>
+        <div style="position:relative;display:flex;justify-content:space-between;"><span style="font-family:'Source Serif 4';font-weight:600;color:#E7E2D6;font-size:14px;">PLATINUM</span><div style="width:28px;height:21px;border-radius:5px;background:rgba(255,255,255,.4);"></div></div>
+        <div style="position:relative;font-size:11.5px;color:#C9C4B8;">$695 / yr · renews Mar 2027</div>
+      </div>
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;padding:15px 16px;margin-bottom:14px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-family:'IBM Plex Mono';font-size:10px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:${t.ter};">Captured this year</span><span style="font-size:11px;font-weight:600;color:${t.accent};background:${t.soft};padding:4px 9px;border-radius:7px;">Keep</span></div>
+        <div style="font-family:'IBM Plex Mono';font-size:28px;font-weight:600;letter-spacing:-.03em;margin-top:5px;">$840</div>
+        <div style="height:7px;border-radius:4px;background:${t.track};margin-top:11px;overflow:hidden;"><div style="width:100%;height:100%;background:${t.accent};"></div></div>
+        <div style="font-size:12px;color:${t.accent};font-weight:600;margin-top:7px;">+$145 over the $695 fee</div>
+      </div>
+      ${this.sectionLabel(t,'Credits · 6')}
+      <div style="background:${t.card};border:1px solid ${t.border};border-radius:16px;overflow:hidden;">
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 15px;border-bottom:1px solid ${t.sep};"><div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Airline fee credit</div><div style="font-size:11.5px;color:${t.sec};">Annual · used</div></div><span style="font-family:'IBM Plex Mono';font-size:12.5px;font-weight:600;color:${t.sec};">$200/$200</span></div>
+        <div style="display:flex;align-items:center;gap:12px;padding:12px 15px;"><div style="flex:1;"><div style="font-size:13.5px;font-weight:600;">Uber Cash</div><div style="font-size:11.5px;color:${t.sec};">Monthly · $15</div></div><span style="font-family:'IBM Plex Mono';font-size:12.5px;font-weight:600;color:${t.sec};">$0/$15</span></div>
+      </div>`;
+    return this.frame(t, 'Amex Platinum', '', `<div style="color:${t.ter};font-size:20px;font-weight:700;letter-spacing:1px;">···</div>`, body, 'Cards');
+  }
+}
+</script>
+</body>
+</html>

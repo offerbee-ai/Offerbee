@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  doc-page:not(:defined) { visibility: hidden; }
+  h1, h2, h3 { margin: 0; }
+</style>
+</helmet>
+
+<x-import component-from-global-scope="doc-page" from="./doc-page.js" size="letter" margin="0.62in" hint-size="816px,1056px">
+  <div style="font-family:'Public Sans',sans-serif;color:#211D16;line-height:1.5;">
+
+    <!-- COVER -->
+    <div style="border-bottom:2px solid #211D16;padding-bottom:20px;margin-bottom:30px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+        <div>
+          <div style="font-family:'Source Serif 4',serif;font-size:46px;font-weight:600;letter-spacing:-.02em;line-height:1;">OfferBee</div>
+          <div style="font-family:'Public Sans';font-size:15px;color:#6F6757;margin-top:8px;">Credit &amp; benefits tracker — design system</div>
+        </div>
+        <div style="text-align:right;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A927F;letter-spacing:.04em;line-height:1.7;">
+          VERSION 1.0<br>iOS 26 · LIQUID GLASS<br>JULY 2026
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:22px;">
+        <div style="height:34px;flex:1;border-radius:7px;background:#E8680E;"></div>
+        <div style="height:34px;flex:1;border-radius:7px;background:#FBF8F0;box-shadow:inset 0 0 0 1px #E8E1D2;"></div>
+        <div style="height:34px;flex:1;border-radius:7px;background:#211D16;"></div>
+        <div style="height:34px;flex:1;border-radius:7px;background:#FBEAD5;"></div>
+        <div style="height:34px;flex:1;border-radius:7px;background:#B4693A;"></div>
+      </div>
+    </div>
+
+    <p style="font-size:15px;color:#3A342B;max-width:62ch;margin:0 0 34px;">OfferBee turns premium-card benefits into a calm monthly review. This document defines the visual language: foundations (color, type, spacing, materials) and the component set that builds every screen. Two palettes ship — <strong>Honey</strong> (light) and <strong>Onyx</strong> (dark) — over one fixed layout and type system.</p>
+
+    <!-- ========== FOUNDATIONS ========== -->
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.12em;color:#E8680E;text-transform:uppercase;">01 — Foundations</div>
+
+    <!-- COLOR -->
+    <h2 style="font-family:'Source Serif 4',serif;font-size:24px;font-weight:600;margin:12px 0 4px;letter-spacing:-.01em;">Color</h2>
+    <p style="font-size:13.5px;color:#6F6757;margin:0 0 16px;max-width:60ch;">Tokens are semantic, not literal — components reference roles (surface, accent, warning) so a whole theme swaps by remapping the palette. Card-brand colors sit outside the theme and never change.</p>
+
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;color:#9A927F;text-transform:uppercase;margin-bottom:6px;">Theme · Honey (default, light)</div>
+    <div style="break-inside:avoid;margin-bottom:22px;">
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#FBF8F0;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Background</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#FBF8F0</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">App / screen paper</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#FFFEFB;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Surface</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#FFFEFB</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Cards, list groups</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#E8E1D2;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Border / Separator</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#E8E1D2</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Hairlines, inset rules (#ECE5D6)</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#211D16;"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Ink</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#211D16</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Primary text, figures</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#6F6757;"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Secondary</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#6F6757</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Subtitles, supporting text</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#9A927F;"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Tertiary</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#9A927F</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Labels, chevrons, hints</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#E8680E;"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Accent</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#E8680E</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Actions, selected, progress, positive</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#FBEAD5;box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Accent soft</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#FBEAD5</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Tinted chips, success badges</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;border-bottom:1px solid #ECE5D6;"><div style="width:32px;height:32px;border-radius:8px;background:#B4693A;"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Warning</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#B4693A</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">Expiring soon, low ROI (soft #F6E9DF)</div></div>
+      <div style="display:flex;align-items:center;gap:14px;padding:8px 0;"><div style="width:32px;height:32px;border-radius:8px;background:#C0503F;"></div><div style="width:130px;font:600 13.5px 'Public Sans';">Alert</div><div style="width:96px;font:500 12.5px 'IBM Plex Mono';color:#6F6757;">#C0503F</div><div style="flex:1;font:400 12.5px 'Public Sans';color:#6F6757;">At-risk this week</div></div>
+    </div>
+
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;color:#9A927F;text-transform:uppercase;margin-bottom:8px;">Theme · Onyx (dark)</div>
+    <div style="break-inside:avoid;display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;">
+      <div style="display:flex;align-items:center;gap:9px;background:#F5F2EC;border:1px solid #E8E1D2;border-radius:9px;padding:8px 11px;"><div style="width:22px;height:22px;border-radius:6px;background:#17181B;"></div><div><div style="font:600 11.5px 'Public Sans';">Background</div><div style="font:500 10.5px 'IBM Plex Mono';color:#6F6757;">#17181B</div></div></div>
+      <div style="display:flex;align-items:center;gap:9px;background:#F5F2EC;border:1px solid #E8E1D2;border-radius:9px;padding:8px 11px;"><div style="width:22px;height:22px;border-radius:6px;background:#212328;"></div><div><div style="font:600 11.5px 'Public Sans';">Surface</div><div style="font:500 10.5px 'IBM Plex Mono';color:#6F6757;">#212328</div></div></div>
+      <div style="display:flex;align-items:center;gap:9px;background:#F5F2EC;border:1px solid #E8E1D2;border-radius:9px;padding:8px 11px;"><div style="width:22px;height:22px;border-radius:6px;background:#ECEBE6;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);"></div><div><div style="font:600 11.5px 'Public Sans';">Ink</div><div style="font:500 10.5px 'IBM Plex Mono';color:#6F6757;">#ECEBE6</div></div></div>
+      <div style="display:flex;align-items:center;gap:9px;background:#F5F2EC;border:1px solid #E8E1D2;border-radius:9px;padding:8px 11px;"><div style="width:22px;height:22px;border-radius:6px;background:#F59E3C;"></div><div><div style="font:600 11.5px 'Public Sans';">Accent</div><div style="font:500 10.5px 'IBM Plex Mono';color:#6F6757;">#F59E3C</div></div></div>
+      <div style="display:flex;align-items:center;gap:9px;background:#F5F2EC;border:1px solid #E8E1D2;border-radius:9px;padding:8px 11px;"><div style="width:22px;height:22px;border-radius:6px;background:#3A2C17;"></div><div><div style="font:600 11.5px 'Public Sans';">Accent soft</div><div style="font:500 10.5px 'IBM Plex Mono';color:#6F6757;">#3A2C17</div></div></div>
+      <div style="display:flex;align-items:center;gap:9px;background:#F5F2EC;border:1px solid #E8E1D2;border-radius:9px;padding:8px 11px;"><div style="width:22px;height:22px;border-radius:6px;background:#D18A4E;"></div><div><div style="font:600 11.5px 'Public Sans';">Warning</div><div style="font:500 10.5px 'IBM Plex Mono';color:#6F6757;">#D18A4E</div></div></div>
+    </div>
+
+    <!-- TYPOGRAPHY -->
+    <h2 style="font-family:'Source Serif 4',serif;font-size:24px;font-weight:600;margin:34px 0 4px;letter-spacing:-.01em;">Typography</h2>
+    <p style="font-size:13.5px;color:#6F6757;margin:0 0 16px;max-width:60ch;">Three families with distinct jobs: a serif for titles gives an editorial, trustworthy voice; a neutral grotesque carries all UI text; a monospace sets every number so figures align like a statement.</p>
+
+    <div style="break-inside:avoid;display:flex;gap:16px;margin-bottom:20px;">
+      <div style="flex:1;border:1px solid #E8E1D2;border-radius:12px;padding:16px;"><div style="font-family:'Source Serif 4',serif;font-size:40px;font-weight:600;line-height:1;">Ag</div><div style="font:600 13px 'Public Sans';margin-top:12px;">Source Serif 4</div><div style="font:400 12px 'Public Sans';color:#6F6757;">Display / titles · 600</div></div>
+      <div style="flex:1;border:1px solid #E8E1D2;border-radius:12px;padding:16px;"><div style="font-family:'Public Sans';font-size:40px;font-weight:600;line-height:1;">Ag</div><div style="font:600 13px 'Public Sans';margin-top:12px;">Public Sans</div><div style="font:400 12px 'Public Sans';color:#6F6757;">UI / body · 400–600</div></div>
+      <div style="flex:1;border:1px solid #E8E1D2;border-radius:12px;padding:16px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:38px;font-weight:600;line-height:1;">$1</div><div style="font:600 13px 'Public Sans';margin-top:12px;">IBM Plex Mono</div><div style="font:400 12px 'Public Sans';color:#6F6757;">Figures / labels · 500–600</div></div>
+    </div>
+
+    <div style="break-inside:avoid;">
+      <div style="display:flex;align-items:baseline;gap:16px;padding:11px 0;border-bottom:1px solid #ECE5D6;"><div style="width:150px;font:500 11px 'IBM Plex Mono';color:#9A927F;">LARGE TITLE · 34</div><div style="font-family:'Source Serif 4',serif;font-size:34px;font-weight:600;letter-spacing:-.02em;">Review</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;padding:11px 0;border-bottom:1px solid #ECE5D6;"><div style="width:150px;font:500 11px 'IBM Plex Mono';color:#9A927F;">TITLE · 24</div><div style="font-family:'Source Serif 4',serif;font-size:24px;font-weight:600;">Amex Platinum</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;padding:11px 0;border-bottom:1px solid #ECE5D6;"><div style="width:150px;font:500 11px 'IBM Plex Mono';color:#9A927F;">FIGURE · 40 mono</div><div style="font-family:'IBM Plex Mono';font-size:34px;font-weight:600;letter-spacing:-.02em;">$2,050</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;padding:11px 0;border-bottom:1px solid #ECE5D6;"><div style="width:150px;font:500 11px 'IBM Plex Mono';color:#9A927F;">SECTION LABEL · 11</div><div style="font-family:'IBM Plex Mono';font-size:11px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:#9A927F;">Use before they reset</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;padding:11px 0;border-bottom:1px solid #ECE5D6;"><div style="width:150px;font:500 11px 'IBM Plex Mono';color:#9A927F;">BODY · 15</div><div style="font:600 15px 'Public Sans';">Dining credit</div></div>
+      <div style="display:flex;align-items:baseline;gap:16px;padding:11px 0;"><div style="width:150px;font:500 11px 'IBM Plex Mono';color:#9A927F;">SUBTEXT · 12.5</div><div style="font:400 12.5px 'Public Sans';color:#6F6757;">Amex Gold · $10 · resets Jul 31</div></div>
+    </div>
+
+    <!-- SPACING / RADIUS / MATERIALS -->
+    <h2 style="font-family:'Source Serif 4',serif;font-size:24px;font-weight:600;margin:34px 0 4px;letter-spacing:-.01em;">Spacing, radius &amp; materials</h2>
+    <div style="break-inside:avoid;display:flex;gap:16px;margin-top:14px;">
+      <div style="flex:1;border:1px solid #E8E1D2;border-radius:12px;padding:16px;">
+        <div style="font:600 13px 'Public Sans';margin-bottom:10px;">Spacing scale</div>
+        <div style="font-family:'IBM Plex Mono';font-size:12px;color:#6F6757;line-height:1.9;">4 · 8 · 12 · 16 · 20 · 24<br>Screen inset&nbsp;&nbsp;16 / 20<br>Group gap&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;16–22<br>Row pad&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;13 × 16</div>
+      </div>
+      <div style="flex:1;border:1px solid #E8E1D2;border-radius:12px;padding:16px;">
+        <div style="font:600 13px 'Public Sans';margin-bottom:10px;">Corner radius</div>
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <div style="text-align:center;"><div style="width:34px;height:34px;background:#FBEAD5;border:1px solid #E8680E;border-radius:8px;"></div><div style="font:500 10px 'IBM Plex Mono';color:#6F6757;margin-top:4px;">8</div></div>
+          <div style="text-align:center;"><div style="width:34px;height:34px;background:#FBEAD5;border:1px solid #E8680E;border-radius:12px;"></div><div style="font:500 10px 'IBM Plex Mono';color:#6F6757;margin-top:4px;">12</div></div>
+          <div style="text-align:center;"><div style="width:34px;height:34px;background:#FBEAD5;border:1px solid #E8680E;border-radius:16px;"></div><div style="font:500 10px 'IBM Plex Mono';color:#6F6757;margin-top:4px;">16</div></div>
+          <div style="text-align:center;"><div style="width:34px;height:34px;background:#FBEAD5;border:1px solid #E8680E;border-radius:17px;"></div><div style="font:500 10px 'IBM Plex Mono';color:#6F6757;margin-top:4px;">pill</div></div>
+        </div>
+        <div style="font:400 11.5px 'Public Sans';color:#6F6757;margin-top:10px;">Badges 8 · buttons/chips 11 · cards 16–18 · tab bar 30</div>
+      </div>
+      <div style="flex:1;border:1px solid #E8E1D2;border-radius:12px;padding:16px;">
+        <div style="font:600 13px 'Public Sans';margin-bottom:10px;">Glass material</div>
+        <div style="height:44px;border-radius:16px;background:rgba(251,248,240,.6);box-shadow:0 8px 20px rgba(33,29,22,.16), inset 0 1px 0 rgba(255,255,255,.6), inset 0 0 0 1px rgba(255,255,255,.5);backdrop-filter:blur(12px);"></div>
+        <div style="font:400 11.5px 'Public Sans';color:#6F6757;margin-top:10px;">Floating tab bar: surface @ 60% + blur 22 + inner top highlight + soft drop shadow.</div>
+      </div>
+    </div>
+
+    <!-- ========== COMPONENTS ========== -->
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.12em;color:#E8680E;text-transform:uppercase;margin-top:40px;">02 — Components</div>
+    <p style="font-size:13.5px;color:#6F6757;margin:10px 0 20px;max-width:60ch;">Every screen is assembled from this set. Shown in Honey; each maps 1:1 onto Onyx via the token table.</p>
+
+    <!-- Buttons -->
+    <div style="break-inside:avoid;margin-bottom:22px;">
+      <div style="font:600 14px 'Public Sans';margin-bottom:10px;">Buttons</div>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <div style="background:#E8680E;color:#fff;font:600 13px 'Public Sans';padding:9px 16px;border-radius:11px;">Add</div>
+        <div style="background:#E8680E;color:#fff;font:600 12px 'Public Sans';padding:6px 12px;border-radius:8px;">Mark used</div>
+        <div style="border:1px solid #E8E1D2;color:#6F6757;font:600 12px 'Public Sans';padding:6px 12px;border-radius:8px;">Snooze</div>
+        <div style="color:#E8680E;font:600 14px 'Public Sans';">Use</div>
+        <div style="width:34px;height:34px;border-radius:50%;background:rgba(255,254,251,.75);border:1px solid #E8E1D2;display:flex;align-items:center;justify-content:center;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg></div>
+      </div>
+      <div style="font:400 11.5px 'Public Sans';color:#9A927F;margin-top:8px;">Primary (accent) · compact primary · secondary (outline) · text link · circular nav (glass)</div>
+    </div>
+
+    <!-- Badges -->
+    <div style="break-inside:avoid;margin-bottom:22px;">
+      <div style="font:600 14px 'Public Sans';margin-bottom:10px;">Status badges</div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+        <span style="font:600 12px 'Public Sans';color:#E8680E;background:#FBEAD5;padding:5px 11px;border-radius:8px;">Used ✓</span>
+        <span style="font:600 12px 'Public Sans';color:#E8680E;background:#FBEAD5;padding:5px 11px;border-radius:8px;">Keep</span>
+        <span style="font:600 12px 'Public Sans';color:#B4693A;background:#F6E9DF;padding:5px 11px;border-radius:8px;">Review</span>
+        <span style="font:600 12px 'IBM Plex Mono';color:#B4693A;background:#EFD8C6;padding:5px 9px;border-radius:8px;">3d</span>
+        <span style="font:600 12px 'IBM Plex Mono';color:#6F6757;background:#EDE6D8;padding:5px 9px;border-radius:8px;">23d</span>
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border-radius:11px;background:#F6E9DF;color:#B4693A;"><span style="font:600 15px 'IBM Plex Mono';line-height:1;">3</span><span style="font-size:9px;font-weight:600;">days</span></div>
+      </div>
+      <div style="font:400 11.5px 'Public Sans';color:#9A927F;margin-top:8px;">Success · keep verdict · review verdict · countdown chips · countdown tile</div>
+    </div>
+
+    <!-- Inset list group -->
+    <div style="break-inside:avoid;margin-bottom:22px;">
+      <div style="font:600 14px 'Public Sans';margin-bottom:10px;">Inset list group &amp; row</div>
+      <div style="max-width:360px;">
+        <div style="font-family:'IBM Plex Mono';font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;padding:0 6px 8px;">Monthly credits · 2</div>
+        <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+          <div style="display:flex;align-items:center;padding-left:16px;"><div style="width:30px;height:20px;border-radius:5px;background:#B08A3E;margin-right:12px;"></div><div style="flex:1;display:flex;align-items:center;padding:12px 14px 12px 0;border-bottom:1px solid #ECE5D6;"><div style="flex:1;"><div style="font:600 15px 'Public Sans';">Dining credit</div><div style="font:400 12.5px 'Public Sans';color:#6F6757;">Amex Gold · $10 · resets 3d</div></div><span style="background:#E8680E;color:#fff;font:600 12px 'Public Sans';padding:6px 11px;border-radius:8px;">Mark used</span></div></div>
+          <div style="display:flex;align-items:center;padding-left:16px;"><div style="width:30px;height:20px;border-radius:5px;background:#3A4048;margin-right:12px;"></div><div style="flex:1;display:flex;align-items:center;padding:12px 14px 12px 0;"><div style="flex:1;"><div style="font:600 15px 'Public Sans';">Uber Cash</div><div style="font:400 12.5px 'Public Sans';color:#6F6757;">Amex Platinum · $15</div></div><span style="font:600 12px 'Public Sans';color:#E8680E;background:#FBEAD5;padding:6px 10px;border-radius:8px;">Used ✓</span></div></div>
+        </div>
+        <div style="font:400 12px 'Public Sans';color:#9A927F;padding:8px 6px 0;">Footer: context / totals, tertiary color.</div>
+      </div>
+      <div style="font:400 11.5px 'Public Sans';color:#9A927F;margin-top:8px;">Uppercase mono section label · rounded surface · leading swatch, title + subtitle, trailing action · leading-inset hairline separators · optional footer.</div>
+    </div>
+
+    <!-- Progress + segmented + tab -->
+    <div style="break-inside:avoid;display:flex;gap:16px;margin-bottom:22px;">
+      <div style="flex:1;">
+        <div style="font:600 14px 'Public Sans';margin-bottom:10px;">Progress &amp; segmented</div>
+        <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:14px;padding:14px 16px;">
+          <div style="display:flex;justify-content:space-between;"><span style="font:600 13px 'Public Sans';color:#6F6757;">Captured</span><span style="font:600 13px 'IBM Plex Mono';">$185 / $285</span></div>
+          <div style="height:7px;border-radius:4px;background:#E4DECF;margin-top:9px;overflow:hidden;"><div style="width:65%;height:100%;background:#E8680E;border-radius:4px;"></div></div>
+        </div>
+        <div style="display:flex;background:#E9E3D6;border-radius:10px;padding:2px;font-size:13px;margin-top:12px;"><div style="flex:1;text-align:center;padding:7px;border-radius:8px;background:#FFFEFB;box-shadow:0 1px 3px rgba(33,29,22,.14);font-weight:600;">Monthly</div><div style="flex:1;text-align:center;padding:7px;color:#6F6757;font-weight:500;">Quarterly</div><div style="flex:1;text-align:center;padding:7px;color:#6F6757;font-weight:500;">Annual</div></div>
+      </div>
+      <div style="flex:1;">
+        <div style="font:600 14px 'Public Sans';margin-bottom:10px;">Floating tab bar</div>
+        <div style="display:flex;padding:9px 6px;background:rgba(251,248,240,.7);border-radius:24px;box-shadow:0 10px 24px rgba(33,29,22,.16), inset 0 1px 0 rgba(255,255,255,.7);border:1px solid #E8E1D2;">
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#E8680E;"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 11.5 12 4.5l8 7"/><path d="M6 10.5V20h4v-5h4v5h4v-9.5"/></svg><span style="font-size:10px;font-weight:600;">Review</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#A69C86;"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 5.3 7.8 7.5 5.5"/><path d="M4 12.5 5.3 13.8 7.5 11.5"/><path d="M4 18.3 5.3 19.6 7.5 17.3"/><path d="M11 6.5h9M11 12.5h9M11 18.5h6"/></svg><span style="font-size:10px;font-weight:600;">Benefits</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#A69C86;"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 1.8"/></svg><span style="font-size:10px;font-weight:600;">Expiring</span></div>
+          <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;color:#A69C86;"><svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/></svg><span style="font-size:10px;font-weight:600;">Cards</span></div>
+        </div>
+        <div style="font:400 11.5px 'Public Sans';color:#9A927F;margin-top:10px;">Selected = accent; rest tertiary. Content scrolls beneath.</div>
+      </div>
+    </div>
+
+    <!-- Iconography -->
+    <div style="break-inside:avoid;">
+      <div style="font:600 14px 'Public Sans';margin-bottom:10px;">Iconography</div>
+      <div style="display:flex;gap:20px;align-items:center;color:#211D16;">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 11.5 12 4.5l8 7"/><path d="M6 10.5V20h4v-5h4v5h4v-9.5"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 5.3 7.8 7.5 5.5"/><path d="M4 12.5 5.3 13.8 7.5 11.5"/><path d="M4 18.3 5.3 19.6 7.5 17.3"/><path d="M11 6.5h9M11 12.5h9M11 18.5h6"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5V12l3 1.8"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2.5"/><path d="M3 10h18"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12M6 12h12"/></svg>
+      </div>
+      <div style="font:400 11.5px 'Public Sans';color:#9A927F;margin-top:8px;">Outlined, 24px grid, 1.7–1.8 stroke, round caps &amp; joins. Currency &amp; data shown as type, never icon.</div>
+    </div>
+
+  </div>
+</x-import>
+</x-dc>
+</body>
+</html>
