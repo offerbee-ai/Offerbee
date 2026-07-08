@@ -1,17 +1,37 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import { Inter, Montserrat, Lato } from "next/font/google";
+import { Source_Serif_4, Public_Sans, IBM_Plex_Mono } from "next/font/google";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 import ConvexClientProvider from "./ConvexClientProvider";
 
-const inter = Inter({ subsets: ["latin"] });
-const montserrat = Montserrat({ subsets: ["latin"] });
-const lato = Lato({ weight: "400", subsets: ["latin"] });
+// "Ledger" type system — serif titles, Public Sans UI/body, mono for figures.
+const sourceSerif = Source_Serif_4({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  variable: "--font-source-serif",
+  display: "swap",
+});
+
+const publicSans = Public_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-public-sans",
+  display: "swap",
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+  variable: "--font-ibm-plex-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: "Notes App",
-  description: "This is an app to take notes.",
+  title: "OfferBee — Your card perks, actually used.",
+  description:
+    "OfferBee tracks every statement credit and benefit across your premium cards — so you use them before they reset, and know which annual fees are still worth it.",
 };
 
 export default function RootLayout({
@@ -22,7 +42,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={cn(inter.className, montserrat.className, lato.className)}
+        className={cn(
+          sourceSerif.variable,
+          publicSans.variable,
+          ibmPlexMono.variable,
+        )}
       >
         <ClerkProvider>
           <ConvexClientProvider>{children}</ConvexClientProvider>
