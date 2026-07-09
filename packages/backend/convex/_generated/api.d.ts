@@ -16,9 +16,11 @@ import type * as notifications from "../notifications.js";
 import type * as offers from "../offers.js";
 import type * as push from "../push.js";
 import type * as rapidapi from "../rapidapi.js";
+import type * as review from "../review.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 import type * as validators from "../validators.js";
+import type * as verify from "../verify.js";
 import type * as wallet from "../wallet.js";
 
 import type {
@@ -36,9 +38,11 @@ declare const fullApi: ApiFromModules<{
   offers: typeof offers;
   push: typeof push;
   rapidapi: typeof rapidapi;
+  review: typeof review;
   users: typeof users;
   utils: typeof utils;
   validators: typeof validators;
+  verify: typeof verify;
   wallet: typeof wallet;
 }>;
 

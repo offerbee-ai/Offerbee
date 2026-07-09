@@ -12,6 +12,7 @@ const NAV = [
   { href: "/app/cards", label: "Cards" },
   { href: "/app/add", label: "Add card" },
   { href: "/app/offers", label: "Offers" },
+  { href: "/app/review", label: "Review" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -20,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const ensureUser = useMutation(api.users.ensureUser);
   const unread = useQuery(api.notifications.unreadCount) ?? 0;
+  const pendingReviews = useQuery(api.review.pendingReviewCount) ?? 0;
   const ensured = useRef(false);
 
   // Register the user with the shared backend on login (web + native both do this).
@@ -63,6 +65,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {item.href === "/app/offers" && unread > 0 && (
                     <span className="ml-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-white">
                       {unread}
+                    </span>
+                  )}
+                  {item.href === "/app/review" && pendingReviews > 0 && (
+                    <span className="ml-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-warning px-1 text-[11px] font-bold text-white">
+                      {pendingReviews > 200 ? "200+" : pendingReviews}
                     </span>
                   )}
                 </Link>
