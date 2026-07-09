@@ -1,51 +1,11 @@
 import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import type { MutationCtx } from "./_generated/server";
 import { cardDetailContentValidator } from "./validators";
 
 const DETAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // refresh cached details weekly
 
-// ── Sync bookkeeping ──────────────────────────────────────────────────────────
-
-async function upsertSyncState(
-  ctx: MutationCtx,
-  key: string,
-  patch: {
-    status: "idle" | "running" | "error";
-    lastRunStartedAt?: number;
-    lastRunFinishedAt?: number;
-    lastError?: string;
-    cardsSeen?: number;
-    cardsUpserted?: number;
-  },
-) {
-  const existing = await ctx.db
-    .query("syncState")
-    .withIndex("by_key", (q) => q.eq("key", key))
-    .unique();
-  if (existing) await ctx.db.patch(existing._id, patch);
-  else await ctx.db.insert("syncState", { key, ...patch });
-}
-
-export const beginSync = internalMutation({
-  args: { key: v.string(), startedAt: v.number() },
-  handler: async (ctx, { key, startedAt }) => {
-    await upsertSyncState(ctx, key, {
-      status: "running",
-      lastRunStartedAt: startedAt,
-    });
-  },
-});
-
-export const failSync = internalMutation({
-  args: { key: v.string(), error: v.string() },
-  handler: async (ctx, { key, error }) => {
-    await upsertSyncState(ctx, key, { status: "error", lastError: error });
-  },
-});
-
-// ── Catalog upsert ─────────────────────────────────────────────────────────────
+// ── Catalog cache (populated opportunistically from live name searches) ─────────
 
 export const upsertCatalogBatch = internalMutation({
   args: {
@@ -73,34 +33,6 @@ export const upsertCatalogBatch = internalMutation({
           lastSyncedAt: runStartedAt,
         });
       }
-    }
-  },
-});
-
-// Flip cards not seen in this run to inactive (delisted upstream), batched.
-export const finishCatalogSync = internalMutation({
-  args: { runStartedAt: v.number(), cursor: v.union(v.string(), v.null()) },
-  handler: async (ctx, { runStartedAt, cursor }) => {
-    const page = await ctx.db
-      .query("cardCatalog")
-      .paginate({ numItems: 500, cursor });
-
-    for (const row of page.page) {
-      if (row.isActive && row.lastSyncedAt < runStartedAt) {
-        await ctx.db.patch(row._id, { isActive: false });
-      }
-    }
-
-    if (!page.isDone) {
-      await ctx.scheduler.runAfter(0, internal.catalogSync.finishCatalogSync, {
-        runStartedAt,
-        cursor: page.continueCursor,
-      });
-    } else {
-      await upsertSyncState(ctx, "catalog", {
-        status: "idle",
-        lastRunFinishedAt: Date.now(),
-      });
     }
   },
 });

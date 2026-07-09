@@ -20,20 +20,17 @@ export default defineSchema({
     lastOfferScanAt: v.optional(v.number()),
   }).index("by_userId", ["userId"]),
 
-  // ── Catalog: every card, cheaply searchable ──
+  // ── Catalog cache: cards seen via live name search (name fallback for the
+  //    wallet + a reference for detail refresh). Search itself hits the API. ──
   cardCatalog: defineTable({
     cardKey: v.string(),
     cardName: v.string(),
     cardIssuer: v.string(),
     isActive: v.boolean(),
-    lastSyncedAt: v.number(), // rows older than the run start => delisted upstream
+    lastSyncedAt: v.number(),
   })
     .index("by_cardKey", ["cardKey"])
-    .index("by_issuer", ["cardIssuer"])
-    .searchIndex("search_cardName", {
-      searchField: "cardName",
-      filterFields: ["cardIssuer", "isActive"],
-    }),
+    .index("by_issuer", ["cardIssuer"]),
 
   // ── Full card detail, cached only for owned/viewed cards ──
   cardDetails: defineTable({
@@ -91,19 +88,4 @@ export default defineSchema({
     .index("by_userId_and_isRead", ["userId", "isRead"])
     .index("by_userId_and_dedupKey", ["userId", "dedupKey"])
     .index("by_deliveryStatus", ["deliveryStatus"]),
-
-  // ── Sync bookkeeping (one row per pipeline key) ──
-  syncState: defineTable({
-    key: v.string(), // "catalog" | "details" | "offers"
-    status: v.union(
-      v.literal("idle"),
-      v.literal("running"),
-      v.literal("error"),
-    ),
-    lastRunStartedAt: v.optional(v.number()),
-    lastRunFinishedAt: v.optional(v.number()),
-    lastError: v.optional(v.string()),
-    cardsSeen: v.optional(v.number()),
-    cardsUpserted: v.optional(v.number()),
-  }).index("by_key", ["key"]),
 });

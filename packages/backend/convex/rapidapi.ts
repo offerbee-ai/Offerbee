@@ -1,4 +1,4 @@
-import { internalAction } from "./_generated/server";
+import { action, internalAction } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { missingEnvVariableUrl } from "./utils";
@@ -50,80 +50,55 @@ function djb2(input: string): string {
   return (hash >>> 0).toString(16);
 }
 
-// ── Catalog list ────────────────────────────────────────────────────────────────
+// ── Catalog search (live name search) ───────────────────────────────────────────
 
-type CatalogRow = {
-  cardKey: string;
-  cardName: string;
-  cardIssuer: string;
-  isActive: boolean;
-};
+// The API has no bulk card-list endpoint, so the add-card flow searches by name
+// on demand. Results are cached into cardCatalog so listMyCards has a name
+// fallback and detail refresh has a reference.
+export const searchCards = action({
+  args: { term: v.string() },
+  handler: async (
+    ctx,
+    { term },
+  ): Promise<{ cardKey: string; cardName: string; cardIssuer: string }[]> => {
+    const userId = (await ctx.auth.getUserIdentity())?.subject;
+    if (!userId) return [];
 
-function flattenCatalog(groups: unknown): CatalogRow[] {
-  if (!Array.isArray(groups)) return [];
-  const rows: CatalogRow[] = [];
-  for (const group of groups) {
-    const issuer = toStr(group?.cardIssuer) ?? "Unknown";
-    const cards = Array.isArray(group?.card) ? group.card : [];
-    for (const c of cards) {
-      const cardKey = toStr(c?.cardKey);
-      if (!cardKey) continue;
-      rows.push({
-        cardKey,
-        cardName: toStr(c?.cardName) ?? cardKey,
-        cardIssuer: issuer,
-        isActive: toBool(c?.isActive) ?? true,
-      });
-    }
-  }
-  return rows;
-}
+    const t = term.trim();
+    if (t.length < 2) return [];
 
-export const syncCatalog = internalAction({
-  args: {},
-  handler: async (ctx) => {
     const key = process.env.RAPIDAPI_KEY;
     if (!key) {
       console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
-      await ctx.runMutation(internal.catalogSync.failSync, {
-        key: "catalog",
-        error: "Missing RAPIDAPI_KEY",
-      });
-      return;
+      return [];
     }
 
-    const startedAt = Date.now();
-    await ctx.runMutation(internal.catalogSync.beginSync, {
-      key: "catalog",
-      startedAt,
-    });
-
     try {
-      const res = await fetch(`${BASE_URL}/creditcard-cardlist`, {
-        headers: headers(key),
-      });
-      if (!res.ok) throw new Error(`cardlist HTTP ${res.status}`);
-      const cards = flattenCatalog(await res.json());
+      const res = await fetch(
+        `${BASE_URL}/creditcard-detail-namesearch/${encodeURIComponent(t)}`,
+        { headers: headers(key) },
+      );
+      if (!res.ok) return [];
+      const body = await res.json();
+      const rows = Array.isArray(body) ? body : [];
+      const results = rows
+        .map((r: any) => ({
+          cardKey: toStr(r?.cardKey) ?? "",
+          cardName: toStr(r?.cardName) ?? "",
+          cardIssuer: toStr(r?.cardIssuer) ?? "Unknown",
+        }))
+        .filter((r) => r.cardKey);
 
-      for (let i = 0; i < cards.length; i += 100) {
+      if (results.length > 0) {
         await ctx.runMutation(internal.catalogSync.upsertCatalogBatch, {
-          cards: cards.slice(i, i + 100),
-          runStartedAt: startedAt,
+          cards: results.map((r) => ({ ...r, isActive: true })),
+          runStartedAt: Date.now(),
         });
       }
-
-      // finishCatalogSync marks delisted cards and flips syncState back to idle.
-      await ctx.runMutation(internal.catalogSync.finishCatalogSync, {
-        runStartedAt: startedAt,
-        cursor: null,
-      });
-      console.log(`Catalog sync upserted ${cards.length} cards`);
+      return results;
     } catch (e) {
-      console.error("Catalog sync failed", e);
-      await ctx.runMutation(internal.catalogSync.failSync, {
-        key: "catalog",
-        error: String(e),
-      });
+      console.error("Card search failed", e);
+      return [];
     }
   },
 });

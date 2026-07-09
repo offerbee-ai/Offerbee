@@ -3,9 +3,6 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
-// Nightly full catalog list (a single API call), 08:00 UTC.
-crons.cron("sync card catalog", "0 8 * * *", internal.rapidapi.syncCatalog, {});
-
 // Rolling detail refresh (TTL-gated + capped per run), every 2 hours.
 crons.interval(
   "refresh card details",

@@ -1,28 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { Button, Card, EmptyState, Spinner } from "@/components/app/ui";
+
+type Result = { cardKey: string; cardName: string; cardIssuer: string };
 
 export default function AddCardPage() {
   const router = useRouter();
   const [term, setTerm] = useState("");
-  const [debounced, setDebounced] = useState("");
+  const [results, setResults] = useState<Result[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
   const [adding, setAdding] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(term), 250);
-    return () => clearTimeout(t);
-  }, [term]);
-
-  const results = useQuery(api.catalog.searchCatalog, {
-    term: debounced,
-    paginationOpts: { numItems: 20, cursor: null },
-  });
+  const searchCards = useAction(api.rapidapi.searchCards);
   const addCard = useMutation(api.wallet.addCard);
+  const reqId = useRef(0);
+
+  // Debounced live search against the card API's name-search endpoint.
+  useEffect(() => {
+    const t = term.trim();
+    if (t.length < 2) {
+      setResults([]);
+      setSearched(false);
+      setSearching(false);
+      return;
+    }
+    const id = ++reqId.current;
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await searchCards({ term: t });
+        if (id === reqId.current) {
+          setResults(r);
+          setSearched(true);
+        }
+      } catch {
+        if (id === reqId.current) {
+          setResults([]);
+          setSearched(true);
+        }
+      } finally {
+        if (id === reqId.current) setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [term, searchCards]);
 
   const onAdd = async (cardKey: string) => {
     setAdding(cardKey);
@@ -47,7 +74,7 @@ export default function AddCardPage() {
         autoFocus
         value={term}
         onChange={(e) => setTerm(e.target.value)}
-        placeholder="Search by card name (e.g. Sapphire Preferred)"
+        placeholder="Search by card name (e.g. Sapphire, Gold, Venture)"
         className="w-full rounded-button border border-border bg-surface px-4 py-3 text-[15px] text-ink outline-none placeholder:text-tertiary focus:border-accent"
       />
 
@@ -56,24 +83,24 @@ export default function AddCardPage() {
       )}
 
       <div className="mt-6">
-        {results === undefined ? (
+        {searching ? (
           <div className="flex justify-center py-16">
             <Spinner />
           </div>
-        ) : results.page.length === 0 ? (
+        ) : results.length === 0 ? (
           <EmptyState
-            title={debounced ? "No matches" : "Start typing to search"}
+            title={searched ? "No matches" : "Start typing to search"}
             description={
-              debounced
-                ? "Try a different card name or issuer."
-                : "Search the catalog for the cards you own."
+              searched
+                ? "Try a different card name."
+                : "Search the card catalog for the cards you own."
             }
           />
         ) : (
           <div className="flex flex-col gap-2">
-            {results.page.map((c) => (
+            {results.map((c) => (
               <Card
-                key={c._id}
+                key={c.cardKey}
                 className="flex items-center justify-between py-3"
               >
                 <div>
