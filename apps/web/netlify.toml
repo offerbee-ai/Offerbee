@@ -1,18 +1,21 @@
 # Netlify config for the OfferBee web app (pnpm monorepo package `web-app`).
-# Lives in the package directory per Netlify's monorepo guidance; the deploy is
-# targeted with `netlify deploy --filter web-app`, so this dir is the base.
+# Deploy is targeted via `netlify deploy --filter web-app`.
 #
-# Build (mirrors the old vercel.json): `convex deploy` pushes the backend to the
-# PROD Convex deployment and injects its URL into NEXT_PUBLIC_CONVEX_URL, then
-# `next build`. @netlify/plugin-nextjs handles SSR, the proxy.ts middleware, and
-# the .next output.
+# Two robustness measures, learned from CI failures:
+#  1. `base = "apps/web"` so `publish` and @netlify/plugin-nextjs resolve to this
+#     package (not the repo root — Netlify CLI v16 otherwise runs from the
+#     workspace root).
+#  2. cwd-independent build command: `pnpm --filter` always runs in the target
+#     package's directory regardless of where Netlify invokes it, so no fragile
+#     `cd ../..` relative paths.
 #
-# Required env (GitHub Actions secrets): CONVEX_DEPLOY_KEY,
+# Build: convex deploy pushes the backend to PROD and injects NEXT_PUBLIC_CONVEX_URL
+# into the web build. Required GitHub Actions secrets: CONVEX_DEPLOY_KEY,
 # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY.
-# NEXT_PUBLIC_CONVEX_URL is injected by `convex deploy` — do not set it.
 
 [build]
-  command = "cd ../../packages/backend && npx convex deploy --cmd 'cd ../../apps/web && npx next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
+  base = "apps/web"
+  command = "pnpm --filter @packages/backend exec convex deploy --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
   publish = ".next"
 
 [build.environment]
