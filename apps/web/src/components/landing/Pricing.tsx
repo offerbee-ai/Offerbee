@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { CheckIcon } from "./icons";
 
 function Feature({ children, color }: { children: string; color: string }) {
@@ -38,12 +37,12 @@ export function Pricing() {
             <Feature color="var(--ob-accent)">Credit tracking &amp; resets</Feature>
             <Feature color="var(--ob-accent)">Expiry reminders</Feature>
           </div>
-          <Link
-            href="/notes"
-            className="mt-6 block rounded-xl border border-[#DAD2C2] bg-background py-3 text-center text-[15px] font-semibold text-ink transition-colors hover:border-accent"
+          <button
+            type="button"
+            className="mt-6 block w-full cursor-default rounded-xl border border-[#DAD2C2] bg-background py-3 text-center text-[15px] font-semibold text-ink"
           >
-            Start free
-          </Link>
+            Coming soon
+          </button>
         </div>
 
         {/* Pro (fixed dark card — content, not themed) */}
@@ -63,12 +62,12 @@ export function Pricing() {
             <Feature color="#F0A85C">Fee-vs-value verdicts</Feature>
             <Feature color="#F0A85C">CSV import &amp; export</Feature>
           </div>
-          <Link
-            href="/notes"
-            className="mt-6 block rounded-xl bg-accent py-3 text-center text-[15px] font-semibold text-white transition-colors hover:bg-accent-strong"
+          <button
+            type="button"
+            className="mt-6 block w-full cursor-default rounded-xl bg-accent py-3 text-center text-[15px] font-semibold text-white"
           >
-            Get OfferBee Pro
-          </Link>
+            Coming soon
+          </button>
         </div>
       </div>
     </div>

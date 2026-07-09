@@ -1,7 +1,7 @@
 const stats = [
   { figure: "$1,240", label: "avg. credits left unused per cardholder each year" },
   { figure: "65+", label: "premium cards with perks mapped out of the box" },
-  { figure: "3 min", label: "to set up your whole wallet, no bank login" },
+  { figure: "3 min", label: "to set up your whole wallet" },
 ];
 
 export function Stats() {
