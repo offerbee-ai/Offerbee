@@ -36,8 +36,10 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build & deploy to Netlify
+        # netlify-cli ships two bins (ntl, netlify); name the package + bin so
+        # pnpm dlx doesn't error with ERR_PNPM_DLX_MULTIPLE_BINS.
         run: >
-          pnpm dlx netlify-cli@17 deploy
+          pnpm --package=netlify-cli@17 dlx netlify deploy
           --build
           --prod
           --message "Deploy ${{ github.sha }}"
