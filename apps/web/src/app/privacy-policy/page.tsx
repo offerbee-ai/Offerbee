@@ -212,10 +212,10 @@ export default function PrivacyPolicyPage() {
         <br />
         Email:{" "}
         <a
-          href="mailto:privacy@offerbee.ai"
+          href="mailto:contact@offerbee.ai"
           className="text-accent underline underline-offset-2"
         >
-          privacy@offerbee.ai
+          contact@offerbee.ai
         </a>
       </P>
     </LegalShell>
