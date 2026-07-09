@@ -16,7 +16,9 @@
 [build]
   base = "apps/web"
   command = "pnpm --filter @packages/backend exec convex deploy --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
-  publish = ".next"
+  # Netlify resolves publish relative to the repo root here (not `base`), so
+  # point it at the package's build output explicitly.
+  publish = "apps/web/.next"
 
 [build.environment]
   NODE_VERSION = "22"
