@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { Button, Card, EmptyState, Pill, Spinner } from "@/components/app/ui";
@@ -15,6 +15,7 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 const REASON_LABELS: Record<string, string> = {
+  "web-correction": "Web found a different value",
   "source-mismatch": "Sources disagree",
   "single-source": "Single source",
   "stale-recheck": "Stale re-check",
@@ -22,9 +23,9 @@ const REASON_LABELS: Record<string, string> = {
 
 const SOURCE_LABELS: Record<string, string> = {
   rapidapi: "Card API",
-  github: "Bonuses DB",
   web: "Web",
   manual: "Manual",
+  github: "Bonuses DB", // legacy rows only
 };
 
 function fmt(field: string, value: Scalar) {
@@ -39,7 +40,34 @@ export default function ReviewPage() {
   const reviews = useQuery(api.review.listPendingReviews);
   const confirm = useMutation(api.review.confirmReview);
   const reject = useMutation(api.review.rejectReview);
+  const startVerify = useAction(api.verify.startForMyCards);
   const [busy, setBusy] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+  const [runMsg, setRunMsg] = useState<string | null>(null);
+
+  const runVerification = async () => {
+    setRunning(true);
+    setRunMsg(null);
+    try {
+      const { cardCount } = await startVerify({});
+      setRunMsg(
+        cardCount === 0
+          ? "No cards in your wallet to verify yet."
+          : `Verifying ${cardCount} card${cardCount === 1 ? "" : "s"} against the web — proposals will appear below as each check finishes.`,
+      );
+    } catch (e) {
+      console.error("verification run failed", e);
+      setRunMsg("Couldn't start verification. Check the logs.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  const RunButton = (
+    <Button onClick={runVerification} disabled={running}>
+      {running ? "Starting…" : "Run verification"}
+    </Button>
+  );
 
   if (reviews === undefined)
     return (
@@ -50,10 +78,20 @@ export default function ReviewPage() {
 
   if (reviews.length === 0)
     return (
-      <EmptyState
-        title="Nothing to review"
-        description="When the card API disagrees with the cross-check source (or a web check finds a newer value), proposed corrections show up here for your one-click confirmation."
-      />
+      <div>
+        <div className="mb-6 flex items-center justify-between">
+          <h1 className="font-display text-[28px] font-semibold text-ink">
+            Data review
+          </h1>
+          {RunButton}
+        </div>
+        {runMsg && <p className="mb-6 text-[14px] text-body">{runMsg}</p>}
+        <EmptyState
+          title="Nothing to review"
+          description="Run a verification to web-check your cards' fees and bonuses against the issuer. Anything that differs from the card API shows up here for your one-click confirmation."
+          action={RunButton}
+        />
+      </div>
     );
 
   const act = async (
@@ -73,17 +111,21 @@ export default function ReviewPage() {
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between gap-3">
         <h1 className="font-display text-[28px] font-semibold text-ink">
           Data review
         </h1>
-        <Pill tone="warning">{reviews.length} pending</Pill>
+        <div className="flex items-center gap-3">
+          <Pill tone="warning">{reviews.length} pending</Pill>
+          {RunButton}
+        </div>
       </div>
-      <p className="mb-6 max-w-[60ch] text-[14px] text-body">
-        Each proposal was flagged by cross-checking the card API against a second
-        source. Confirm to write the corrected value; reject to keep the current
-        one.
+      <p className="mb-2 max-w-[60ch] text-[14px] text-body">
+        Each proposal was flagged by web-checking the card API value against the
+        issuer. Confirm to write the corrected value; keep current to dismiss.
       </p>
+      {runMsg && <p className="mb-6 text-[13px] text-secondary">{runMsg}</p>}
+      {!runMsg && <div className="mb-6" />}
 
       <div className="flex flex-col gap-3">
         {reviews.map((r) => {

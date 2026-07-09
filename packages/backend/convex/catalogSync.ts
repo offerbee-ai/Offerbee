@@ -73,8 +73,6 @@ export const saveCardDetail = internalMutation({
         detailHash: hash,
       });
       await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
-      // Cross-check the freshly cached values against the second source + web.
-      await ctx.scheduler.runAfter(0, internal.verify.crossCheckCard, { cardKey });
       return;
     }
 
@@ -90,7 +88,5 @@ export const saveCardDetail = internalMutation({
       detailHash: hash,
     });
     await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
-    // Values changed upstream — re-verify them.
-    await ctx.scheduler.runAfter(0, internal.verify.crossCheckCard, { cardKey });
   },
 });

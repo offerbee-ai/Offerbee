@@ -16,15 +16,6 @@ crons.interval("detect offers", { hours: 24 }, internal.offers.scanUsersBatch, {
   cursor: null,
 });
 
-// Re-verify cached card data (cross-check + web) so stale values get caught,
-// prioritising unverified and low-confidence fields. Batched to bound API cost.
-crons.interval(
-  "reverify card data",
-  { hours: 12 },
-  internal.verify.reverifySweep,
-  { limit: 10 },
-);
-
 // Safety-net push drain (also retries notifications left pending during quiet hours).
 crons.interval(
   "flush pending push",

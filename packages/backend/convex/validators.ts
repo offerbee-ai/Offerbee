@@ -47,9 +47,11 @@ export const reviewStatusValidator = v.union(
 
 // Why a field landed in the review queue.
 export const reviewReasonValidator = v.union(
-  v.literal("source-mismatch"), // rapidapi and github disagree
-  v.literal("single-source"), // only one source has the field (no cross-check)
-  v.literal("stale-recheck"), // periodic re-verification
+  v.literal("web-correction"), // web search found a value different from the API
+  // Legacy reasons (kept so pre-existing review rows still validate):
+  v.literal("source-mismatch"),
+  v.literal("single-source"),
+  v.literal("stale-recheck"),
 );
 
 // What each source reported for the field under review.

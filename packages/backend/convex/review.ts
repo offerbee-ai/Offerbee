@@ -29,6 +29,19 @@ export const recordProvenance = internalMutation({
       (p) => p.field !== entry.field,
     );
     await ctx.db.patch(detail._id, { fieldProvenance: [...others, entry] });
+
+    // Recording provenance means this field is now resolved (sources agree, or
+    // web confirmed the current value) — retire any stale pending review for it
+    // so a later verification can't be contradicted by an old queued proposal.
+    const stale = await ctx.db
+      .query("cardDataReview")
+      .withIndex("by_cardKey_and_field", (q) =>
+        q.eq("cardKey", cardKey).eq("field", entry.field),
+      )
+      .collect();
+    for (const row of stale) {
+      if (row.status === "pending") await ctx.db.delete(row._id);
+    }
   },
 });
 
