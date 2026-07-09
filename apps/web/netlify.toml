@@ -1,0 +1,22 @@
+# Netlify config for the OfferBee web app (pnpm monorepo package `web-app`).
+# Lives in the package directory per Netlify's monorepo guidance; the deploy is
+# targeted with `netlify deploy --filter web-app`, so this dir is the base.
+#
+# Build (mirrors the old vercel.json): `convex deploy` pushes the backend to the
+# PROD Convex deployment and injects its URL into NEXT_PUBLIC_CONVEX_URL, then
+# `next build`. @netlify/plugin-nextjs handles SSR, the proxy.ts middleware, and
+# the .next output.
+#
+# Required env (GitHub Actions secrets): CONVEX_DEPLOY_KEY,
+# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY.
+# NEXT_PUBLIC_CONVEX_URL is injected by `convex deploy` — do not set it.
+
+[build]
+  command = "cd ../../packages/backend && npx convex deploy --cmd 'cd ../../apps/web && npx next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
