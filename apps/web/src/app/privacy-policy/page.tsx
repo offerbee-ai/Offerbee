@@ -149,7 +149,7 @@ export default function PrivacyPolicyPage() {
         and you may opt out of promotional emails by following the unsubscribe
         instructions in those messages. You may request that we delete your Account
         and associated personal information by contacting us at
-        privacy@offerbee.ai.
+        contact@offerbee.ai.
       </P>
       <SubSection>California residents</SubSection>
       <P>
@@ -173,7 +173,7 @@ export default function PrivacyPolicyPage() {
         consent.
       </P>
       <P>
-        To exercise any of these rights, contact us at privacy@offerbee.ai. We may
+        To exercise any of these rights, contact us at contact@offerbee.ai. We may
         need to verify your identity before fulfilling your request.
       </P>
 
@@ -212,10 +212,10 @@ export default function PrivacyPolicyPage() {
         <br />
         Email:{" "}
         <a
-          href="mailto:privacy@offerbee.ai"
+          href="mailto:contact@offerbee.ai"
           className="text-accent underline underline-offset-2"
         >
-          privacy@offerbee.ai
+          contact@offerbee.ai
         </a>
       </P>
     </LegalShell>

@@ -382,7 +382,7 @@ export default function TermsPage() {
         Before either party may seek arbitration, that party must first send the
         other a written Notice of Dispute describing the nature and basis of the
         claim and the requested relief. A Notice to the Company should be sent to
-        legal@offerbee.ai. If the dispute is not resolved within thirty (30) days
+        contact@offerbee.ai. If the dispute is not resolved within thirty (30) days
         after the Notice is received, either party may begin an arbitration
         proceeding administered under the applicable rules of a recognized
         arbitration provider. YOU AND THE COMPANY EXPRESSLY WAIVE THE RIGHT TO A
@@ -418,10 +418,10 @@ export default function TermsPage() {
         <br />
         Email:{" "}
         <a
-          href="mailto:support@offerbee.ai"
+          href="mailto:contact@offerbee.ai"
           className="text-accent underline underline-offset-2"
         >
-          support@offerbee.ai
+          contact@offerbee.ai
         </a>
       </P>
     </LegalShell>

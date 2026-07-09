@@ -13,7 +13,7 @@ const columns = [
   {
     label: "Company",
     links: [
-      { label: "About", href: "#" },
+      { label: "Contact", href: "mailto:contact@offerbee.ai" },
       { label: "Privacy Policy", href: "/privacy-policy" },
       { label: "Terms & Conditions", href: "/terms" },
     ],
