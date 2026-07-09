@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { BrandMark } from "./BrandMark";
 
 const columns = [
@@ -13,8 +14,8 @@ const columns = [
     label: "Company",
     links: [
       { label: "About", href: "#" },
-      { label: "Privacy", href: "#" },
-      { label: "Contact", href: "#" },
+      { label: "Privacy Policy", href: "/privacy-policy" },
+      { label: "Terms & Conditions", href: "/terms" },
     ],
   },
 ];
@@ -39,15 +40,25 @@ export function Footer() {
               <span className="mb-[3px] font-mono text-[11px] font-semibold uppercase tracking-[.08em] text-tertiary">
                 {col.label}
               </span>
-              {col.links.map((l) => (
-                <a
-                  key={l.label}
-                  href={l.href}
-                  className="transition-colors hover:text-accent"
-                >
-                  {l.label}
-                </a>
-              ))}
+              {col.links.map((l) =>
+                l.href.startsWith("/") ? (
+                  <Link
+                    key={l.label}
+                    href={l.href}
+                    className="transition-colors hover:text-accent"
+                  >
+                    {l.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={l.label}
+                    href={l.href}
+                    className="transition-colors hover:text-accent"
+                  >
+                    {l.label}
+                  </a>
+                ),
+              )}
             </div>
           ))}
         </div>
