@@ -16,6 +16,51 @@ export const deliveryStatusValidator = v.union(
   v.literal("skipped"),
 );
 
+// ── Data-verification pipeline ──────────────────────────────────────────────
+// Where a given field's value came from, in ascending order of trust.
+export const dataSourceValidator = v.union(
+  v.literal("rapidapi"), // the Rewards CC API (rapidapi.ts)
+  v.literal("github"), // andenacitelli/credit-card-bonuses-api
+  v.literal("web"), // LLM web verification against the issuer's page
+  v.literal("manual"), // a human edit / confirmed review
+);
+
+// A scalar field value we cross-check and verify. Kept to the primitive shapes
+// the tracked fields actually use (fees are numbers, bonus amounts number|string).
+export const fieldValueValidator = v.union(v.number(), v.string(), v.boolean());
+
+// Per-field provenance stored on a cardDetails row.
+export const fieldProvenanceValidator = v.object({
+  field: v.string(), // cardDetails key, e.g. "annualFee"
+  value: v.optional(fieldValueValidator),
+  source: dataSourceValidator,
+  confidence: v.optional(v.number()), // 0-1; higher = more trusted
+  sourceUrl: v.optional(v.string()),
+  verifiedAt: v.number(),
+});
+
+export const reviewStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("confirmed"),
+  v.literal("rejected"),
+);
+
+// Why a field landed in the review queue.
+export const reviewReasonValidator = v.union(
+  v.literal("web-correction"), // web search found a value different from the API
+  // Legacy reasons (kept so pre-existing review rows still validate):
+  v.literal("source-mismatch"),
+  v.literal("single-source"),
+  v.literal("stale-recheck"),
+);
+
+// What each source reported for the field under review.
+export const reviewObservationValidator = v.object({
+  source: dataSourceValidator,
+  value: v.optional(fieldValueValidator),
+  sourceUrl: v.optional(v.string()),
+});
+
 // Bounded arrays nested inside a single card's detail document. A card has only a
 // handful of each and they do not grow over time, so nesting is safe.
 export const benefitValidator = v.object({

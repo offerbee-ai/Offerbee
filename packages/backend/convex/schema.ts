@@ -3,7 +3,12 @@ import { v } from "convex/values";
 import {
   cardDetailContentFields,
   deliveryStatusValidator,
+  fieldProvenanceValidator,
   platformValidator,
+  reviewObservationValidator,
+  reviewReasonValidator,
+  reviewStatusValidator,
+  fieldValueValidator,
 } from "./validators";
 
 export default defineSchema({
@@ -37,9 +42,33 @@ export default defineSchema({
     ...cardDetailContentFields,
     detailFetchedAt: v.number(),
     detailHash: v.optional(v.string()), // change detection
+    // Per-field provenance for cross-checked/verified fields (annualFee, bonus…).
+    // Absent until the verification pipeline has run for that field.
+    fieldProvenance: v.optional(v.array(fieldProvenanceValidator)),
   })
     .index("by_cardKey", ["cardKey"])
     .index("by_detailFetchedAt", ["detailFetchedAt"]), // oldest-first refresh
+
+  // ── Data-verification review queue: proposed field corrections awaiting a
+  //    human one-click confirm before they are written to cardDetails. ──
+  cardDataReview: defineTable({
+    cardKey: v.string(),
+    field: v.string(), // cardDetails key under review
+    currentValue: v.optional(fieldValueValidator), // what cardDetails holds now
+    proposedValue: v.optional(fieldValueValidator), // web-verified candidate
+    reason: reviewReasonValidator,
+    observations: v.array(reviewObservationValidator), // what each source said
+    confidence: v.optional(v.number()), // 0-1 from the web-verify step
+    sourceUrl: v.optional(v.string()), // issuer page the proposal came from
+    note: v.optional(v.string()), // model's short justification
+    status: reviewStatusValidator,
+    createdAt: v.number(),
+    reviewedAt: v.optional(v.number()),
+    reviewedBy: v.optional(v.string()), // Clerk subject of the confirmer
+  })
+    .index("by_status", ["status"])
+    .index("by_cardKey", ["cardKey"])
+    .index("by_cardKey_and_field", ["cardKey", "field"]),
 
   // ── User wallet: the cards a user owns ──
   userCards: defineTable({

@@ -12,6 +12,7 @@ const NAV = [
   { href: "/app/cards", label: "Cards" },
   { href: "/app/add", label: "Add card" },
   { href: "/app/offers", label: "Offers" },
+  { href: "/app/review", label: "Review" },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -20,7 +21,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const ensureUser = useMutation(api.users.ensureUser);
   const unread = useQuery(api.notifications.unreadCount) ?? 0;
+  const amAdmin = useQuery(api.review.amIAdmin) ?? false;
+  const pendingReviews = useQuery(api.review.pendingReviewCount) ?? 0;
   const ensured = useRef(false);
+
+  // Review is an admin-only surface — drop it from the nav for everyone else.
+  const nav = NAV.filter((item) => item.href !== "/app/review" || amAdmin);
 
   // Register the user with the shared backend on login (web + native both do this).
   // Gate on Convex auth (not just the Clerk user) so the token has been exchanged
@@ -46,7 +52,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
 
           <nav className="flex items-center gap-1">
-            {NAV.map((item) => {
+            {nav.map((item) => {
               const active = pathname === item.href;
               return (
                 <Link
@@ -63,6 +69,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                   {item.href === "/app/offers" && unread > 0 && (
                     <span className="ml-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-bold text-white">
                       {unread}
+                    </span>
+                  )}
+                  {item.href === "/app/review" && pendingReviews > 0 && (
+                    <span className="ml-1 inline-flex min-w-[18px] items-center justify-center rounded-full bg-warning px-1 text-[11px] font-bold text-white">
+                      {pendingReviews > 200 ? "200+" : pendingReviews}
                     </span>
                   )}
                 </Link>
