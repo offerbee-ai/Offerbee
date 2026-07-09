@@ -2,6 +2,10 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import { Platform, StatusBar, View } from "react-native";
 import ConvexClientProvider from "../../ConvexClientProvider";
+// Side-effect import: sets the foreground notification handler at startup.
+import "../lib/notifications";
+
+const BRAND_BG = "#fbf8f0";
 
 const statusBarHeight =
   Platform.OS === "ios" ? 50 : (StatusBar.currentHeight ?? 0);
@@ -24,11 +28,11 @@ export default function RootLayout() {
   return (
     <ConvexClientProvider>
       <View style={{ flex: 1 }}>
-        <View style={{ height: statusBarHeight, backgroundColor: "#0D87E1" }}>
+        <View style={{ height: statusBarHeight, backgroundColor: BRAND_BG }}>
           <StatusBar
             translucent
-            backgroundColor="#0D87E1"
-            barStyle="light-content"
+            backgroundColor={BRAND_BG}
+            barStyle="dark-content"
           />
         </View>
         <Stack screenOptions={{ headerShown: false }} />

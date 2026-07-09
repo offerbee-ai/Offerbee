@@ -1,6 +1,7 @@
 import { PhoneFrame } from "./phone/PhoneFrame";
 import { ReviewScreen } from "./phone/ReviewScreen";
 import { CheckIcon } from "./icons";
+import { HeroAuthButton } from "./AuthButtons";
 
 const trust = ["65+ cards", "Private by default"];
 
@@ -26,13 +27,7 @@ export function Hero() {
         </p>
 
         <div className="mt-8 flex flex-wrap items-center gap-[14px]">
-          {/* Inert until launch — app not yet available. */}
-          <button
-            type="button"
-            className="cursor-default rounded-[13px] bg-accent px-[26px] py-[14px] text-[16px] font-semibold text-white shadow-[0_8px_20px_rgba(232,104,14,.24)]"
-          >
-            Coming soon
-          </button>
+          <HeroAuthButton />
           <a
             href="#how"
             className="rounded-[13px] border border-[#DAD2C2] bg-surface px-6 py-[14px] text-[16px] font-semibold text-ink transition-colors hover:border-accent"

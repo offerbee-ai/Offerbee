@@ -1,9 +1,9 @@
 {
   "expo": {
     "newArchEnabled": true,
-    "name": "NotesContract",
-    "slug": "NotesContract",
-    "scheme": "notescontract",
+    "name": "OfferBee",
+    "slug": "offerbee",
+    "scheme": "offerbee",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -11,16 +11,18 @@
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0D87E1"
+      "backgroundColor": "#fbf8f0"
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "ai.offerbee.app"
     },
     "android": {
+      "package": "ai.offerbee.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#fbf8f0"
       }
     },
     "web": {
@@ -35,7 +37,13 @@
         }
       ],
       "expo-font",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-notifications",
+        {
+          "color": "#e8680e"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

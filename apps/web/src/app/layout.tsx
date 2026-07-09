@@ -48,7 +48,14 @@ export default function RootLayout({
           ibmPlexMono.variable,
         )}
       >
-        <ClerkProvider>
+        <ClerkProvider
+          signInUrl="/sign-in"
+          signUpUrl="/sign-up"
+          signInFallbackRedirectUrl="/app"
+          signUpFallbackRedirectUrl="/app"
+          afterSignOutUrl="/"
+          appearance={{ variables: { colorPrimary: "#e8680e" } }}
+        >
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ClerkProvider>
       </body>
