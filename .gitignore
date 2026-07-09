@@ -34,5 +34,11 @@ yarn-error.log*
 .env.production.local
 .env
 
+# local secrets reference (deploy keys / tokens — never commit)
+.deploy-secrets.local
+
 # turbo
 .turbo
+
+# Local Netlify folder
+.netlify
