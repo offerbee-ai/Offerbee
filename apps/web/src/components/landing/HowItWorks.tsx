@@ -2,7 +2,7 @@ const steps = [
   {
     n: "01",
     title: "Add your cards",
-    body: "Pick from 65+ premium cards, or import a wallet CSV. No bank login, ever.",
+    body: "Pick from 65+ premium cards, or import a wallet CSV.",
   },
   {
     n: "02",
