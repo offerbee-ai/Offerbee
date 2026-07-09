@@ -42,6 +42,7 @@ jobs:
           pnpm --package=netlify-cli@17 dlx netlify deploy
           --build
           --prod
+          --filter web-app
           --message "Deploy ${{ github.sha }}"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
