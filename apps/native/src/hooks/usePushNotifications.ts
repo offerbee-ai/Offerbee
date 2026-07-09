@@ -1,9 +1,8 @@
 import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
-import { useAuth } from "@clerk/clerk-expo";
 import { type Href, useRouter } from "expo-router";
 import * as Notifications from "expo-notifications";
-import { useMutation } from "convex/react";
+import { useConvexAuth, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { registerForPushNotificationsAsync } from "../lib/notifications";
 
@@ -20,13 +19,13 @@ function currentPlatform(): "ios" | "android" | "web" {
 // Registers the device's Expo push token with the shared backend and wires the
 // foreground / tap listeners. Mounts only inside the authenticated group.
 export function usePushNotifications() {
-  const { isSignedIn } = useAuth();
+  const { isAuthenticated } = useConvexAuth();
   const router = useRouter();
   const registerToken = useMutation(api.push.registerPushToken);
   const done = useRef(false);
 
   useEffect(() => {
-    if (!isSignedIn) return;
+    if (!isAuthenticated) return;
     let active = true;
 
     (async () => {
@@ -60,5 +59,5 @@ export function usePushNotifications() {
       tokenSub.remove();
       responseSub.remove();
     };
-  }, [isSignedIn, registerToken, router]);
+  }, [isAuthenticated, registerToken, router]);
 }

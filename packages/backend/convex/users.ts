@@ -77,8 +77,7 @@ export const updateNotificationPrefs = mutation({
   },
 });
 
-// Mirrors openai.openaiKeySet — lets a setup/status screen show whether the
-// external card API is configured.
+// Lets a setup/status screen show whether the external card API is configured.
 export const rapidApiKeySet = query({
   args: {},
   handler: async () => {

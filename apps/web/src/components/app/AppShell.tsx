@@ -4,7 +4,7 @@ import { type ReactNode, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { UserButton, useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { cn } from "@/lib/utils";
 
@@ -17,19 +17,22 @@ const NAV = [
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useUser();
+  const { isAuthenticated } = useConvexAuth();
   const ensureUser = useMutation(api.users.ensureUser);
   const unread = useQuery(api.notifications.unreadCount) ?? 0;
   const ensured = useRef(false);
 
   // Register the user with the shared backend on login (web + native both do this).
+  // Gate on Convex auth (not just the Clerk user) so the token has been exchanged
+  // before we call an authenticated mutation.
   useEffect(() => {
-    if (!user || ensured.current) return;
+    if (!isAuthenticated || !user || ensured.current) return;
     ensured.current = true;
     ensureUser({
       email: user.primaryEmailAddress?.emailAddress,
       name: user.fullName ?? undefined,
     }).catch((e) => console.error("ensureUser failed", e));
-  }, [user, ensureUser]);
+  }, [isAuthenticated, user, ensureUser]);
 
   return (
     <div className="min-h-screen bg-background">

@@ -7,14 +7,6 @@ import {
 } from "./validators";
 
 export default defineSchema({
-  // ── Existing starter table (unchanged) ──
-  notes: defineTable({
-    userId: v.string(),
-    title: v.string(),
-    content: v.string(),
-    summary: v.optional(v.string()),
-  }).index("by_userId", ["userId"]),
-
   // ── Users: populated from the Clerk subject; home for notification prefs ──
   users: defineTable({
     userId: v.string(), // Clerk subject — same value used for ownership everywhere
