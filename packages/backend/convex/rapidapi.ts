@@ -1,0 +1,305 @@
+import { internalAction } from "./_generated/server";
+import { v } from "convex/values";
+import { internal } from "./_generated/api";
+import { missingEnvVariableUrl } from "./utils";
+import type { CardDetailContent } from "./validators";
+
+// The Rewards Credit Card API. fetch() works in Convex's default runtime, so no
+// "use node" directive is needed here.
+const RAPIDAPI_HOST = "rewards-credit-card-api.p.rapidapi.com";
+const BASE_URL = `https://${RAPIDAPI_HOST}`;
+const RAPIDAPI_SIGNUP_URL =
+  "https://rapidapi.com/rewardsccapi/api/rewards-credit-card-api";
+
+const MAX_DETAILS_PER_RUN = 25;
+const DETAIL_RUN_SPACING_MS = 60_000;
+
+function headers(key: string) {
+  return { "X-RapidAPI-Key": key, "X-RapidAPI-Host": RAPIDAPI_HOST };
+}
+
+// ── Coercion helpers (the API is loosely typed; be defensive) ───────────────────
+
+function toNum(x: unknown): number | undefined {
+  if (typeof x === "number") return Number.isFinite(x) ? x : undefined;
+  if (typeof x === "string") {
+    const n = parseFloat(x.replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
+function toBool(x: unknown): boolean | undefined {
+  if (typeof x === "boolean") return x;
+  if (x === 1 || x === "1" || x === "true") return true;
+  if (x === 0 || x === "0" || x === "false") return false;
+  return undefined;
+}
+
+function toStr(x: unknown): string | undefined {
+  if (typeof x === "string") return x.length ? x : undefined;
+  if (x === null || x === undefined) return undefined;
+  return String(x);
+}
+
+function djb2(input: string): string {
+  let hash = 5381;
+  for (let i = 0; i < input.length; i++) {
+    hash = (hash * 33) ^ input.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+// ── Catalog list ────────────────────────────────────────────────────────────────
+
+type CatalogRow = {
+  cardKey: string;
+  cardName: string;
+  cardIssuer: string;
+  isActive: boolean;
+};
+
+function flattenCatalog(groups: unknown): CatalogRow[] {
+  if (!Array.isArray(groups)) return [];
+  const rows: CatalogRow[] = [];
+  for (const group of groups) {
+    const issuer = toStr(group?.cardIssuer) ?? "Unknown";
+    const cards = Array.isArray(group?.card) ? group.card : [];
+    for (const c of cards) {
+      const cardKey = toStr(c?.cardKey);
+      if (!cardKey) continue;
+      rows.push({
+        cardKey,
+        cardName: toStr(c?.cardName) ?? cardKey,
+        cardIssuer: issuer,
+        isActive: toBool(c?.isActive) ?? true,
+      });
+    }
+  }
+  return rows;
+}
+
+export const syncCatalog = internalAction({
+  args: {},
+  handler: async (ctx) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      await ctx.runMutation(internal.catalogSync.failSync, {
+        key: "catalog",
+        error: "Missing RAPIDAPI_KEY",
+      });
+      return;
+    }
+
+    const startedAt = Date.now();
+    await ctx.runMutation(internal.catalogSync.beginSync, {
+      key: "catalog",
+      startedAt,
+    });
+
+    try {
+      const res = await fetch(`${BASE_URL}/creditcard-cardlist`, {
+        headers: headers(key),
+      });
+      if (!res.ok) throw new Error(`cardlist HTTP ${res.status}`);
+      const cards = flattenCatalog(await res.json());
+
+      for (let i = 0; i < cards.length; i += 100) {
+        await ctx.runMutation(internal.catalogSync.upsertCatalogBatch, {
+          cards: cards.slice(i, i + 100),
+          runStartedAt: startedAt,
+        });
+      }
+
+      // finishCatalogSync marks delisted cards and flips syncState back to idle.
+      await ctx.runMutation(internal.catalogSync.finishCatalogSync, {
+        runStartedAt: startedAt,
+        cursor: null,
+      });
+      console.log(`Catalog sync upserted ${cards.length} cards`);
+    } catch (e) {
+      console.error("Catalog sync failed", e);
+      await ctx.runMutation(internal.catalogSync.failSync, {
+        key: "catalog",
+        error: String(e),
+      });
+    }
+  },
+});
+
+// ── Card detail ───────────────────────────────────────────────────────────────
+
+function mapDetail(raw: any, cardKey: string): CardDetailContent {
+  // Only assign defined values — undefined is not a valid Convex value.
+  const content: Record<string, unknown> = {
+    cardKey,
+    cardName: toStr(raw?.cardName) ?? cardKey,
+    cardIssuer: toStr(raw?.cardIssuer) ?? "Unknown",
+    isActive: toBool(raw?.isActive) ?? true,
+  };
+  const set = (k: string, val: unknown) => {
+    if (val !== undefined) content[k] = val;
+  };
+
+  set("cardNetwork", toStr(raw?.cardNetwork));
+  set("cardType", toStr(raw?.cardType));
+  set("cardUrl", toStr(raw?.cardUrl));
+  // fees
+  set("annualFee", toNum(raw?.annualFee));
+  set("fxFee", toNum(raw?.fxFee));
+  set("isFxFee", toBool(raw?.isFxFee));
+  // base rewards
+  set("baseSpendAmount", toNum(raw?.baseSpendAmount));
+  set("baseSpendEarnType", toStr(raw?.baseSpendEarnType));
+  set("baseSpendEarnCategory", toStr(raw?.baseSpendEarnCategory));
+  set("baseSpendEarnCurrency", toStr(raw?.baseSpendEarnCurrency));
+  set("baseSpendEarnValuation", toNum(raw?.baseSpendEarnValuation));
+  set("baseSpendEarnIsCash", toBool(raw?.baseSpendEarnIsCash));
+  set("baseSpendEarnCashValue", toNum(raw?.baseSpendEarnCashValue));
+  // signup bonus
+  set("isSignupBonus", toBool(raw?.isSignupBonus));
+  if (typeof raw?.signupBonusAmount === "number")
+    set("signupBonusAmount", raw.signupBonusAmount);
+  else set("signupBonusAmount", toStr(raw?.signupBonusAmount));
+  set("signupBonusType", toStr(raw?.signupBonusType));
+  set("signupBonusCategory", toStr(raw?.signupBonusCategory));
+  set("signUpBonusItem", toStr(raw?.signUpBonusItem));
+  set("signupBonusSpend", toNum(raw?.signupBonusSpend));
+  set("signupBonusLength", toNum(raw?.signupBonusLength));
+  set("signupBonusLengthPeriod", toStr(raw?.signupBonusLengthPeriod));
+  set("signupAnnualFee", toNum(raw?.signupAnnualFee));
+  set("isSignupAnnualFeeWaived", toBool(raw?.isSignupAnnualFeeWaived));
+  set("signupStatementCredit", toNum(raw?.signupStatementCredit));
+  set("signupBonusDesc", toStr(raw?.signupBonusDesc));
+  // travel perks
+  set("trustedTraveler", toStr(raw?.trustedTraveler));
+  set("isTrustedTraveler", toBool(raw?.isTrustedTraveler));
+  set("loungeAccess", toStr(raw?.loungeAccess));
+  set("isLoungeAccess", toBool(raw?.isLoungeAccess));
+  set("freeHotelNight", toStr(raw?.freeHotelNight));
+  set("isFreeHotelNight", toBool(raw?.isFreeHotelNight));
+  set("freeCheckedBag", toStr(raw?.freeCheckedBag));
+  set("isFreeCheckedBag", toBool(raw?.isFreeCheckedBag));
+  // bounded arrays
+  if (Array.isArray(raw?.benefit)) {
+    content.benefit = raw.benefit.map((b: any) => {
+      const o: Record<string, unknown> = {
+        benefitTitle: toStr(b?.benefitTitle) ?? "",
+      };
+      const d = toStr(b?.benefitDesc);
+      if (d !== undefined) o.benefitDesc = d;
+      const t = toBool(b?.isBenefitCardNetworkTier);
+      if (t !== undefined) o.isBenefitCardNetworkTier = t;
+      return o;
+    });
+  }
+  if (Array.isArray(raw?.spendBonusCategory)) {
+    content.spendBonusCategory = raw.spendBonusCategory.map((s: any) => {
+      const o: Record<string, unknown> = {};
+      const assign = (k: string, val: unknown) => {
+        if (val !== undefined) o[k] = val;
+      };
+      assign("spendBonusCategoryType", toStr(s?.spendBonusCategoryType));
+      assign("spendBonusCategoryName", toStr(s?.spendBonusCategoryName));
+      assign("spendBonusDesc", toStr(s?.spendBonusDesc));
+      assign("earnMultiplier", toNum(s?.earnMultiplier));
+      assign("isSpendBonusCategoryLimit", toBool(s?.isSpendBonusCategoryLimit));
+      assign("spendBonusCategoryLimit", toNum(s?.spendBonusCategoryLimit));
+      return o;
+    });
+  }
+  if (Array.isArray(raw?.annualSpend)) {
+    content.annualSpend = raw.annualSpend.map((a: any) => {
+      const o: Record<string, unknown> = {};
+      const val = toNum(a?.annualSpend);
+      if (val !== undefined) o.annualSpend = val;
+      const desc = toStr(a?.annualSpendDesc);
+      if (desc !== undefined) o.annualSpendDesc = desc;
+      return o;
+    });
+  }
+
+  return content as unknown as CardDetailContent;
+}
+
+async function fetchDetail(
+  key: string,
+  cardKey: string,
+): Promise<{ content: CardDetailContent; hash: string } | null> {
+  const res = await fetch(
+    `${BASE_URL}/creditcard-detail-bycard/${encodeURIComponent(cardKey)}`,
+    { headers: headers(key) },
+  );
+  if (!res.ok) throw new Error(`detail ${cardKey} HTTP ${res.status}`);
+  const body = await res.json();
+  const raw = Array.isArray(body) ? body[0] : body;
+  if (!raw) return null;
+  const content = mapDetail(raw, cardKey);
+  return { content, hash: djb2(JSON.stringify(content)) };
+}
+
+// Refresh cached details that have gone stale, capped and spaced across runs.
+export const refreshStaleDetails = internalAction({
+  args: { processed: v.optional(v.number()) },
+  handler: async (ctx, { processed }) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      return;
+    }
+
+    const stale = await ctx.runQuery(
+      internal.catalogSync.getStaleDetailCards,
+      { limit: MAX_DETAILS_PER_RUN },
+    );
+    if (stale.length === 0) return;
+
+    for (const { cardKey } of stale) {
+      try {
+        const detail = await fetchDetail(key, cardKey);
+        if (detail) {
+          await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+            cardKey,
+            content: detail.content,
+            hash: detail.hash,
+          });
+        }
+      } catch (e) {
+        console.error(`Detail refresh failed for '${cardKey}'`, e);
+      }
+    }
+
+    if (stale.length === MAX_DETAILS_PER_RUN) {
+      await ctx.scheduler.runAfter(
+        DETAIL_RUN_SPACING_MS,
+        internal.rapidapi.refreshStaleDetails,
+        { processed: (processed ?? 0) + stale.length },
+      );
+    }
+  },
+});
+
+// Lazy single fetch triggered when a user adds a not-yet-cached card.
+export const fetchCardDetail = internalAction({
+  args: { cardKey: v.string() },
+  handler: async (ctx, { cardKey }) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      return;
+    }
+    try {
+      const detail = await fetchDetail(key, cardKey);
+      if (detail) {
+        await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+          cardKey,
+          content: detail.content,
+          hash: detail.hash,
+        });
+      }
+    } catch (e) {
+      console.error(`Detail fetch failed for '${cardKey}'`, e);
+    }
+  },
+});

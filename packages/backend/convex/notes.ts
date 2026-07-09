@@ -1,20 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import { type Auth } from "convex/server";
 import { internal } from "./_generated/api";
-
-export async function getUserId({ auth }: { auth: Auth }) {
-  return (await auth.getUserIdentity())?.subject ?? null;
-}
-
-async function requireUserId({ auth }: { auth: Auth }) {
-  const userId = await getUserId({ auth });
-  if (userId) return userId;
-
-  throw new Error(
-    "Authenticated user was required, but no Clerk subject was found",
-  );
-}
+import { getUserId, requireUserId } from "./auth";
 
 // Get all notes for a specific user
 export const getNotes = query({

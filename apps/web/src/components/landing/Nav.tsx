@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "./BrandMark";
+import { NavAuthButtons } from "./AuthButtons";
 
 const links = [
   { label: "Features", href: "#features" },
@@ -25,19 +26,7 @@ export function Nav() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Inert for now — no auth wired to the marketing site yet. */}
-          <button
-            type="button"
-            className="text-[15px] font-semibold text-ink transition-colors hover:text-accent"
-          >
-            Sign in
-          </button>
-          <button
-            type="button"
-            className="rounded-button bg-accent px-[18px] py-[9px] text-[15px] font-semibold text-white transition-colors hover:bg-accent-strong"
-          >
-            Get OfferBee
-          </button>
+          <NavAuthButtons />
         </div>
       </div>
     </div>
