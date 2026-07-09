@@ -6,6 +6,7 @@ import {
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { missingEnvVariableUrl } from "./utils";
+import { requireAdmin } from "./auth";
 
 // User-initiated data verification. For each tracked field of a card, we ask an
 // LLM (via OpenRouter) to look up the current value on the web — preferring the
@@ -225,10 +226,9 @@ export const crossCheckCard = internalAction({
 export const startForMyCards = action({
   args: {},
   handler: async (ctx): Promise<{ cardCount: number }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Authentication required to verify cards");
+    const subject = await requireAdmin(ctx);
     const cardKeys = await ctx.runQuery(internal.verify.getUserCardKeys, {
-      userId: identity.subject,
+      userId: subject,
     });
     for (const cardKey of cardKeys) {
       await ctx.scheduler.runAfter(0, internal.verify.crossCheckCard, {

@@ -37,6 +37,7 @@ function fmt(field: string, value: Scalar) {
 }
 
 export default function ReviewPage() {
+  const amAdmin = useQuery(api.review.amIAdmin);
   const reviews = useQuery(api.review.listPendingReviews);
   const confirm = useMutation(api.review.confirmReview);
   const reject = useMutation(api.review.rejectReview);
@@ -69,11 +70,19 @@ export default function ReviewPage() {
     </Button>
   );
 
-  if (reviews === undefined)
+  if (amAdmin === undefined || reviews === undefined)
     return (
       <div className="flex justify-center py-24">
         <Spinner />
       </div>
+    );
+
+  if (!amAdmin)
+    return (
+      <EmptyState
+        title="Admins only"
+        description="Data review and verification are restricted to administrators."
+      />
     );
 
   if (reviews.length === 0)

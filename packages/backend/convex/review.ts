@@ -1,7 +1,7 @@
 import { mutation, query, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { requireUserId } from "./auth";
+import { isAdmin, requireAdmin } from "./auth";
 import {
   dataSourceValidator,
   fieldProvenanceValidator,
@@ -77,10 +77,18 @@ export const enqueueReview = internalMutation({
 // ── Human review surface (web app) ───────────────────────────────────────────
 
 // Pending proposals, newest first, joined with the card's display name.
+// Whether the caller may use the admin review/verification surface.
+export const amIAdmin = query({
+  args: {},
+  handler: async (ctx) => isAdmin(ctx),
+});
+
 export const listPendingReviews = query({
   args: {},
   handler: async (ctx) => {
-    await requireUserId(ctx);
+    // Non-admins get an empty list (no leak, no render crash); writes below are
+    // hard-gated with requireAdmin.
+    if (!(await isAdmin(ctx))) return [];
     const pending = await ctx.db
       .query("cardDataReview")
       .withIndex("by_status", (q) => q.eq("status", "pending"))
@@ -105,8 +113,7 @@ export const listPendingReviews = query({
 export const pendingReviewCount = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await ctx.auth.getUserIdentity();
-    if (!userId) return 0;
+    if (!(await isAdmin(ctx))) return 0;
     const pending = await ctx.db
       .query("cardDataReview")
       .withIndex("by_status", (q) => q.eq("status", "pending"))
@@ -120,7 +127,7 @@ export const pendingReviewCount = query({
 export const confirmReview = mutation({
   args: { reviewId: v.id("cardDataReview") },
   handler: async (ctx, { reviewId }) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAdmin(ctx);
     const review = await ctx.db.get(reviewId);
     if (!review) throw new Error(`Review '${reviewId}' not found`);
     if (review.status !== "pending")
@@ -165,7 +172,7 @@ export const confirmReview = mutation({
 export const rejectReview = mutation({
   args: { reviewId: v.id("cardDataReview") },
   handler: async (ctx, { reviewId }) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAdmin(ctx);
     const review = await ctx.db.get(reviewId);
     if (!review) throw new Error(`Review '${reviewId}' not found`);
     if (review.status !== "pending")
