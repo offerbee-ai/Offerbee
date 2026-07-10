@@ -1,3 +1,4 @@
+import { Reveal } from "@/components/landing/motion/Reveal";
 import { Nav } from "@/components/landing/Nav";
 import { Hero } from "@/components/landing/Hero";
 import { TrustStrip } from "@/components/landing/TrustStrip";
@@ -25,22 +26,21 @@ export default function Home() {
       <TrustStrip />
 
       {/* Features intro */}
-      <div
-        id="features"
-        className="mx-auto max-w-[1200px] px-6 pt-[86px] text-center md:px-10"
-      >
-        <div className="font-mono text-[12.5px] font-semibold uppercase tracking-[.1em] text-accent">
-          What OfferBee does
+      <Reveal className="mx-auto max-w-[1200px] px-6 pt-[86px] text-center md:px-10">
+        <div id="features" className="scroll-mt-24">
+          <div className="font-mono text-[12.5px] font-semibold uppercase tracking-[.1em] text-accent">
+            What OfferBee does
+          </div>
+          <h2 className="mt-[14px] font-display text-[34px] font-semibold tracking-[-.02em] sm:text-[42px]">
+            Every perk, in one calm place
+          </h2>
+          <p className="mx-auto mt-4 max-w-[34em] text-[18px] leading-[1.55] text-body">
+            Premium cards bury hundreds of dollars in credits behind fine print.
+            OfferBee surfaces them, tracks what you&apos;ve used, and reminds you
+            before the clock runs out.
+          </p>
         </div>
-        <h2 className="mt-[14px] font-display text-[34px] font-semibold tracking-[-.02em] sm:text-[42px]">
-          Every perk, in one calm place
-        </h2>
-        <p className="mx-auto mt-4 max-w-[34em] text-[18px] leading-[1.55] text-body">
-          Premium cards bury hundreds of dollars in credits behind fine print.
-          OfferBee surfaces them, tracks what you&apos;ve used, and reminds you
-          before the clock runs out.
-        </p>
-      </div>
+      </Reveal>
 
       <FeatureSection
         className="pt-16"

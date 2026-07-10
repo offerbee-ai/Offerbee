@@ -42,3 +42,6 @@ yarn-error.log*
 
 # Local Netlify folder
 .netlify
+
+# local planning docs (specs/plans kept on-machine, not tracked)
+docs/superpowers/
