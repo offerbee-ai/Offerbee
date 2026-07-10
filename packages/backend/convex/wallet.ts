@@ -51,7 +51,10 @@ export const addCard = mutation({
         q.eq("userId", userId).eq("cardKey", cardKey),
       )
       .unique();
-    if (existing) throw new Error(`Card '${cardKey}' is already in your wallet`);
+    // Idempotent: re-adding a card already in the wallet is a no-op, not an
+    // error (a thrown Error surfaces as an opaque "Server Error" on the client,
+    // and its message is redacted in production).
+    if (existing) return existing._id;
 
     const userCardId = await ctx.db.insert("userCards", {
       userId,
