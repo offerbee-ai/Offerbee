@@ -85,5 +85,13 @@ jobs:
           # Fixed name -> `--preview-create "staging"` reuses the same preview
           # backend, so its data survives across deploys (see lifetime caveat above).
           CONVEX_PREVIEW_NAME: staging
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          # Staging authenticates against a Clerk DEVELOPMENT instance (pk_test),
+          # which accepts any origin — so sign-in works on the staging--*.netlify.app
+          # URL. (A pk_live prod instance serves clerk.offerbee.ai and rejects any
+          # non-offerbee.ai origin, which is why prod keys 400 on the netlify.app URL.)
+          # Falls back to the prod keys until the *_PREVIEW dev secrets exist, so the
+          # deploy stays green in the meantime. When you add CLERK_*_PREVIEW, also set
+          # the Convex Preview-scope CLERK_JWT_ISSUER_DOMAIN to the dev instance issuer
+          # (https://<slug>.clerk.accounts.dev), or JWT validation fails.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY_PREVIEW || secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY_PREVIEW || secrets.CLERK_SECRET_KEY }}
