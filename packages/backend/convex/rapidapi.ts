@@ -118,8 +118,10 @@ function mapDetail(raw: any, cardKey: string): CardDetailContent {
   };
 
   set("cardNetwork", toStr(raw?.cardNetwork));
+  set("cardNetworkTierName", toStr(raw?.cardNetworkTierName));
   set("cardType", toStr(raw?.cardType));
   set("cardUrl", toStr(raw?.cardUrl));
+  set("creditRange", toStr(raw?.creditRange));
   // fees
   set("annualFee", toNum(raw?.annualFee));
   set("fxFee", toNum(raw?.fxFee));
@@ -177,10 +179,17 @@ function mapDetail(raw: any, cardKey: string): CardDetailContent {
       };
       assign("spendBonusCategoryType", toStr(s?.spendBonusCategoryType));
       assign("spendBonusCategoryName", toStr(s?.spendBonusCategoryName));
+      assign("spendBonusCategoryId", toNum(s?.spendBonusCategoryId));
+      assign("spendBonusCategoryGroup", toStr(s?.spendBonusCategoryGroup));
+      assign("spendBonusSubcategoryGroup", toStr(s?.spendBonusSubcategoryGroup));
       assign("spendBonusDesc", toStr(s?.spendBonusDesc));
       assign("earnMultiplier", toNum(s?.earnMultiplier));
-      assign("isSpendBonusCategoryLimit", toBool(s?.isSpendBonusCategoryLimit));
-      assign("spendBonusCategoryLimit", toNum(s?.spendBonusCategoryLimit));
+      assign("isDateLimit", toBool(s?.isDateLimit));
+      assign("limitBeginDate", toStr(s?.limitBeginDate));
+      assign("limitEndDate", toStr(s?.limitEndDate));
+      assign("isSpendLimit", toBool(s?.isSpendLimit));
+      assign("spendLimit", toNum(s?.spendLimit));
+      assign("spendLimitResetPeriod", toStr(s?.spendLimitResetPeriod));
       return o;
     });
   }
@@ -198,6 +207,28 @@ function mapDetail(raw: any, cardKey: string): CardDetailContent {
   return content as unknown as CardDetailContent;
 }
 
+// Best-effort card-image lookup. The image host's path rotates periodically, so
+// the URL is re-fetched alongside each detail refresh; failures never block the
+// detail save.
+async function fetchImageUrl(
+  key: string,
+  cardKey: string,
+): Promise<string | undefined> {
+  try {
+    const res = await fetch(
+      `${BASE_URL}/creditcard-card-image/${encodeURIComponent(cardKey)}`,
+      { headers: headers(key) },
+    );
+    if (!res.ok) return undefined;
+    const body = await res.json();
+    const raw = Array.isArray(body) ? body[0] : body;
+    return toStr(raw?.cardImageUrl);
+  } catch (e) {
+    console.error(`Image fetch failed for '${cardKey}'`, e);
+    return undefined;
+  }
+}
+
 async function fetchDetail(
   key: string,
   cardKey: string,
@@ -211,6 +242,10 @@ async function fetchDetail(
   const raw = Array.isArray(body) ? body[0] : body;
   if (!raw) return null;
   const content = mapDetail(raw, cardKey);
+  // Include the image URL before hashing so a rotated path counts as a change
+  // and gets persisted by the hash-gated saveCardDetail.
+  const imageUrl = await fetchImageUrl(key, cardKey);
+  if (imageUrl) content.cardImageUrl = imageUrl;
   return { content, hash: djb2(JSON.stringify(content)) };
 }
 

@@ -56,16 +56,27 @@ export default function CardsPage() {
           return (
             <Card key={userCard._id}>
               <div className="flex items-start justify-between gap-3">
-                <div>
-                  <Link
-                    href={`/app/wallet/${encodeURIComponent(userCard.cardKey)}`}
-                    className="font-display text-[18px] font-semibold text-ink hover:text-accent"
-                  >
-                    {userCard.nickname ?? name}
-                  </Link>
-                  {issuer && (
-                    <p className="mt-0.5 text-[13px] text-secondary">{issuer}</p>
+                <div className="flex items-start gap-3">
+                  {detail?.cardImageUrl && (
+                    // Plain <img>: the image host's path rotates periodically.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={detail.cardImageUrl}
+                      alt=""
+                      className="mt-0.5 h-[34px] w-auto rounded-[4px] border border-border"
+                    />
                   )}
+                  <div>
+                    <Link
+                      href={`/app/wallet/${encodeURIComponent(userCard.cardKey)}`}
+                      className="font-display text-[18px] font-semibold text-ink hover:text-accent"
+                    >
+                      {userCard.nickname ?? name}
+                    </Link>
+                    {issuer && (
+                      <p className="mt-0.5 text-[13px] text-secondary">{issuer}</p>
+                    )}
+                  </div>
                 </div>
                 {detail?.isSignupBonus && <Pill tone="accent">Bonus</Pill>}
               </div>
