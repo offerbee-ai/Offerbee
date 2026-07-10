@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import { Dashboard } from "@/components/app/views/Dashboard";
 
-export default function AppIndex() {
-  redirect("/app/cards");
+export default function DashboardPage() {
+  return <Dashboard />;
 }

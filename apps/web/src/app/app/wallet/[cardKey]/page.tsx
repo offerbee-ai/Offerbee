@@ -32,9 +32,11 @@ export default function CardDetailPage() {
 
   useEffect(() => {
     if (!owned) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- seed the edit form once the owned card loads */
     setOpenedDate(toInputDate(owned.openedDate));
     setSignupStart(toInputDate(owned.signupBonusStartDate));
     setBonusMet(Boolean(owned.signupBonusMet));
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [owned]);
 
   const save = async () => {
@@ -59,7 +61,7 @@ export default function CardDetailPage() {
   return (
     <div>
       <Link
-        href="/app/cards"
+        href="/app/wallet"
         className="text-[13px] font-semibold text-accent hover:underline"
       >
         ← Back to cards

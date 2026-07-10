@@ -30,6 +30,11 @@
   --ob-field: #ede7d9;
   --ob-glass: rgba(251, 248, 240, 0.72);
   --ob-nav-button: rgba(255, 254, 251, 0.75);
+  /* App shell additions (design_handoff_webapp) */
+  --ob-surface-2: #f5f1e8;
+  --ob-on-accent: #ffffff;
+  --ob-shadow: 0 1px 2px rgba(33, 29, 22, 0.05), 0 10px 28px rgba(33, 29, 22, 0.06);
+  --ob-shadow-sm: 0 1px 2px rgba(33, 29, 22, 0.06);
 }
 
 .theme-onyx {
@@ -55,6 +60,11 @@
   --ob-field: #26282c;
   --ob-glass: rgba(22, 23, 26, 0.72);
   --ob-nav-button: rgba(255, 255, 255, 0.08);
+  /* App shell additions (design_handoff_webapp) */
+  --ob-surface-2: #232529;
+  --ob-on-accent: #17140e;
+  --ob-shadow: 0 1px 2px rgba(0, 0, 0, 0.35), 0 14px 34px rgba(0, 0, 0, 0.4);
+  --ob-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 @theme inline {
@@ -86,6 +96,15 @@
   --color-field: var(--ob-field);
   --color-glass: var(--ob-glass);
   --color-nav-button: var(--ob-nav-button);
+  --color-surface-2: var(--ob-surface-2);
+  --color-on-accent: var(--ob-on-accent);
+
+  /* Elevation (design_handoff_webapp) */
+  --shadow-ob: var(--ob-shadow);
+  --shadow-ob-sm: var(--ob-shadow-sm);
+
+  /* View fade-in (obfade .4s ease) */
+  --animate-obfade: obfade 0.4s ease;
 
   /* Type families (variables set by next/font in layout.tsx) */
   --font-sans: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
@@ -134,4 +153,23 @@
 .tabular {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum";
+}
+
+/* ============================================================
+   Authenticated app shell (design_handoff_webapp).
+   Theme swaps fade; each view fades in on mount.
+   ============================================================ */
+.ob-app {
+  transition: background 0.3s, color 0.3s;
+}
+
+@keyframes obfade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
