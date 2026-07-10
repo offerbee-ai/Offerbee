@@ -477,32 +477,43 @@ export function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  const className = `sticky top-0 z-50 border-b bg-glass backdrop-blur-[16px] backdrop-saturate-150 transition-[border-color,box-shadow] duration-300 ${
+    scrolled ? "border-border shadow-ob-sm" : "border-transparent"
+  }`;
+
+  const inner = (
+    <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-10">
+      <Link href="/" aria-label="OfferBee home">
+        <BrandMark gid="nav" />
+      </Link>
+
+      <div className="hidden items-center gap-9 text-[15px] font-medium text-ink-soft md:flex">
+        {links.map((l) => (
+          <a key={l.href} href={l.href} className="transition-colors hover:text-accent">
+            {l.label}
+          </a>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-4">
+        <NavAuthButtons />
+      </div>
+    </div>
+  );
+
+  // Reduced motion settles right after mount: render the bar statically, no entrance.
+  // (SSR bakes the entrance's initial hidden state; acceptable here since the app
+  // requires JS — Clerk/Convex — so a no-JS render is not a supported state.)
+  if (reduced) return <div className={className}>{inner}</div>;
+
   return (
     <motion.div
-      initial={reduced ? false : { y: -24, opacity: 0 }}
+      initial={{ y: -24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className={`sticky top-0 z-50 border-b bg-glass backdrop-blur-[16px] backdrop-saturate-150 transition-shadow ${
-        scrolled ? "border-border shadow-ob-sm" : "border-transparent"
-      }`}
+      className={className}
     >
-      <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-10">
-        <Link href="/" aria-label="OfferBee home">
-          <BrandMark gid="nav" />
-        </Link>
-
-        <div className="hidden items-center gap-9 text-[15px] font-medium text-ink-soft md:flex">
-          {links.map((l) => (
-            <a key={l.href} href={l.href} className="transition-colors hover:text-accent">
-              {l.label}
-            </a>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-4">
-          <NavAuthButtons />
-        </div>
-      </div>
+      {inner}
     </motion.div>
   );
 }
@@ -547,6 +558,19 @@ const trust = ["65+ cards", "Private by default"];
 
 export function Hero() {
   const reduced = useReduced();
+
+  const phone = (
+    <motion.div
+      animate={reduced ? undefined : { y: [0, -8, 0] }}
+      transition={
+        reduced ? undefined : { duration: 6, ease: "easeInOut", repeat: Infinity }
+      }
+    >
+      <PhoneFrame scale={1.12}>
+        <ReviewScreen theme="honey" />
+      </PhoneFrame>
+    </motion.div>
+  );
 
   return (
     <div className="mx-auto grid max-w-[1200px] items-center gap-14 px-6 pb-10 pt-14 md:grid-cols-[1.05fr_.95fr] md:px-10 md:pt-[76px]">
@@ -611,23 +635,18 @@ export function Hero() {
         </div>
 
         <Parallax range={30}>
-          <motion.div
-            className="relative h-[700px]"
-            initial={reduced ? false : { opacity: 0, scale: 0.94, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-          >
+          {reduced ? (
+            <div className="relative h-[700px]">{phone}</div>
+          ) : (
             <motion.div
-              animate={reduced ? undefined : { y: [0, -8, 0] }}
-              transition={
-                reduced ? undefined : { duration: 6, ease: "easeInOut", repeat: Infinity }
-              }
+              className="relative h-[700px]"
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
             >
-              <PhoneFrame scale={1.12}>
-                <ReviewScreen theme="honey" />
-              </PhoneFrame>
+              {phone}
             </motion.div>
-          </motion.div>
+          )}
         </Parallax>
       </div>
     </div>

@@ -14,6 +14,19 @@ const trust = ["65+ cards", "Private by default"];
 export function Hero() {
   const reduced = useReduced();
 
+  const phone = (
+    <motion.div
+      animate={reduced ? undefined : { y: [0, -8, 0] }}
+      transition={
+        reduced ? undefined : { duration: 6, ease: "easeInOut", repeat: Infinity }
+      }
+    >
+      <PhoneFrame scale={1.12}>
+        <ReviewScreen theme="honey" />
+      </PhoneFrame>
+    </motion.div>
+  );
+
   return (
     <div className="mx-auto grid max-w-[1200px] items-center gap-14 px-6 pb-10 pt-14 md:grid-cols-[1.05fr_.95fr] md:px-10 md:pt-[76px]">
       <Stagger stagger={0.09} delayChildren={0.05}>
@@ -77,23 +90,18 @@ export function Hero() {
         </div>
 
         <Parallax range={30}>
-          <motion.div
-            className="relative h-[700px]"
-            initial={reduced ? false : { opacity: 0, scale: 0.94, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-          >
+          {reduced ? (
+            <div className="relative h-[700px]">{phone}</div>
+          ) : (
             <motion.div
-              animate={reduced ? undefined : { y: [0, -8, 0] }}
-              transition={
-                reduced ? undefined : { duration: 6, ease: "easeInOut", repeat: Infinity }
-              }
+              className="relative h-[700px]"
+              initial={{ opacity: 0, scale: 0.94, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
             >
-              <PhoneFrame scale={1.12}>
-                <ReviewScreen theme="honey" />
-              </PhoneFrame>
+              {phone}
             </motion.div>
-          </motion.div>
+          )}
         </Parallax>
       </div>
     </div>
