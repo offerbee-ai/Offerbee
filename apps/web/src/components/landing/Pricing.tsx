@@ -18,6 +18,9 @@ function Feature({ children, color }: { children: string; color: string }) {
 export function Pricing() {
   const reduced = useReduced();
 
+  const badgeClass =
+    "absolute right-5 top-5 rounded-[7px] bg-accent px-[9px] py-[5px] font-mono text-[11px] font-semibold tracking-[.06em] text-white";
+
   return (
     <div id="pricing" className="mx-auto max-w-[1200px] px-6 pt-24 text-center md:px-10">
       <Reveal>
@@ -34,8 +37,8 @@ export function Pricing() {
         stagger={0.1}
       >
         {/* Free */}
-        <StaggerItem className="transition-transform duration-200 hover:-translate-y-1">
-          <div className="rounded-[22px] border border-border bg-surface p-8">
+        <StaggerItem>
+          <div className="h-full rounded-[22px] border border-border bg-surface p-8 transition-transform duration-200 hover:-translate-y-1">
             <div className="text-[15px] font-semibold text-secondary">Free</div>
             <div className="mt-2.5 flex items-baseline gap-1">
               <span className="font-mono text-[40px] font-semibold">$0</span>
@@ -56,17 +59,21 @@ export function Pricing() {
         </StaggerItem>
 
         {/* Pro (fixed dark card — content, not themed) */}
-        <StaggerItem className="transition-transform duration-200 hover:-translate-y-1">
-          <div className="relative rounded-[22px] bg-[#211D16] p-8 text-[#F5F1E9]">
-            <motion.div
-              className="absolute right-5 top-5 rounded-[7px] bg-accent px-[9px] py-[5px] font-mono text-[11px] font-semibold tracking-[.06em] text-white"
-              initial={reduced ? false : { scale: 0, rotate: -8, opacity: 0 }}
-              whileInView={{ scale: 1, rotate: 0, opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ type: "spring", stiffness: 500, damping: 18, delay: 0.5 }}
-            >
-              POPULAR
-            </motion.div>
+        <StaggerItem>
+          <div className="relative h-full rounded-[22px] bg-[#211D16] p-8 text-[#F5F1E9] transition-transform duration-200 hover:-translate-y-1">
+            {reduced ? (
+              <div className={badgeClass}>POPULAR</div>
+            ) : (
+              <motion.div
+                className={badgeClass}
+                initial={{ scale: 0, rotate: -8, opacity: 0 }}
+                whileInView={{ scale: 1, rotate: 0, opacity: 1 }}
+                viewport={{ once: true }}
+                transition={{ type: "spring", stiffness: 500, damping: 18, delay: 0.5 }}
+              >
+                POPULAR
+              </motion.div>
+            )}
             <div className="text-[15px] font-semibold text-[#C9C0AE]">Pro</div>
             <div className="mt-2.5 flex items-baseline gap-1">
               <span className="font-mono text-[40px] font-semibold">$4</span>

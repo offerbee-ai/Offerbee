@@ -32,19 +32,18 @@ export function HowItWorks() {
       </Reveal>
       <Stagger className="mt-12 grid gap-[26px] md:grid-cols-3" stagger={0.1}>
         {steps.map((s) => (
-          <StaggerItem
-            key={s.n}
-            className="rounded-[20px] border border-border bg-surface p-[30px] transition-transform duration-200 hover:-translate-y-1"
-          >
-            <div className="font-mono text-[13px] font-semibold text-accent">
-              {s.n}
+          <StaggerItem key={s.n}>
+            <div className="h-full rounded-[20px] border border-border bg-surface p-[30px] transition-transform duration-200 hover:-translate-y-1">
+              <div className="font-mono text-[13px] font-semibold text-accent">
+                {s.n}
+              </div>
+              <h4 className="mt-[14px] font-display text-[22px] font-semibold">
+                {s.title}
+              </h4>
+              <p className="mt-[10px] text-[15.5px] leading-[1.6] text-body">
+                {s.body}
+              </p>
             </div>
-            <h4 className="mt-[14px] font-display text-[22px] font-semibold">
-              {s.title}
-            </h4>
-            <p className="mt-[10px] text-[15.5px] leading-[1.6] text-body">
-              {s.body}
-            </p>
           </StaggerItem>
         ))}
       </Stagger>

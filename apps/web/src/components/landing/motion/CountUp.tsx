@@ -20,14 +20,19 @@ export function CountUp({
   const [display, setDisplay] = useState(reduced ? target : 0);
 
   useEffect(() => {
-    if (reduced || !inView) return;
+    // reduced settles right after mount: show the final value, no count-up.
+    if (reduced) {
+      setDisplay(target);
+      return;
+    }
+    if (!inView) return;
     const controls = animate(0, target, {
       duration: 1.1,
       ease: "easeOut",
       onUpdate: (v) => setDisplay(Math.round(v)),
     });
     return () => controls.stop();
-  }, [inView, reduced, target]);
+  }, [reduced, inView, target]);
 
   return (
     <span ref={ref} className={className}>
