@@ -1,0 +1,81 @@
+name: Deploy web to staging
+
+# Persistent staging environment. Every push to the long-lived `preview` branch
+# redeploys ONE fixed Convex preview backend (name: "staging") and publishes to a
+# STABLE Netlify URL (https://staging--offerbee-web.netlify.app). Unlike the
+# per-PR previews (preview-web.yml), this reuses the same deployment every time,
+# so there is a single staging URL you can always hit.
+#
+# Flow: feature branch -> PR into `preview` (gets a per-PR preview) -> merge into
+# `preview` (this workflow -> staging) -> PR `preview` into `main` -> prod.
+#
+# Uses the same PREVIEW deploy key + Convex Preview-scope env vars as preview-web.
+# Note (free plan): Convex reclaims a preview deployment after 5 days idle, so if
+# `preview` sits untouched that long the staging backend + data are recreated
+# fresh on the next push (the catalog re-fills from live search).
+
+on:
+  push:
+    branches: [preview]
+  workflow_dispatch: {}
+
+concurrency:
+  group: staging-web
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  staging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build & deploy to staging
+        id: deploy
+        # netlify.toml [context.deploy-preview] runs `convex deploy --preview-create
+        # "$CONVEX_PREVIEW_NAME"` (fixed name "staging" -> same backend each time),
+        # then next build. --alias pins a stable Netlify subdomain.
+        run: |
+          set -o pipefail
+          pnpm --package=netlify-cli@17 dlx netlify deploy \
+            --build \
+            --context deploy-preview \
+            --filter web-app \
+            --alias staging \
+            --message "staging ${{ github.sha }}" \
+            --json | tee deploy-output.json
+          url=$(jq -r '.deploy_url // .url // empty' deploy-output.json)
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Staging deployed"
+            echo ""
+            echo "- **Web:** ${url:-https://staging--offerbee-web.netlify.app}"
+            echo "- **Convex backend:** preview \`staging\`"
+            echo "- Commit: \`${GITHUB_SHA:0:7}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          # PREVIEW deploy key — reused for the staging preview deployment.
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
+          # Fixed name -> convex always deploys to the same "staging" backend.
+          CONVEX_PREVIEW_NAME: staging
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}

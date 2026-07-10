@@ -9,19 +9,34 @@
 #     package's directory regardless of where Netlify invokes it, so no fragile
 #     `cd ../..` relative paths.
 #
-# Build: convex deploy pushes the backend to PROD and injects NEXT_PUBLIC_CONVEX_URL
-# into the web build. Required GitHub Actions secrets: CONVEX_DEPLOY_KEY,
+# Build is context-specific (see [context.*] below): --prod pushes the backend to
+# PROD Convex; --context deploy-preview creates an isolated preview backend per PR.
+# Both inject NEXT_PUBLIC_CONVEX_URL into the web build. Required GitHub Actions
+# secrets: CONVEX_DEPLOY_KEY (prod) / CONVEX_PREVIEW_DEPLOY_KEY (preview),
 # NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY.
 
 [build]
   base = "apps/web"
-  command = "pnpm --filter @packages/backend exec convex deploy --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
   # Netlify resolves publish relative to the repo root here (not `base`), so
   # point it at the package's build output explicitly.
   publish = "apps/web/.next"
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Production (push to main): push the backend to the PROD Convex deployment and
+# build the web app against its URL. Selected by `netlify deploy --prod`.
+[context.production]
+  command = "pnpm --filter @packages/backend exec convex deploy --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
+
+# PR previews + staging: `--preview-create` spins up (or reuses) an isolated,
+# named Convex backend. Its catalog fills from live card search, so no seed —
+# RAPIDAPI_KEY must be set as a Convex Preview-scope env var. CONVEX_DEPLOY_KEY
+# must be a PREVIEW deploy key and CONVEX_PREVIEW_NAME the deployment name — both
+# come from the workflows in .github/workflows. Selected by
+# `netlify deploy --context deploy-preview` (no --prod).
+[context.deploy-preview]
+  command = "pnpm --filter @packages/backend exec convex deploy --preview-create \"$CONVEX_PREVIEW_NAME\" --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
