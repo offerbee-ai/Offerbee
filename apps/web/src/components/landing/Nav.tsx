@@ -1,6 +1,11 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion } from "motion/react";
 import { BrandMark } from "./BrandMark";
 import { NavAuthButtons } from "./AuthButtons";
+import { useReduced } from "./motion/useReduced";
 
 const links = [
   { label: "Features", href: "#features" },
@@ -10,8 +15,25 @@ const links = [
 ];
 
 export function Nav() {
+  const reduced = useReduced();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 20);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <div className="sticky top-0 z-50 border-b border-border bg-glass backdrop-blur-[16px] backdrop-saturate-150">
+    <motion.div
+      initial={reduced ? false : { y: -24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      className={`sticky top-0 z-50 border-b bg-glass backdrop-blur-[16px] backdrop-saturate-150 transition-shadow ${
+        scrolled ? "border-border shadow-ob-sm" : "border-transparent"
+      }`}
+    >
       <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-10">
         <Link href="/" aria-label="OfferBee home">
           <BrandMark gid="nav" />
@@ -29,6 +51,6 @@ export function Nav() {
           <NavAuthButtons />
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
