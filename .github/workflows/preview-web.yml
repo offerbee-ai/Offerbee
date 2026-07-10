@@ -51,19 +51,27 @@ jobs:
         id: preview
         # Convex preview names are lowercase alphanumeric + hyphens. Slugify the
         # branch (e.g. "fix/Mobile Nav" -> "fix-mobile-nav") and cap the length.
+        # The pr<N>- prefix makes the name unique per PR: no cross-PR collisions
+        # after truncation, no empty name from all-symbol branches, and no way for
+        # a branch literally named "staging" to hijack the staging backend.
+        # RAW_REF is passed via env (never ${{ }}-interpolated into the script):
+        # branch names may contain quotes/$/backticks — a classic injection vector.
+        env:
+          RAW_REF: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          raw='${{ github.head_ref }}'
-          name=$(printf '%s' "$raw" \
+          slug=$(printf '%s' "$RAW_REF" \
             | tr '[:upper:]' '[:lower:]' \
             | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' \
-            | cut -c1-40 \
+            | cut -c1-32 \
             | sed -E 's/-+$//')
+          name="pr${PR_NUMBER}${slug:+-$slug}"
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "Preview name: $name"
 
       - name: Build & deploy preview to Netlify
         id: deploy
-        # netlify.toml [context.deploy-preview] runs `convex deploy --preview-create`
+        # netlify.toml [context.deploy-preview] runs `convex deploy $CONVEX_PREVIEW_FLAG`
         # then next build. --json prints the deploy result to stdout.
         run: |
           set -o pipefail
@@ -71,7 +79,7 @@ jobs:
             --build \
             --context deploy-preview \
             --filter web-app \
-            --message "PR #${{ github.event.pull_request.number }} (${{ github.sha }})" \
+            --message "PR #${PR_NUMBER} (${HEAD_SHA})" \
             --json | tee deploy-output.json
           url=$(jq -r '.deploy_url // .url // empty' deploy-output.json)
           if [ -z "$url" ]; then
@@ -80,11 +88,19 @@ jobs:
           fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          # head.sha, not github.sha: on pull_request events github.sha is the
+          # ephemeral merge commit, which never appears in the PR's commit list.
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           # PREVIEW deploy key — convex deploy uses it to create the preview backend.
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
-          # Branch-derived name for --preview-create (read in netlify.toml).
+          # PR previews are recreated fresh (empty DB) on every push — that's the
+          # --preview-create semantics and it's what we want for review isolation.
+          # (staging-web.yml passes --preview-name instead, to reuse its backend.)
+          CONVEX_PREVIEW_FLAG: --preview-create
+          # Unique per-PR name (read with the flag in netlify.toml).
           CONVEX_PREVIEW_NAME: ${{ steps.preview.outputs.name }}
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
@@ -96,7 +112,7 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           URL: ${{ steps.deploy.outputs.url }}
           PREVIEW_NAME: ${{ steps.preview.outputs.name }}
-          SHA: ${{ github.sha }}
+          SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           marker='<!-- convex-preview -->'
           body="$marker
@@ -107,7 +123,7 @@ jobs:
           | **Web** | ${URL} |
           | **Convex backend** | preview \`${PREVIEW_NAME}\` (isolated DB) |
 
-          <sub>Updated for \`${SHA:0:7}\`. Rebuilds on every push to this PR.</sub>"
+          <sub>Updated for \`${SHA:0:7}\`. Rebuilds on every push to this PR (the preview DB is recreated empty each time).</sub>"
           cid=$(gh api "repos/${GH_REPO}/issues/${PR}/comments" --paginate \
             -q "map(select(.body|startswith(\"${marker}\")))|.[0].id // empty")
           if [ -n "$cid" ]; then

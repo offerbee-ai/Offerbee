@@ -1,12 +1,15 @@
 name: CI
 
-# Runs on every PR to main (and on main) as a required check: typecheck the whole
-# workspace and build the web app. Mark "typecheck" and "build-web" as required
-# status checks in Settings → Branches → main so a red PR can't merge.
+# Runs on every PR to main or preview (and on main) as a required check:
+# typecheck the whole workspace and build the web app. Mark "typecheck" and
+# "build-web" as required status checks in Settings → Branches for BOTH main and
+# preview so a red PR can't merge into either.
 
 on:
   pull_request:
-    branches: [main]
+    # `preview` is the staging merge target (see DEPLOYMENT.md) — PRs into it
+    # need the same gate as PRs into main.
+    branches: [main, preview]
   push:
     branches: [main]
   workflow_dispatch: {}
@@ -14,6 +17,9 @@ on:
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   typecheck:
