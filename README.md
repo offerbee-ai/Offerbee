@@ -79,7 +79,7 @@ AI-assisted **catalog review** pass that keeps card benefit data accurate.
 - **Card catalog** — Rewards Credit Card API via RapidAPI
 - **AI review** — OpenRouter (benefit-data validation)
 - **Tooling** — pnpm workspaces + Turborepo, TypeScript, Prettier
-- **Deploy** — Netlify (web) + Convex (backend), automated per-PR previews
+- **Deploy** — Netlify (web) + Convex (backend), automated staging deploy on merge to `preview`, production on merge to `main`
 
 ### Monorepo layout
 

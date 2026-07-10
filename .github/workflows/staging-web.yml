@@ -3,13 +3,14 @@ name: Deploy web to staging
 # Staging environment. Every push to the long-lived `preview` branch redeploys
 # ONE fixed Convex preview backend (name: "staging") via `--preview-name`, which
 # REUSES the existing deployment and its data (unlike `--preview-create`, which
-# deletes and recreates — that's what per-PR previews use). Publishes to a stable
-# Netlify alias URL (see DEPLOYMENT.md for the URL).
+# deletes and recreates). This is the single preview/validation environment —
+# there is no per-PR preview deploy. Publishes to a stable Netlify alias URL
+# (see DEPLOYMENT.md for the URL).
 #
-# Flow: feature branch -> PR into `preview` (gets a per-PR preview) -> merge into
+# Flow: feature branch -> PR into `preview` (CI only, no deploy) -> merge into
 # `preview` (this workflow -> staging) -> PR `preview` into `main` -> prod.
 #
-# Uses the same PREVIEW deploy key + Convex Preview-scope env vars as preview-web.
+# Uses a PREVIEW deploy key + Convex Preview-scope env vars (see DEPLOYMENT.md).
 # Lifetime caveat: Convex cleans up preview deployments 5 days AFTER CREATION
 # (14 days on paid plans) regardless of activity — --preview-name does not make
 # staging immortal. When it expires, the next push recreates it with an EMPTY DB

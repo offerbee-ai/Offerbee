@@ -10,10 +10,12 @@
 #     `cd ../..` relative paths.
 #
 # Build is context-specific (see [context.*] below): --prod pushes the backend to
-# PROD Convex; --context deploy-preview creates an isolated preview backend per PR.
-# Both inject NEXT_PUBLIC_CONVEX_URL into the web build. Required GitHub Actions
-# secrets: CONVEX_DEPLOY_KEY (prod) / CONVEX_PREVIEW_DEPLOY_KEY (preview),
-# NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY, CLERK_SECRET_KEY.
+# PROD Convex; --context deploy-preview is used by staging-web.yml to deploy the
+# single, fixed "staging" preview backend (the only preview/validation
+# environment — there is no per-PR preview). Both inject NEXT_PUBLIC_CONVEX_URL
+# into the web build. Required GitHub Actions secrets: CONVEX_DEPLOY_KEY (prod) /
+# CONVEX_PREVIEW_DEPLOY_KEY (staging), NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
+# CLERK_SECRET_KEY.
 
 [build]
   base = "apps/web"
@@ -29,12 +31,10 @@
 [context.production]
   command = "pnpm --filter @packages/backend exec convex deploy --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
 
-# PR previews + staging: deploy to an isolated, named Convex preview backend.
-# The flag matters: `--preview-create` DELETES + RECREATES the deployment (fresh
-# empty DB — what per-PR previews want), `--preview-name` REUSES it and its data
-# (what staging wants). Both consumers set CONVEX_PREVIEW_FLAG accordingly:
-#   .github/workflows/preview-web.yml  -> --preview-create, name "pr<N>-<slug>"
-#   .github/workflows/staging-web.yml  -> --preview-name,   name "staging"
+# Staging: deploy to the single, fixed named Convex preview backend "staging".
+# staging-web.yml sets CONVEX_PREVIEW_FLAG=--preview-name and
+# CONVEX_PREVIEW_NAME=staging, which REUSES the deployment and its data on every
+# push (unlike `--preview-create`, which deletes and recreates a fresh, empty DB).
 # The catalog fills from live card search, so no seed — RAPIDAPI_KEY must be set
 # as a Convex Preview-scope env var. CONVEX_DEPLOY_KEY must be a PREVIEW deploy
 # key. Selected by `netlify deploy --context deploy-preview` (no --prod).
