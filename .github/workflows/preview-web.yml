@@ -1,9 +1,9 @@
 name: Preview deploy web
 
-# On every PR to main, spin up an isolated Convex PREVIEW backend (own empty DB,
-# seeded via seed:run) and publish a Netlify deploy preview of the web app built
-# against it, then post the URL back on the PR. Nothing here touches production —
-# prod still ships only via deploy-web.yml on merge to main.
+# On every PR to main/preview, spin up an isolated Convex PREVIEW backend (own DB;
+# its catalog fills from live card search) and publish a Netlify deploy preview of
+# the web app built against it, then post the URL back on the PR. Nothing here
+# touches production — prod still ships only via deploy-web.yml on merge to main.
 #
 # Requires (see DEPLOYMENT.md → "Preview deployments"):
 #  - GitHub secret CONVEX_PREVIEW_DEPLOY_KEY (a Convex *preview* deploy key)
@@ -64,7 +64,7 @@ jobs:
       - name: Build & deploy preview to Netlify
         id: deploy
         # netlify.toml [context.deploy-preview] runs `convex deploy --preview-create`
-        # + seed, then next build. --json prints the deploy result to stdout.
+        # then next build. --json prints the deploy result to stdout.
         run: |
           set -o pipefail
           pnpm --package=netlify-cli@17 dlx netlify deploy \
@@ -105,7 +105,7 @@ jobs:
           | | |
           | --- | --- |
           | **Web** | ${URL} |
-          | **Convex backend** | preview \`${PREVIEW_NAME}\` (isolated DB, seeded) |
+          | **Convex backend** | preview \`${PREVIEW_NAME}\` (isolated DB) |
 
           <sub>Updated for \`${SHA:0:7}\`. Rebuilds on every push to this PR.</sub>"
           cid=$(gh api "repos/${GH_REPO}/issues/${PR}/comments" --paginate \

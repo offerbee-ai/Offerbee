@@ -29,13 +29,14 @@
 [context.production]
   command = "pnpm --filter @packages/backend exec convex deploy --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
 
-# PR previews: `--preview-create` spins up an isolated, branch-named Convex
-# backend (own empty DB); `--preview-run` seeds it. CONVEX_DEPLOY_KEY must be a
-# PREVIEW deploy key and CONVEX_PREVIEW_NAME the sanitized branch name — both
-# come from .github/workflows/preview-web.yml. Selected by
+# PR previews + staging: `--preview-create` spins up (or reuses) an isolated,
+# named Convex backend. Its catalog fills from live card search, so no seed —
+# RAPIDAPI_KEY must be set as a Convex Preview-scope env var. CONVEX_DEPLOY_KEY
+# must be a PREVIEW deploy key and CONVEX_PREVIEW_NAME the deployment name — both
+# come from the workflows in .github/workflows. Selected by
 # `netlify deploy --context deploy-preview` (no --prod).
 [context.deploy-preview]
-  command = "pnpm --filter @packages/backend exec convex deploy --preview-create \"$CONVEX_PREVIEW_NAME\" --preview-run seed:run --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
+  command = "pnpm --filter @packages/backend exec convex deploy --preview-create \"$CONVEX_PREVIEW_NAME\" --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

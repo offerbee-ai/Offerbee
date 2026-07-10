@@ -66,36 +66,37 @@ Set (dashboard for the prod deployment, or `convex env set`):
 
 ## Preview deployments
 
-Each PR to `main` gets its own throwaway backend + web preview, so you can click
-through a change before merging without affecting production.
+Each PR (into `main` or `preview`) gets its own throwaway backend + web preview,
+so you can click through a change before merging without affecting production.
 
 **How it works:** `preview-web.yml` runs `netlify deploy --context deploy-preview`,
 which selects the `[context.deploy-preview]` build in `apps/web/netlify.toml`. That
-runs `convex deploy --preview-create <branch> --preview-run seed:run`: Convex creates
-(or updates) a **preview deployment** named after the PR branch — a fully isolated
-backend with its own **empty** database — seeds its card catalog via
-`convex/seed.ts` (`seed:run`, internal), and builds the web app against the preview
-Convex URL. Netlify publishes a unique deploy-preview URL, which the workflow posts
-as a PR comment (updated in place on each push). Merging or closing the PR is when
-you'd let the preview go stale; Convex reclaims idle preview deployments.
+runs `convex deploy --preview-create <branch>`: Convex creates (or reuses) a
+**preview deployment** named after the PR branch — a fully isolated backend with its
+own database — and builds the web app against the preview Convex URL. Netlify
+publishes a unique deploy-preview URL, which the workflow posts as a PR comment
+(updated in place on each push). Merging or closing the PR lets the preview go
+stale; Convex reclaims idle preview deployments (5 days free / 14 days paid).
 
-Because wallet/notification data is keyed by the signed-in Clerk subject, only the
-(user-independent) card catalog is seeded — sign in on the preview and add cards to
-exercise user flows.
+A fresh preview starts with an empty catalog; it fills from **live card search**
+(RapidAPI) exactly like dev/prod — no seed step. `staging-web.yml` works the same
+way but with a fixed deployment name (`staging`) and stable URL.
 
-### One-time setup for previews (needs a repo admin) — **requires Convex Pro**
+### One-time setup for previews (needs a repo admin)
 
-Preview deployments are a paid Convex feature. Once on Pro:
+Preview deployments work on **all Convex plans** (free previews just auto-delete
+after 5 days). Setup:
 
 1. **Preview deploy key** — Convex dashboard → Project Settings → **Deploy Keys** →
    *Generate Preview Deploy Key*. Add it as the GitHub secret
    `CONVEX_PREVIEW_DEPLOY_KEY` (distinct from the prod `CONVEX_DEPLOY_KEY`).
-2. **Preview env vars** — Convex dashboard → Settings → **Environment Variables** →
-   *Preview* scope. Set the same auth/API vars the backend needs at deploy/runtime:
+2. **Preview default env vars** — Convex dashboard → Project Settings → *Project
+   default environment variables*, deployment type **Preview**. These apply to
+   every new preview/staging backend:
    - `CLERK_JWT_ISSUER_DOMAIN` — else `auth.config.ts` throws and the preview
      `convex deploy` fails. A dev/staging Clerk issuer is fine here.
-   - `RAPIDAPI_KEY` — optional for previews (the seed covers browseable content);
-     without it live card search/detail no-op on the preview.
+   - `RAPIDAPI_KEY` — needed for card search/detail to work on previews (this is
+     how the catalog populates); without it search/detail no-op.
 3. Nothing to add for Netlify — deploy previews live under the existing site
    (`NETLIFY_SITE_ID`); the workflow reuses `NETLIFY_AUTH_TOKEN`.
 

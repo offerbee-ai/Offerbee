@@ -12,7 +12,7 @@ name: Deploy web to staging
 # Uses the same PREVIEW deploy key + Convex Preview-scope env vars as preview-web.
 # Note (free plan): Convex reclaims a preview deployment after 5 days idle, so if
 # `preview` sits untouched that long the staging backend + data are recreated
-# fresh (and re-seeded) on the next push.
+# fresh on the next push (the catalog re-fills from live search).
 
 on:
   push:
@@ -51,7 +51,7 @@ jobs:
         id: deploy
         # netlify.toml [context.deploy-preview] runs `convex deploy --preview-create
         # "$CONVEX_PREVIEW_NAME"` (fixed name "staging" -> same backend each time),
-        # seeds it, then next build. --alias pins a stable Netlify subdomain.
+        # then next build. --alias pins a stable Netlify subdomain.
         run: |
           set -o pipefail
           pnpm --package=netlify-cli@17 dlx netlify deploy \
@@ -67,7 +67,7 @@ jobs:
             echo "### Staging deployed"
             echo ""
             echo "- **Web:** ${url:-https://staging--offerbee-web.netlify.app}"
-            echo "- **Convex backend:** preview \`staging\` (seeded)"
+            echo "- **Convex backend:** preview \`staging\`"
             echo "- Commit: \`${GITHUB_SHA:0:7}\`"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
