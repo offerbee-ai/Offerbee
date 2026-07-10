@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useEffect, useRef } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useConvexAuth, useMutation } from "convex/react";
@@ -20,6 +20,8 @@ function Shell({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useConvexAuth();
   const ensureUser = useMutation(api.users.ensureUser);
   const ensured = useRef(false);
+  // The sidebar is a static pane on lg+ and a slide-in drawer below it.
+  const [navOpen, setNavOpen] = useState(false);
 
   // Register the user with the shared backend on login (web + native both do).
   // Gate on Convex auth so the token is exchanged before an authed mutation.
@@ -39,10 +41,10 @@ function Shell({ children }: { children: ReactNode }) {
         theme === "onyx" && "theme-onyx",
       )}
     >
-      <Sidebar />
+      <Sidebar open={navOpen} onClose={() => setNavOpen(false)} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar />
-        <main className="mx-auto w-full max-w-[1180px] px-[34px] pb-14 pt-[30px]">
+        <Topbar onOpenNav={() => setNavOpen(true)} />
+        <main className="mx-auto w-full max-w-[1180px] px-4 pb-14 pt-6 sm:px-6 lg:px-[34px] lg:pt-[30px]">
           {/* Re-key per route so the fade-in replays on navigation. */}
           <div key={pathname} className="animate-obfade">
             {children}

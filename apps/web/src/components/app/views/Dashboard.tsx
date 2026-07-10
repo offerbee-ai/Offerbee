@@ -25,7 +25,7 @@ function ResetRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center gap-3 border-t border-separator px-6 py-[13px] first:border-t-0">
+    <div className="flex items-center gap-3 border-t border-separator px-4 py-[13px] first:border-t-0 sm:px-6">
       <DaysTile days={credit.days} size={tileSize} urgent={credit.days <= 7} />
       <BrandChip color={credit.color} width={32} height={22} />
       <div className="min-w-0 flex-1">
@@ -43,7 +43,7 @@ function WalletRow({ card }: { card: DerivedCard }) {
   return (
     <Link
       href={`/app/cards/${card.id}`}
-      className="flex items-center gap-3 border-t border-separator px-6 py-[13px] transition-colors first:border-t-0 hover:bg-surface-2"
+      className="flex items-center gap-3 border-t border-separator px-4 py-[13px] transition-colors first:border-t-0 hover:bg-surface-2 sm:px-6"
     >
       <BrandChip color={card.color} width={34} height={23} />
       <div className="min-w-0 flex-1">
@@ -82,7 +82,7 @@ function ListHeader({
   href: string;
 }) {
   return (
-    <div className="flex items-center justify-between px-6 pb-1 pt-5">
+    <div className="flex items-center justify-between px-4 pb-1 pt-5 sm:px-6">
       <h2 className="font-display text-[19px] font-semibold text-ink">{title}</h2>
       <Link href={href} className="text-[13px] font-semibold text-accent hover:underline">
         {linkLabel}
@@ -99,7 +99,7 @@ export function Dashboard() {
   return (
     <div className="flex flex-col gap-5">
       {/* Layout switcher — stakeholders compare A/B; A is the production default. */}
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <MonoLabel>Layout</MonoLabel>
         <Segmented
           value={dashLayout}
@@ -109,7 +109,7 @@ export function Dashboard() {
             { value: "B", label: "B · Grid" },
           ]}
         />
-        <span className="text-[12.5px] text-tertiary">
+        <span className="hidden text-[12.5px] text-tertiary sm:inline">
           Two directions, same data — pick one in production.
         </span>
       </div>
@@ -118,15 +118,15 @@ export function Dashboard() {
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1.55fr_1fr]">
           {/* Left column */}
           <div className="flex flex-col gap-5">
-            <Panel className="px-7 py-[26px]">
-              <div className="flex items-start justify-between">
+            <Panel className="px-5 py-6 sm:px-7 sm:py-[26px]">
+              <div className="flex items-start justify-between gap-2">
                 <MonoLabel>Captured value · 2026</MonoLabel>
-                <span className="rounded-[8px] bg-accent-soft px-[10px] py-1 text-[12px] font-semibold text-accent">
+                <span className="shrink-0 rounded-[8px] bg-accent-soft px-[10px] py-1 text-[12px] font-semibold text-accent">
                   {pct}% captured
                 </span>
               </div>
-              <div className="mt-3 flex items-end gap-3">
-                <span className="tabular font-mono text-[52px] font-semibold leading-none tracking-[-0.03em] text-ink">
+              <div className="mt-3 flex flex-wrap items-end gap-x-3 gap-y-1">
+                <span className="tabular font-mono text-[40px] font-semibold leading-none tracking-[-0.03em] text-ink sm:text-[52px]">
                   {usd(captured)}
                 </span>
                 <span className="mb-1 text-[15px] font-semibold text-accent">

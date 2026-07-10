@@ -45,17 +45,18 @@ export function Expiring() {
               {group.items.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center gap-3 border-t border-separator px-5 py-4 first:border-t-0"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-3 border-t border-separator px-4 py-4 first:border-t-0 sm:px-5"
                 >
                   <DaysTile days={c.days} size={48} urgent={c.days <= 7} />
                   <BrandChip color={c.color} width={36} height={24} />
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-[120px]">
                     <div className="truncate text-[15px] font-semibold text-ink">
                       {c.name}
                     </div>
-                    <div className="text-[12.5px] text-secondary">{c.sub}</div>
+                    <div className="truncate text-[12.5px] text-secondary">{c.sub}</div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  {/* Actions wrap to their own line on very narrow screens. */}
+                  <div className="ml-auto flex items-center gap-2">
                     <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
                     <button
                       type="button"
