@@ -12,7 +12,7 @@ name: Preview deploy web
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, preview]
     types: [opened, synchronize, reopened]
 
 concurrency:

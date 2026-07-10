@@ -1,12 +1,27 @@
 # Deployment & CI/CD
 
-OfferBee ships from GitHub Actions. Three workflows:
+OfferBee ships from GitHub Actions. Four workflows:
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | every PR to `main` (and `main`) | `pnpm typecheck` (all packages) + `pnpm --filter web-app build`. Required to merge. |
-| `.github/workflows/preview-web.yml` | every PR to `main` | Deploys an isolated **Convex preview backend** + Netlify **deploy preview**, comments the URL on the PR. Never touches prod. |
+| `.github/workflows/preview-web.yml` | every PR to `main` or `preview` | Deploys an **ephemeral, per-PR** Convex preview backend + Netlify deploy preview, comments the URL on the PR. Never touches prod. |
+| `.github/workflows/staging-web.yml` | push to the `preview` branch | Deploys a **persistent staging** environment: one fixed Convex `staging` backend + a stable URL `https://staging--offerbee-web.netlify.app`. |
 | `.github/workflows/deploy-web.yml` | push to `main` (after PR merge) + manual | Deploys to **production**, gated behind a manual approval. |
+
+## Branch & environment model
+
+```
+feature branch ─PR→ preview ─(staging-web)→ staging URL (stable)
+                       │
+                       └─PR→ main ─(deploy-web, approve)→ production (offerbee.ai)
+```
+
+- Any **PR** (into `main` or `preview`) gets its own **ephemeral** preview (unique
+  URL + isolated DB, auto-cleaned after merge). Good for reviewing one change.
+- The long-lived **`preview`** branch is a **persistent staging** environment: every
+  merge into it redeploys the same `staging` backend at one stable URL.
+- Merging `preview` → `main` ships production (behind the approval gate).
 
 ## How a change reaches production
 
