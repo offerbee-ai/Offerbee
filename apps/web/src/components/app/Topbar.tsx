@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { SearchIcon, PlusIcon } from "@/components/landing/icons";
+import { SearchIcon, PlusIcon, MenuIcon } from "@/components/landing/icons";
 import { useApp } from "./AppProvider";
 import { CARDS_BASE } from "./data";
 
@@ -55,7 +55,7 @@ function useTitle(pathname: string, name: string): { eyebrow: string; title: str
   return map[pathname] ?? { eyebrow: "OfferBee", title: "OfferBee" };
 }
 
-export function Topbar() {
+export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user } = useUser();
@@ -71,18 +71,28 @@ export function Topbar() {
   };
 
   return (
-    <div className="sticky top-0 z-20 border-b border-border bg-glass px-[34px] py-4 backdrop-blur-[14px] backdrop-saturate-150">
-      <div className="mx-auto flex max-w-[1180px] items-center gap-4">
+    <div className="sticky top-0 z-20 border-b border-border bg-glass px-4 py-3 backdrop-blur-[14px] backdrop-saturate-150 sm:px-6 lg:px-[34px] lg:py-4">
+      <div className="mx-auto flex max-w-[1180px] items-center gap-2 sm:gap-4">
+        {/* Hamburger — opens the nav drawer below lg */}
+        <button
+          type="button"
+          onClick={onOpenNav}
+          aria-label="Open menu"
+          className="-ml-1 flex size-9 shrink-0 items-center justify-center rounded-[10px] text-ink transition-colors hover:bg-surface-2 lg:hidden"
+        >
+          <MenuIcon size={22} />
+        </button>
+
         <div className="min-w-0 flex-1">
-          <div className="font-mono text-[11px] font-medium tracking-[0.04em] text-tertiary">
+          <div className="truncate font-mono text-[11px] font-medium tracking-[0.04em] text-tertiary">
             {eyebrow}
           </div>
-          <h1 className="truncate font-display text-[26px] font-semibold tracking-[-0.02em] text-ink">
+          <h1 className="truncate font-display text-[20px] font-semibold tracking-[-0.02em] text-ink sm:text-[26px]">
             {title}
           </h1>
         </div>
 
-        <label className="flex w-[250px] items-center gap-2 rounded-[11px] border border-border bg-surface px-[13px] py-[9px] text-tertiary focus-within:border-accent">
+        <label className="hidden items-center gap-2 rounded-[11px] border border-border bg-surface px-[13px] py-[9px] text-tertiary focus-within:border-accent md:flex md:w-[190px] lg:w-[250px]">
           <SearchIcon size={17} />
           <input
             type="search"
@@ -95,10 +105,11 @@ export function Topbar() {
 
         <Link
           href="/app/add"
-          className="flex shrink-0 items-center gap-1.5 rounded-[11px] bg-accent px-4 py-[10px] text-[14px] font-semibold text-on-accent shadow-[0_6px_16px_rgba(232,104,14,.22)] transition-colors hover:bg-accent-strong"
+          aria-label="Add card"
+          className="flex shrink-0 items-center gap-1.5 rounded-[11px] bg-accent px-3 py-[9px] text-[14px] font-semibold text-on-accent shadow-[0_6px_16px_rgba(232,104,14,.22)] transition-colors hover:bg-accent-strong sm:px-4 sm:py-[10px]"
         >
           <PlusIcon size={18} />
-          Add card
+          <span className="hidden sm:inline">Add card</span>
         </Link>
       </div>
     </div>

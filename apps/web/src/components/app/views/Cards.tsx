@@ -14,7 +14,7 @@ export function Cards() {
   return (
     <div className="flex flex-col gap-[18px]">
       {/* Summary banner */}
-      <Panel className="flex flex-wrap items-center justify-between gap-6 px-[26px] py-6">
+      <Panel className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 px-5 py-5 sm:px-[26px] sm:py-6">
         <div>
           <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-tertiary">
             Net across {cards.length} cards

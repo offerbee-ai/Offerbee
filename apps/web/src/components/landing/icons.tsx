@@ -118,6 +118,14 @@ export function HomeIcon(props: IconProps) {
   );
 }
 
+export function MenuIcon(props: IconProps) {
+  return (
+    <Base strokeWidth={2} {...props}>
+      <path d="M3 6h18M3 12h18M3 18h18" />
+    </Base>
+  );
+}
+
 export function GearIcon(props: IconProps) {
   return (
     <Base strokeWidth={1.8} {...props}>

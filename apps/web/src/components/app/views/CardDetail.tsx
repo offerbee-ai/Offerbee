@@ -96,7 +96,7 @@ export function CardDetail({ cardId }: { cardId: string }) {
 
         {/* Right column — credits list */}
         <Panel className="overflow-hidden">
-          <div className="px-6 pb-1 pt-5">
+          <div className="px-4 pb-1 pt-5 sm:px-6">
             <h2 className="font-display text-[19px] font-semibold text-ink">
               Credits · {cardCredits.length}
             </h2>
@@ -105,7 +105,7 @@ export function CardDetail({ cardId }: { cardId: string }) {
             {cardCredits.map((c) => (
               <div
                 key={c.id}
-                className="flex items-center gap-3 border-t border-separator px-6 py-[14px]"
+                className="flex items-center gap-3 border-t border-separator px-4 py-[14px] sm:px-6"
               >
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[14.5px] font-semibold text-ink">

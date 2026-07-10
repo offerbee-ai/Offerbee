@@ -54,15 +54,18 @@ function NavRow({
   active,
   badge,
   badgeTone = "accent",
+  onNavigate,
 }: {
   item: NavDef;
   active: boolean;
   badge?: ReactNode;
   badgeTone?: "accent" | "warning";
+  onNavigate?: () => void;
 }) {
   return (
     <Link
       href={item.href}
+      onClick={onNavigate}
       className={cn(
         "flex items-center justify-between rounded-[11px] px-3 py-[10px] text-[14.5px] transition-colors",
         active
@@ -90,7 +93,8 @@ function NavRow({
   );
 }
 
-export function Sidebar() {
+/** The sidebar's inner content, shared by the desktop pane and mobile drawer. */
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { user } = useUser();
   const { derived, theme, toggleTheme } = useApp();
@@ -104,7 +108,7 @@ export function Sidebar() {
   const cardCount = derived.cards.length;
 
   return (
-    <aside className="sticky top-0 flex h-screen w-[248px] shrink-0 flex-col border-r border-border bg-surface">
+    <>
       {/* Logo lockup */}
       <div className="flex items-center gap-[11px] px-5 pb-4 pt-[22px]">
         <BeeLogo size={32} gid="app-sidebar" />
@@ -120,6 +124,7 @@ export function Sidebar() {
             key={item.href}
             item={item}
             active={isActive(item, pathname)}
+            onNavigate={onNavigate}
             badge={
               item.href === "/app/expiring" && derived.atRiskCount > 0
                 ? derived.atRiskCount
@@ -133,16 +138,19 @@ export function Sidebar() {
         <NavRow
           item={{ href: "/app/offers", label: "Offers", icon: <BellIcon size={19} /> }}
           active={isActive({ href: "/app/offers", label: "", icon: null }, pathname)}
+          onNavigate={onNavigate}
           badge={unread > 0 ? unread : undefined}
         />
         <NavRow
           item={{ href: "/app/add", label: "Add card", icon: <PlusIcon size={19} /> }}
           active={isActive({ href: "/app/add", label: "", icon: null }, pathname)}
+          onNavigate={onNavigate}
         />
         {amAdmin && (
           <NavRow
             item={{ href: "/app/review", label: "Review", icon: <FilterIcon size={19} /> }}
             active={isActive({ href: "/app/review", label: "", icon: null }, pathname)}
+            onNavigate={onNavigate}
             badge={pendingReviews > 0 ? (pendingReviews > 200 ? "200+" : pendingReviews) : undefined}
             badgeTone="warning"
           />
@@ -190,6 +198,52 @@ export function Sidebar() {
           </button>
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      {/* Desktop: static sticky pane */}
+      <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-border bg-surface lg:flex">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile/tablet: slide-in drawer */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 lg:hidden",
+          open ? "pointer-events-auto" : "pointer-events-none",
+        )}
+        aria-hidden={!open}
+      >
+        {/* Backdrop */}
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={onClose}
+          className={cn(
+            "absolute inset-0 bg-black/40 transition-opacity duration-200",
+            open ? "opacity-100" : "opacity-0",
+          )}
+        />
+        {/* Panel */}
+        <div
+          className={cn(
+            "absolute left-0 top-0 flex h-full w-[248px] max-w-[82vw] flex-col border-r border-border bg-surface shadow-ob transition-transform duration-200",
+            open ? "translate-x-0" : "-translate-x-full",
+          )}
+        >
+          <SidebarContent onNavigate={onClose} />
+        </div>
+      </div>
+    </>
   );
 }

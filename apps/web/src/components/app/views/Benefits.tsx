@@ -12,8 +12,13 @@ const FILTERS: { value: BenefitFilter; label: string }[] = [
   { value: "all", label: "All" },
 ];
 
-// header + rows share this grid so columns align like a statement.
-const GRID = "grid grid-cols-[1.6fr_1fr_0.8fr_auto] items-center gap-[14px] px-6";
+// Header + rows share this grid so columns align like a statement. On mobile
+// it collapses to 3 columns (Credit / Amount / Status) and the Card column is
+// dropped — its value is folded into the credit cell instead.
+const GRID =
+  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[1fr_auto_auto] md:grid-cols-[1.6fr_1fr_0.8fr_auto]";
+const HEAD =
+  "font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary";
 
 export function Benefits() {
   const { credits, benefitFilter, setBenefitFilter, search, markUsed } = useApp();
@@ -32,19 +37,11 @@ export function Benefits() {
       </div>
 
       <Panel className="overflow-hidden">
-        <div className={`${GRID} border-b border-separator py-3`}>
-          <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary">
-            Credit
-          </div>
-          <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary">
-            Card
-          </div>
-          <div className="font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary">
-            Cycle
-          </div>
-          <div className="text-right font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary">
-            Status
-          </div>
+        <div className={`hidden md:grid ${GRID} border-b border-separator py-3`}>
+          <div className={HEAD}>Credit</div>
+          <div className={HEAD}>Card</div>
+          <div className={HEAD}>Cycle</div>
+          <div className={`${HEAD} text-right`}>Status</div>
         </div>
 
         {visible.length === 0 ? (
@@ -53,7 +50,7 @@ export function Benefits() {
           </div>
         ) : (
           visible.map((c) => (
-            <div key={c.id} className={`${GRID} border-t border-separator py-[14px] first:border-t-0`}>
+            <div key={c.id} className={`grid ${GRID} border-t border-separator py-[14px] first:border-t-0`}>
               <div className="flex min-w-0 items-center gap-3">
                 <BrandChip color={c.color} width={30} height={21} />
                 <div className="min-w-0">
@@ -61,14 +58,20 @@ export function Benefits() {
                     {c.name}
                   </div>
                   <div
-                    className="text-[12px]"
+                    className="truncate text-[12px]"
                     style={{ color: c.urgentReset ? "var(--ob-alert)" : "var(--ob-secondary)" }}
                   >
                     {c.reset}
                   </div>
+                  {/* Card name (its own column on desktop) folds in here on mobile. */}
+                  <div className="truncate text-[11.5px] text-tertiary md:hidden">
+                    {c.card}
+                  </div>
                 </div>
               </div>
-              <div className="truncate text-[13.5px] text-secondary">{c.card}</div>
+              <div className="hidden truncate text-[13.5px] text-secondary md:block">
+                {c.card}
+              </div>
               <div className="tabular font-mono text-[13px] font-semibold text-ink">
                 {c.amountStr}
               </div>
