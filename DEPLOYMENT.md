@@ -19,7 +19,7 @@ feature branch ─PR→ preview ─(staging-web)→ staging URL (stable)
 - A **PR** (into `main` or `preview`) only runs **CI** (typecheck + build). There is
   no per-PR deploy — nothing to click through until the change lands on `preview`.
 - The long-lived **`preview`** branch is the **staging** environment: every merge
-  into it redeploys the same `staging` backend (`--preview-name`, data reused) at
+  into it redeploys the same `staging` backend (`--preview-create "staging"`, data reused) at
   one stable URL. This is where you validate a change live before promoting it to
   production. Caveat: Convex still expires preview deployments 5–14 days after
   creation, so staging data is durable between deploys but not forever — when it
@@ -76,9 +76,11 @@ before promoting them to production without affecting prod.
 
 **How it works:** `staging-web.yml` runs `netlify deploy --context deploy-preview`,
 which selects the `[context.deploy-preview]` build in `apps/web/netlify.toml`. That
-runs `convex deploy --preview-name "staging"`: Convex **reuses** the preview
-deployment named `staging` (and its data) instead of recreating it, and builds the
-web app against its Convex URL. Netlify publishes to the stable alias
+runs `convex deploy --preview-create "staging"`: Convex **reuses** the preview
+deployment named `staging` (and its data) if it exists — creating it only when it
+has been reclaimed — and builds the web app against its Convex URL. (The Convex
+CLI has no `--preview-name` flag; `--preview-create <name>` is create-or-reuse.)
+Netlify publishes to the stable alias
 `https://staging--offerbee-web.netlify.app`, so the URL never changes between
 deploys.
 

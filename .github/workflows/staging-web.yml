@@ -1,21 +1,21 @@
 name: Deploy web to staging
 
 # Staging environment. Every push to the long-lived `preview` branch redeploys
-# ONE fixed Convex preview backend (name: "staging") via `--preview-name`, which
-# REUSES the existing deployment and its data (unlike `--preview-create`, which
-# deletes and recreates). This is the single preview/validation environment —
-# there is no per-PR preview deploy. Publishes to a stable Netlify alias URL
-# (see DEPLOYMENT.md for the URL).
+# ONE fixed Convex preview backend (name: "staging") via `--preview-create
+# "staging"`, which reuses that named preview (backend + data persist across
+# deploys) if it exists and creates it otherwise. This is the single
+# preview/validation environment — there is no per-PR preview deploy. Publishes
+# to a stable Netlify alias URL (see DEPLOYMENT.md for the URL).
 #
 # Flow: feature branch -> PR into `preview` (CI only, no deploy) -> merge into
 # `preview` (this workflow -> staging) -> PR `preview` into `main` -> prod.
 #
 # Uses a PREVIEW deploy key + Convex Preview-scope env vars (see DEPLOYMENT.md).
-# Lifetime caveat: Convex cleans up preview deployments 5 days AFTER CREATION
-# (14 days on paid plans) regardless of activity — --preview-name does not make
-# staging immortal. When it expires, the next push recreates it with an EMPTY DB
-# (the catalog re-fills from live search). If durable staging data ever matters,
-# staging should become a dedicated Convex deployment, not a preview.
+# Lifetime caveat: Convex reclaims preview deployments ~5 days AFTER CREATION
+# (14 days on paid plans) regardless of activity. When "staging" is reclaimed,
+# the next push recreates it with an EMPTY DB (the catalog re-fills from live
+# search). If durable staging data ever matters, staging should become a
+# dedicated Convex deployment, not a preview.
 
 on:
   push:
@@ -52,9 +52,9 @@ jobs:
 
       - name: Build & deploy to staging
         id: deploy
-        # netlify.toml [context.deploy-preview] runs `convex deploy --preview-name
-        # "staging"` (reuse the same backend + data each push), then next build.
-        # --alias pins a stable Netlify subdomain.
+        # netlify.toml [context.deploy-preview] runs `convex deploy
+        # --preview-create "staging"` (reuse the named backend + data each push),
+        # then next build. --alias pins a stable Netlify subdomain.
         run: |
           set -o pipefail
           pnpm --package=netlify-cli@17 dlx netlify deploy \
@@ -82,9 +82,8 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           # PREVIEW deploy key — reused for the staging preview deployment.
           CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
-          # Reuse (don't recreate) the fixed "staging" backend so its data survives
-          # across deploys — see the lifetime caveat in the header.
-          CONVEX_PREVIEW_FLAG: --preview-name
+          # Fixed name -> `--preview-create "staging"` reuses the same preview
+          # backend, so its data survives across deploys (see lifetime caveat above).
           CONVEX_PREVIEW_NAME: staging
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}

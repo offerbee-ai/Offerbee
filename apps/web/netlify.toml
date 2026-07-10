@@ -31,15 +31,18 @@
 [context.production]
   command = "pnpm --filter @packages/backend exec convex deploy --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
 
-# Staging: deploy to the single, fixed named Convex preview backend "staging".
-# staging-web.yml sets CONVEX_PREVIEW_FLAG=--preview-name and
-# CONVEX_PREVIEW_NAME=staging, which REUSES the deployment and its data on every
-# push (unlike `--preview-create`, which deletes and recreates a fresh, empty DB).
-# The catalog fills from live card search, so no seed — RAPIDAPI_KEY must be set
-# as a Convex Preview-scope env var. CONVEX_DEPLOY_KEY must be a PREVIEW deploy
-# key. Selected by `netlify deploy --context deploy-preview` (no --prod).
+# Staging: deploy to the single fixed Convex preview backend named "staging".
+# staging-web.yml sets CONVEX_PREVIEW_NAME=staging. `--preview-create "staging"`
+# deploys to that named preview, reusing it (backend + data persist across
+# deploys) if it exists and creating it if Convex has reclaimed it. This is the
+# only consumer of the deploy-preview context — there is no per-PR preview.
+# (Convex CLI has no `--preview-name` flag; `--preview-create <name>` is the
+# create-or-reuse mechanism.) The catalog fills from live card search, so no
+# seed — RAPIDAPI_KEY must be set as a Convex Preview-scope env var.
+# CONVEX_DEPLOY_KEY must be a PREVIEW deploy key. Selected by
+# `netlify deploy --context deploy-preview` (no --prod).
 [context.deploy-preview]
-  command = "pnpm --filter @packages/backend exec convex deploy $CONVEX_PREVIEW_FLAG \"$CONVEX_PREVIEW_NAME\" --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
+  command = "pnpm --filter @packages/backend exec convex deploy --preview-create \"$CONVEX_PREVIEW_NAME\" --cmd 'pnpm --filter web-app exec next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
