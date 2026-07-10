@@ -67,14 +67,33 @@ export default function CardDetailPage() {
         ← Back to cards
       </Link>
 
-      <h1 className="mt-3 font-display text-[30px] font-semibold text-ink">
-        {detail?.cardName ?? cardKey}
-      </h1>
-      <p className="mt-1 text-[15px] text-secondary">
-        {[detail?.cardIssuer, detail?.cardNetwork, detail?.cardType]
-          .filter(Boolean)
-          .join(" · ")}
-      </p>
+      <div className="mt-3 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-[30px] font-semibold text-ink">
+            {detail?.cardName ?? cardKey}
+          </h1>
+          <p className="mt-1 text-[15px] text-secondary">
+            {[
+              detail?.cardIssuer,
+              detail?.cardNetworkTierName ?? detail?.cardNetwork,
+              detail?.cardType,
+              detail?.creditRange,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        {detail?.cardImageUrl && (
+          // Plain <img>: the image host's path rotates periodically, so
+          // next/image remotePatterns can't be pinned to it.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={detail.cardImageUrl}
+            alt={`${detail.cardName} card art`}
+            className="h-[76px] w-auto rounded-[8px] border border-border shadow-sm"
+          />
+        )}
+      </div>
 
       {detail === null && (
         <p className="mt-4 text-[14px] text-tertiary">
@@ -173,22 +192,41 @@ export default function CardDetailPage() {
             detail.spendBonusCategory.length > 0 && (
               <Card>
                 <SectionLabel>Bonus categories</SectionLabel>
-                <div className="flex flex-col gap-2">
-                  {detail.spendBonusCategory.map((c, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center justify-between text-[14px]"
-                    >
-                      <span className="text-ink">
-                        {c.spendBonusCategoryName ??
-                          c.spendBonusCategoryType ??
-                          "Category"}
-                      </span>
-                      {c.earnMultiplier !== undefined && (
-                        <Pill tone="accent">{c.earnMultiplier}x</Pill>
-                      )}
-                    </div>
-                  ))}
+                <div className="flex flex-col gap-3">
+                  {detail.spendBonusCategory.map((c, i) => {
+                    const limits = [
+                      c.isSpendLimit && c.spendLimit
+                        ? `up to $${c.spendLimit.toLocaleString()}${c.spendLimitResetPeriod ? `/${c.spendLimitResetPeriod.toLowerCase()}` : ""}`
+                        : null,
+                      c.isDateLimit && c.limitEndDate
+                        ? `through ${c.limitEndDate}`
+                        : null,
+                    ].filter(Boolean);
+                    return (
+                      <div key={i} className="text-[14px]">
+                        <div className="flex items-center justify-between gap-3">
+                          <span className="text-ink">
+                            {c.spendBonusCategoryName ??
+                              c.spendBonusCategoryType ??
+                              "Category"}
+                          </span>
+                          {c.earnMultiplier !== undefined && (
+                            <Pill tone="accent">{c.earnMultiplier}x</Pill>
+                          )}
+                        </div>
+                        {c.spendBonusDesc && (
+                          <p className="mt-0.5 text-[13px] text-secondary">
+                            {c.spendBonusDesc}
+                          </p>
+                        )}
+                        {limits.length > 0 && (
+                          <p className="mt-0.5 text-[12px] text-tertiary">
+                            {limits.join(" · ")}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
             )}

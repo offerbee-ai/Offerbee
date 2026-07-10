@@ -69,13 +69,22 @@ export const benefitValidator = v.object({
   isBenefitCardNetworkTier: v.optional(v.boolean()),
 });
 
+// Full shape of a spendBonusCategory entry as the API actually returns it
+// (field names verified against a live /creditcard-detail-bycard response).
 export const spendBonusCategoryValidator = v.object({
   spendBonusCategoryType: v.optional(v.string()),
   spendBonusCategoryName: v.optional(v.string()),
+  spendBonusCategoryId: v.optional(v.number()),
+  spendBonusCategoryGroup: v.optional(v.string()),
+  spendBonusSubcategoryGroup: v.optional(v.string()),
   spendBonusDesc: v.optional(v.string()),
   earnMultiplier: v.optional(v.number()),
-  isSpendBonusCategoryLimit: v.optional(v.boolean()),
-  spendBonusCategoryLimit: v.optional(v.number()),
+  isDateLimit: v.optional(v.boolean()),
+  limitBeginDate: v.optional(v.string()),
+  limitEndDate: v.optional(v.string()),
+  isSpendLimit: v.optional(v.boolean()),
+  spendLimit: v.optional(v.number()),
+  spendLimitResetPeriod: v.optional(v.string()),
 });
 
 export const annualSpendValidator = v.object({
@@ -91,8 +100,11 @@ export const cardDetailContentFields = {
   cardName: v.string(),
   cardIssuer: v.string(),
   cardNetwork: v.optional(v.string()),
+  cardNetworkTierName: v.optional(v.string()), // e.g. "Visa Infinite®"
   cardType: v.optional(v.string()),
   cardUrl: v.optional(v.string()),
+  cardImageUrl: v.optional(v.string()), // from /creditcard-card-image; host path rotates, refreshed with detail TTL
+  creditRange: v.optional(v.string()), // e.g. "Good to Excellent"
   isActive: v.boolean(),
   // fees
   annualFee: v.optional(v.number()),
