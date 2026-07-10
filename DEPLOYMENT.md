@@ -6,7 +6,7 @@ OfferBee ships from GitHub Actions. Four workflows:
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | every PR to `main` (and `main`) | `pnpm typecheck` (all packages) + `pnpm --filter web-app build`. Required to merge. |
 | `.github/workflows/preview-web.yml` | every PR to `main` or `preview` | Deploys an **ephemeral, per-PR** Convex preview backend + Netlify deploy preview, comments the URL on the PR. Never touches prod. |
-| `.github/workflows/staging-web.yml` | push to the `preview` branch | Deploys a **persistent staging** environment: one fixed Convex `staging` backend + a stable URL `https://staging--offerbee-web.netlify.app`. |
+| `.github/workflows/staging-web.yml` | push to the `preview` branch | Deploys the **staging** environment: one fixed Convex `staging` preview backend (reused between deploys) + a stable Netlify alias URL (`https://staging--<site-name>.netlify.app`). |
 | `.github/workflows/deploy-web.yml` | push to `main` (after PR merge) + manual | Deploys to **production**, gated behind a manual approval. |
 
 ## Branch & environment model
@@ -18,9 +18,13 @@ feature branch ─PR→ preview ─(staging-web)→ staging URL (stable)
 ```
 
 - Any **PR** (into `main` or `preview`) gets its own **ephemeral** preview (unique
-  URL + isolated DB, auto-cleaned after merge). Good for reviewing one change.
-- The long-lived **`preview`** branch is a **persistent staging** environment: every
-  merge into it redeploys the same `staging` backend at one stable URL.
+  URL + isolated DB named `pr<N>-<branch>`, recreated empty on every push; Convex
+  expires it 5–14 days after creation). Good for reviewing one change.
+- The long-lived **`preview`** branch is the **staging** environment: every merge
+  into it redeploys the same `staging` backend (`--preview-name`, data reused) at
+  one stable URL. Caveat: Convex still expires preview deployments 5–14 days
+  after creation, so staging data is durable between deploys but not forever —
+  when it expires, the next push recreates it empty.
 - Merging `preview` → `main` ships production (behind the approval gate).
 
 ## How a change reaches production
@@ -71,16 +75,18 @@ so you can click through a change before merging without affecting production.
 
 **How it works:** `preview-web.yml` runs `netlify deploy --context deploy-preview`,
 which selects the `[context.deploy-preview]` build in `apps/web/netlify.toml`. That
-runs `convex deploy --preview-create <branch>`: Convex creates (or reuses) a
-**preview deployment** named after the PR branch — a fully isolated backend with its
-own database — and builds the web app against the preview Convex URL. Netlify
-publishes a unique deploy-preview URL, which the workflow posts as a PR comment
-(updated in place on each push). Merging or closing the PR lets the preview go
-stale; Convex reclaims idle preview deployments (5 days free / 14 days paid).
+runs `convex deploy --preview-create pr<N>-<branch>`: Convex **deletes and
+recreates** a preview deployment of that name — a fully isolated backend with its
+own (empty) database — and builds the web app against the preview Convex URL.
+Netlify publishes a unique deploy-preview URL, which the workflow posts as a PR
+comment (updated in place on each push; the DB starts fresh each time). Merging or
+closing the PR lets the preview go stale; Convex deletes preview deployments
+**5 days after creation** (14 days on paid plans), regardless of activity.
 
 A fresh preview starts with an empty catalog; it fills from **live card search**
-(RapidAPI) exactly like dev/prod — no seed step. `staging-web.yml` works the same
-way but with a fixed deployment name (`staging`) and stable URL.
+(RapidAPI) exactly like dev/prod — no seed step. `staging-web.yml` differs in two
+ways: a fixed deployment name (`staging`) and `--preview-name`, which **reuses**
+the deployment and its data instead of recreating it.
 
 ### One-time setup for previews (needs a repo admin)
 
