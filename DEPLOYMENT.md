@@ -1,10 +1,11 @@
 # Deployment & CI/CD
 
-OfferBee ships from GitHub Actions. Two workflows:
+OfferBee ships from GitHub Actions. Three workflows:
 
 | Workflow | Trigger | What it does |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | every PR to `main` (and `main`) | `pnpm typecheck` (all packages) + `pnpm --filter web-app build`. Required to merge. |
+| `.github/workflows/preview-web.yml` | every PR to `main` | Deploys an isolated **Convex preview backend** + Netlify **deploy preview**, comments the URL on the PR. Never touches prod. |
 | `.github/workflows/deploy-web.yml` | push to `main` (after PR merge) + manual | Deploys to **production**, gated behind a manual approval. |
 
 ## How a change reaches production
@@ -48,6 +49,41 @@ Set (dashboard for the prod deployment, or `convex env set`):
 - Set the GitHub secrets `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` and `CLERK_SECRET_KEY`
   to that instance's keys, and make `CLERK_JWT_ISSUER_DOMAIN` (item 3) match it.
 
+## Preview deployments
+
+Each PR to `main` gets its own throwaway backend + web preview, so you can click
+through a change before merging without affecting production.
+
+**How it works:** `preview-web.yml` runs `netlify deploy --context deploy-preview`,
+which selects the `[context.deploy-preview]` build in `apps/web/netlify.toml`. That
+runs `convex deploy --preview-create <branch> --preview-run seed:run`: Convex creates
+(or updates) a **preview deployment** named after the PR branch — a fully isolated
+backend with its own **empty** database — seeds its card catalog via
+`convex/seed.ts` (`seed:run`, internal), and builds the web app against the preview
+Convex URL. Netlify publishes a unique deploy-preview URL, which the workflow posts
+as a PR comment (updated in place on each push). Merging or closing the PR is when
+you'd let the preview go stale; Convex reclaims idle preview deployments.
+
+Because wallet/notification data is keyed by the signed-in Clerk subject, only the
+(user-independent) card catalog is seeded — sign in on the preview and add cards to
+exercise user flows.
+
+### One-time setup for previews (needs a repo admin) — **requires Convex Pro**
+
+Preview deployments are a paid Convex feature. Once on Pro:
+
+1. **Preview deploy key** — Convex dashboard → Project Settings → **Deploy Keys** →
+   *Generate Preview Deploy Key*. Add it as the GitHub secret
+   `CONVEX_PREVIEW_DEPLOY_KEY` (distinct from the prod `CONVEX_DEPLOY_KEY`).
+2. **Preview env vars** — Convex dashboard → Settings → **Environment Variables** →
+   *Preview* scope. Set the same auth/API vars the backend needs at deploy/runtime:
+   - `CLERK_JWT_ISSUER_DOMAIN` — else `auth.config.ts` throws and the preview
+     `convex deploy` fails. A dev/staging Clerk issuer is fine here.
+   - `RAPIDAPI_KEY` — optional for previews (the seed covers browseable content);
+     without it live card search/detail no-op on the preview.
+3. Nothing to add for Netlify — deploy previews live under the existing site
+   (`NETLIFY_SITE_ID`); the workflow reuses `NETLIFY_AUTH_TOKEN`.
+
 ## Rollback
 
 - **Web (Netlify):** Deploys → pick the previous good deploy → **Publish deploy**
@@ -58,5 +94,6 @@ Set (dashboard for the prod deployment, or `convex env set`):
 
 ## GitHub Actions secrets used
 
-`CONVEX_DEPLOY_KEY`, `NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID`,
-`NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`.
+`CONVEX_DEPLOY_KEY` (prod), `CONVEX_PREVIEW_DEPLOY_KEY` (PR previews),
+`NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+`CLERK_SECRET_KEY`.
