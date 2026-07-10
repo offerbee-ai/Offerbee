@@ -1,9 +1,15 @@
 name: Deploy web to Netlify
 
-# Builds + deploys the OfferBee web app from GitHub Actions (free for private
-# repos), so we don't need Netlify's paid Git integration for private org repos.
-# On push to main it runs the coupled build from netlify.toml — `convex deploy`
-# (backend → prod) then `next build` — and ships the result to Netlify via CLI.
+# Builds + deploys the OfferBee web app from GitHub Actions, so we don't need
+# Netlify's paid Git integration. On push to main it runs the coupled build from
+# netlify.toml — `convex deploy` (backend → prod) then `next build` — and ships
+# the result to Netlify via CLI.
+#
+# The `production` environment gate means a merge to main does NOT ship
+# automatically: the job pauses until a required reviewer approves it in the
+# Actions UI. Configure the gate in Settings → Environments → production
+# (add Required reviewers). Deploy secrets can live on that environment so they
+# are only exposed after approval.
 
 on:
   push:
@@ -17,6 +23,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: Checkout
         uses: actions/checkout@v4

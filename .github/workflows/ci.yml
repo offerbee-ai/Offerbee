@@ -1,0 +1,54 @@
+name: CI
+
+# Runs on every PR to main (and on main) as a required check: typecheck the whole
+# workspace and build the web app. Mark "typecheck" and "build-web" as required
+# status checks in Settings → Branches → main so a red PR can't merge.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Generated Convex types are committed, so no deploy key is needed here.
+      - run: pnpm typecheck
+
+  build-web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web-app build
+        env:
+          # Build-time only. The Convex client is constructed at import but does
+          # not connect during the build, so a placeholder URL is sufficient.
+          NEXT_PUBLIC_CONVEX_URL: https://placeholder.convex.cloud
+          # Clerk publishable key is public; ClerkProvider needs it to prerender.
+          # (Same-repo PRs get these; fork PRs won't — typecheck still gates those.)
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
