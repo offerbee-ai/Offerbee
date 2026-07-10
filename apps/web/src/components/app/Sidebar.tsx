@@ -35,10 +35,10 @@ const PRIMARY: NavDef[] = [
   { href: "/app/benefits", label: "Benefits", icon: <ChecklistIcon size={19} /> },
   { href: "/app/expiring", label: "Expiring", icon: <ClockIcon size={19} /> },
   {
-    href: "/app/cards",
-    label: "Cards",
+    href: "/app/wallet",
+    label: "Wallet",
     icon: <CardIcon size={19} />,
-    match: (p) => p === "/app/cards" || p.startsWith("/app/cards/"),
+    match: (p) => p === "/app/wallet" || p.startsWith("/app/wallet/"),
   },
   { href: "/app/settings", label: "Settings", icon: <GearIcon size={19} /> },
 ];

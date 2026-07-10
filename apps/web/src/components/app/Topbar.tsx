@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { SearchIcon, PlusIcon, MenuIcon } from "@/components/landing/icons";
 import { useApp } from "./AppProvider";
-import { CARDS_BASE } from "./data";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -35,15 +34,9 @@ function useTitle(pathname: string, name: string): { eyebrow: string; title: str
   }, [name]);
 
   if (pathname === "/app") return dash;
-  if (pathname.startsWith("/app/cards/")) {
-    const id = decodeURIComponent(pathname.split("/")[3] ?? "");
-    const card = CARDS_BASE.find((c) => c.id === id);
-    return { eyebrow: "Card detail", title: card?.name ?? "Card detail" };
-  }
   const map: Record<string, { eyebrow: string; title: string }> = {
     "/app/benefits": { eyebrow: "All credits", title: "Benefits" },
     "/app/expiring": { eyebrow: "Act before they reset", title: "Expiring soon" },
-    "/app/cards": { eyebrow: "Fee vs. value", title: "Your cards" },
     "/app/settings": { eyebrow: "Preferences", title: "Settings" },
     "/app/offers": { eyebrow: "What to do next", title: "Offers" },
     "/app/add": { eyebrow: "Build your wallet", title: "Add a card" },

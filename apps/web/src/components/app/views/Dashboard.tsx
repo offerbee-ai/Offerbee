@@ -42,7 +42,7 @@ function ResetRow({
 function WalletRow({ card }: { card: DerivedCard }) {
   return (
     <Link
-      href={`/app/cards/${card.id}`}
+      href="/app/wallet"
       className="flex items-center gap-3 border-t border-separator px-4 py-[13px] transition-colors first:border-t-0 hover:bg-surface-2 sm:px-6"
     >
       <BrandChip color={card.color} width={34} height={23} />
@@ -170,7 +170,7 @@ export function Dashboard() {
             </div>
 
             <Panel className="pb-2">
-              <ListHeader title="Your wallet" linkLabel="Manage →" href="/app/cards" />
+              <ListHeader title="Your wallet" linkLabel="Manage →" href="/app/wallet" />
               <div>
                 {cards.map((card) => (
                   <WalletRow key={card.id} card={card} />
@@ -216,7 +216,7 @@ export function Dashboard() {
               </div>
             </Panel>
             <Panel className="pb-2">
-              <ListHeader title="Your wallet" linkLabel="Manage →" href="/app/cards" />
+              <ListHeader title="Your wallet" linkLabel="Manage →" href="/app/wallet" />
               <div>
                 {cards.map((card) => (
                   <WalletRow key={card.id} card={card} />
