@@ -106,6 +106,16 @@ after 5 days). Setup (this applies to the single `staging` backend):
      how the catalog populates); without it search/detail no-op.
 3. Nothing to add for Netlify — deploy previews live under the existing site
    (`NETLIFY_SITE_ID`); the workflow reuses `NETLIFY_AUTH_TOKEN`.
+4. **Sign-in on the staging URL** — staging serves at
+   `staging--offerbee-web.netlify.app`, a non-`offerbee.ai` origin. The prod Clerk
+   instance (`pk_live`, served from `clerk.offerbee.ai`) rejects non-`offerbee.ai`
+   origins, so prod keys make sign-in 400 there. To make auth work, use a Clerk
+   **development** instance: add GitHub secrets `CLERK_PUBLISHABLE_KEY_PREVIEW`
+   (`pk_test…`) and `CLERK_SECRET_KEY_PREVIEW` (`sk_test…`), and set the Convex
+   Preview-scope `CLERK_JWT_ISSUER_DOMAIN` (item 2) to that dev instance's issuer
+   (`https://<slug>.clerk.accounts.dev`). Dev instances accept any origin, so no
+   custom domain is needed. `staging-web.yml` prefers these and falls back to the
+   prod keys when absent, so the deploy stays green either way.
 
 ## Rollback
 
@@ -119,4 +129,5 @@ after 5 days). Setup (this applies to the single `staging` backend):
 
 `CONVEX_DEPLOY_KEY` (prod), `CONVEX_PREVIEW_DEPLOY_KEY` (staging),
 `NETLIFY_AUTH_TOKEN`, `NETLIFY_SITE_ID`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
-`CLERK_SECRET_KEY`.
+`CLERK_SECRET_KEY`, and — optional, for staging sign-in —
+`CLERK_PUBLISHABLE_KEY_PREVIEW` + `CLERK_SECRET_KEY_PREVIEW` (Clerk dev instance).
