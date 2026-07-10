@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  :root{
+    --bg:#FBF8F0; --surface:#FFFEFB; --surface2:#F5F1E8; --border:#E8E1D2; --sep:#ECE5D6;
+    --ink:#211D16; --sec:#6F6757; --ter:#9A927F;
+    --accent:#E8680E; --accent-soft:#FBEAD5; --on-accent:#ffffff;
+    --warn:#B4693A; --warn-soft:#F6E9DF; --alert:#C0503F; --track:#E4DECF;
+    --shadow:0 1px 2px rgba(33,29,22,.05),0 10px 28px rgba(33,29,22,.06);
+    --shadow-sm:0 1px 2px rgba(33,29,22,.06);
+  }
+  [data-theme="onyx"]{
+    --bg:#131417; --surface:#1C1D21; --surface2:#232529; --border:#2E3036; --sep:#292B30;
+    --ink:#ECEBE6; --sec:#9C9A93; --ter:#6E6C67;
+    --accent:#F59E3C; --accent-soft:#3A2C17; --on-accent:#17140E;
+    --warn:#D18A4E; --warn-soft:#332A20; --alert:#DB6650; --track:#2E3036;
+    --shadow:0 1px 2px rgba(0,0,0,.35),0 14px 34px rgba(0,0,0,.4);
+    --shadow-sm:0 1px 2px rgba(0,0,0,.35);
+  }
+  ::selection{ background:var(--accent-soft); }
+  a{ color:var(--accent); text-decoration:none; }
+  a:hover{ opacity:.82; }
+  ::-webkit-scrollbar{ width:11px;height:11px; }
+  ::-webkit-scrollbar-thumb{ background:var(--border);border-radius:8px;border:3px solid transparent;background-clip:content-box; }
+  @keyframes obfade{ from{opacity:0;transform:translateY(6px);} to{opacity:1;transform:none;} }
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="display:flex;min-height:100vh;background:var(--bg);color:var(--ink);font-family:'Public Sans',sans-serif;transition:background .3s,color .3s;">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside style="width:248px;flex-shrink:0;border-right:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;">
+    <div style="padding:22px 20px 16px;display:flex;align-items:center;gap:11px;">
+      <svg width="32" height="32" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beebodyW"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberW)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beebodyW)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+      <span style="font-family:'Source Serif 4',serif;font-size:21px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+    </div>
+
+    <nav style="padding:8px 12px;display:flex;flex-direction:column;gap:3px;">
+      <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="5">
+        <div onClick="{{ item.onClick }}" style="{{ item.style }}">
+          <span style="display:flex;align-items:center;gap:12px;">{{ item.icon }}<span>{{ item.label }}</span></span>
+          <sc-if value="{{ item.badge }}" hint-placeholder-val="{{ true }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:var(--accent-soft);color:var(--accent);padding:2px 7px;border-radius:7px;">{{ item.badge }}</span></sc-if>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="margin-top:auto;padding:14px 16px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:14px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">Net this year</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--accent);margin-top:3px;">{{ netStr }}</div>
+        <div style="font-size:11.5px;color:var(--sec);margin-top:1px;">beating {{ feesStr }} in fees</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:6px 4px;">
+        <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#F5B14D,#E8680E);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;flex-shrink:0;">M</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Maya Okafor</div>
+          <div style="font-size:11.5px;color:var(--ter);">Pro · 4 cards</div>
+        </div>
+        <div onClick="{{ toggleTheme }}" title="Toggle theme" style="width:34px;height:34px;border-radius:10px;border:1px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--sec);">{{ themeIcon }}</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;">
+
+    <!-- TOPBAR -->
+    <header style="position:sticky;top:0;z-index:20;background:color-mix(in srgb, var(--bg) 82%, transparent);backdrop-filter:blur(14px) saturate(160%);-webkit-backdrop-filter:blur(14px) saturate(160%);border-bottom:1px solid var(--border);padding:16px 34px;display:flex;align-items:center;gap:20px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.04em;color:var(--ter);">{{ pageEyebrow }}</div>
+        <div style="font-family:'Source Serif 4',serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.05;">{{ pageTitle }}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:9px 13px;width:250px;color:var(--ter);white-space:nowrap;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+        <span style="font-size:13.5px;">Search credits…</span>
+      </div>
+      <div onClick="{{ goAddCard }}" style="display:flex;align-items:center;gap:8px;background:var(--accent);color:var(--on-accent);font-size:14px;font-weight:600;padding:10px 16px;border-radius:11px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.22);">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 6v12M6 12h12"></path></svg>Add card
+      </div>
+    </header>
+
+    <div style="padding:30px 34px 56px;max-width:1180px;width:100%;">
+
+      <!-- ==================== DASHBOARD ==================== -->
+      <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ true }}">
+      <div style="animation:obfade .4s ease both;">
+        <!-- layout switcher -->
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--ter);">Layout</span>
+          <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;">
+            <div onClick="{{ setLayoutA }}" style="{{ layoutTabAStyle }}">A · Focus</div>
+            <div onClick="{{ setLayoutB }}" style="{{ layoutTabBStyle }}">B · Grid</div>
+          </div>
+          <span style="font-size:12.5px;color:var(--ter);">Two directions to compare — switch anytime.</span>
+        </div>
+
+        <!-- ===== LAYOUT A: FOCUS ===== -->
+        <sc-if value="{{ isLayoutA }}" hint-placeholder-val="{{ true }}">
+        <div style="display:grid;grid-template-columns:1.55fr 1fr;gap:20px;align-items:start;">
+          <div style="display:flex;flex-direction:column;gap:20px;">
+            <!-- hero captured -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:26px 28px;box-shadow:var(--shadow);">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">Captured value · 2026</div>
+                <div style="font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:4px 10px;border-radius:8px;">{{ pctStr }} captured</div>
+              </div>
+              <div style="display:flex;align-items:baseline;gap:12px;margin-top:8px;">
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:52px;font-weight:600;letter-spacing:-.03em;line-height:1;">{{ capturedStr }}</span>
+                <span style="font-size:15px;font-weight:600;color:var(--accent);">of {{ totalStr }}</span>
+              </div>
+              <div style="font-size:13.5px;color:var(--sec);margin-top:6px;">across 4 cards · {{ netStr }} beyond {{ feesStr }} in annual fees</div>
+              <div style="height:10px;border-radius:6px;background:var(--track);margin-top:18px;overflow:hidden;"><div style="width:{{ pctStr }};height:100%;background:var(--accent);border-radius:6px;transition:width .5s;"></div></div>
+            </div>
+            <!-- use before reset -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px 12px;">
+                <div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;">Use before they reset</div>
+                <span onClick="{{ goExpiring }}" style="font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;">See all →</span>
+              </div>
+              <sc-for list="{{ dashExpiring }}" as="c" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--sep);">
+                  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:46px;height:46px;border-radius:12px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;line-height:1;">{{ c.days }}</span><span style="font-size:8.5px;font-weight:600;">days</span></div>
+                  <div style="width:32px;height:22px;border-radius:5px;flex-shrink:0;background:{{ c.color }};"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;">{{ c.name }}</div><div style="font-size:12.5px;color:var(--sec);">{{ c.sub }}</div></div>
+                  <div onClick="{{ c.onToggle }}" style="{{ c.btnStyle }}">{{ c.btnLabel }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:20px;">
+            <!-- at a glance tiles -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow-sm);">
+                <div style="width:34px;height:34px;border-radius:10px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);margin-bottom:12px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3" y="6" width="18" height="12" rx="2.5"></rect><path d="M3 10h18"></path></svg></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;">{{ remainMonthStr }}</div>
+                <div style="font-size:12.5px;color:var(--sec);margin-top:2px;">left this month</div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow-sm);">
+                <div style="width:34px;height:34px;border-radius:10px;background:var(--warn-soft);display:flex;align-items:center;justify-content:center;color:var(--warn);margin-bottom:12px;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.2"></circle><path d="M12 7.5V12l3 1.8"></path></svg></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:var(--warn);">{{ atRiskStr }}</div>
+                <div style="font-size:12.5px;color:var(--sec);margin-top:2px;">expiring ≤7 days</div>
+              </div>
+            </div>
+            <!-- wallet summary -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 20px 12px;">
+                <div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;">Your wallet</div>
+                <span onClick="{{ goCards }}" style="font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;">Manage →</span>
+              </div>
+              <sc-for list="{{ cards }}" as="card" hint-placeholder-count="4">
+                <div onClick="{{ card.onSelect }}" style="display:flex;align-items:center;gap:13px;padding:13px 20px;border-top:1px solid var(--sep);cursor:pointer;">
+                  <div style="width:34px;height:23px;border-radius:5px;flex-shrink:0;background:{{ card.color }};"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">{{ card.name }}</div><div style="font-size:11.5px;color:var(--sec);">{{ card.sub }}</div></div>
+                  <div style="text-align:right;"><div style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:600;color:{{ card.netColor }};">{{ card.netStr }}</div><div style="font-size:10.5px;font-weight:600;color:{{ card.netColor }};">{{ card.verdict }}</div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+
+        <!-- ===== LAYOUT B: GRID ===== -->
+        <sc-if value="{{ isLayoutB }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;gap:20px;">
+          <!-- stat row -->
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+            <div style="grid-column:span 1;background:var(--accent);color:var(--on-accent);border-radius:18px;padding:20px;box-shadow:var(--shadow);">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.8;">Captured 2026</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:6px;">{{ capturedStr }}</div>
+              <div style="font-size:12px;opacity:.85;margin-top:2px;">{{ pctStr }} of {{ totalStr }}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:var(--shadow-sm);">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">Net vs fees</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:6px;color:var(--accent);">{{ netStr }}</div>
+              <div style="font-size:12px;color:var(--sec);margin-top:2px;">over {{ feesStr }} fees</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:var(--shadow-sm);">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">This month</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:6px;">{{ remainMonthStr }}</div>
+              <div style="font-size:12px;color:var(--sec);margin-top:2px;">still available</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:var(--shadow-sm);">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">At risk ≤7d</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:6px;color:var(--warn);">{{ atRiskStr }}</div>
+              <div style="font-size:12px;color:var(--sec);margin-top:2px;">act this week</div>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;">
+            <!-- expiring -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px 12px;"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;">Use before they reset</div><span onClick="{{ goExpiring }}" style="font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;">See all →</span></div>
+              <sc-for list="{{ dashExpiring }}" as="c" hint-placeholder-count="4">
+                <div style="display:flex;align-items:center;gap:13px;padding:13px 22px;border-top:1px solid var(--sep);">
+                  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:42px;height:42px;border-radius:11px;background:var(--warn-soft);color:var(--warn);flex-shrink:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;line-height:1;">{{ c.days }}</span><span style="font-size:8px;font-weight:600;">days</span></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">{{ c.name }}</div><div style="font-size:12px;color:var(--sec);">{{ c.sub }}</div></div>
+                  <div onClick="{{ c.onToggle }}" style="{{ c.btnStyle }}">{{ c.btnLabel }}</div>
+                </div>
+              </sc-for>
+            </div>
+            <!-- wallet grid -->
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px 12px;"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;">Your wallet</div><span onClick="{{ goCards }}" style="font-size:13px;font-weight:600;color:var(--accent);cursor:pointer;">Manage →</span></div>
+              <sc-for list="{{ cards }}" as="card" hint-placeholder-count="4">
+                <div onClick="{{ card.onSelect }}" style="display:flex;align-items:center;gap:13px;padding:13px 22px;border-top:1px solid var(--sep);cursor:pointer;">
+                  <div style="width:34px;height:23px;border-radius:5px;flex-shrink:0;background:{{ card.color }};"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">{{ card.name }}</div><div style="font-size:11.5px;color:var(--sec);">{{ card.sub }}</div></div>
+                  <div style="text-align:right;"><div style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:600;color:{{ card.netColor }};">{{ card.netStr }}</div><div style="font-size:10.5px;font-weight:600;color:{{ card.netColor }};">{{ card.verdict }}</div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ==================== BENEFITS ==================== -->
+      <sc-if value="{{ isBenefits }}" hint-placeholder-val="{{ true }}">
+      <div style="animation:obfade .4s ease both;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+          <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:3px;gap:2px;">
+            <div onClick="{{ setFilterMonthly }}" style="{{ fMonthlyStyle }}">Monthly</div>
+            <div onClick="{{ setFilterQuarterly }}" style="{{ fQuarterlyStyle }}">Quarterly</div>
+            <div onClick="{{ setFilterAnnual }}" style="{{ fAnnualStyle }}">Annual</div>
+            <div onClick="{{ setFilterAll }}" style="{{ fAllStyle }}">All</div>
+          </div>
+          <div style="font-size:13.5px;color:var(--sec);"><strong style="color:var(--ink);font-family:'IBM Plex Mono',monospace;">{{ benefitAvailStr }}</strong> still available across {{ benefitOpenCount }} credits</div>
+        </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);">
+          <div style="display:grid;grid-template-columns:1.6fr 1fr .8fr auto;gap:14px;padding:12px 24px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ter);border-bottom:1px solid var(--sep);">
+            <span>Credit</span><span>Card</span><span>Cycle</span><span style="text-align:right;">Status</span>
+          </div>
+          <sc-for list="{{ visibleCredits }}" as="c" hint-placeholder-count="6">
+            <div style="display:grid;grid-template-columns:1.6fr 1fr .8fr auto;gap:14px;align-items:center;padding:15px 24px;border-top:1px solid var(--sep);">
+              <div style="display:flex;align-items:center;gap:13px;min-width:0;"><div style="width:34px;height:23px;border-radius:5px;flex-shrink:0;background:{{ c.color }};"></div><div style="min-width:0;"><div style="font-size:14.5px;font-weight:600;">{{ c.name }}</div><div style="font-size:12px;color:{{ c.subColor }};">{{ c.reset }}</div></div></div>
+              <div style="font-size:13.5px;color:var(--sec);">{{ c.card }}</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;">{{ c.amountStr }}</div>
+              <div style="display:flex;justify-content:flex-end;"><div onClick="{{ c.onToggle }}" style="{{ c.btnStyle }}">{{ c.btnLabel }}</div></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ==================== EXPIRING ==================== -->
+      <sc-if value="{{ isExpiring }}" hint-placeholder-val="{{ true }}">
+      <div style="animation:obfade .4s ease both;display:flex;flex-direction:column;gap:24px;">
+        <div style="display:flex;align-items:center;gap:16px;">
+          <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:3px;gap:2px;">
+            <div onClick="{{ setRangeWeek }}" style="{{ rWeekStyle }}">This week</div>
+            <div onClick="{{ setRangeMonth }}" style="{{ rMonthStyle }}">This month</div>
+          </div>
+          <div style="font-size:13.5px;color:var(--alert);font-weight:600;font-family:'IBM Plex Mono',monospace;">{{ expiringTotalStr }} at risk</div>
+        </div>
+        <sc-for list="{{ expiringGroups }}" as="g" hint-placeholder-count="2">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:{{ g.labelColor }};">{{ g.label }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;font-weight:600;color:{{ g.labelColor }};">{{ g.sumStr }}</span></div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow-sm);">
+              <sc-for list="{{ g.items }}" as="c" hint-placeholder-count="3">
+                <div style="display:flex;align-items:center;gap:14px;padding:15px 20px;border-top:1px solid var(--sep);">
+                  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:48px;height:48px;border-radius:12px;flex-shrink:0;background:{{ c.tileBg }};color:{{ c.tileColor }};"><span style="font-family:'IBM Plex Mono',monospace;font-size:17px;font-weight:600;line-height:1;">{{ c.days }}</span><span style="font-size:8.5px;font-weight:600;">days</span></div>
+                  <div style="width:36px;height:24px;border-radius:5px;flex-shrink:0;background:{{ c.color }};"></div>
+                  <div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:600;">{{ c.name }}</div><div style="font-size:12.5px;color:var(--sec);">{{ c.sub }}</div></div>
+                  <div onClick="{{ c.onToggle }}" style="{{ c.btnStyle }}">{{ c.btnLabel }}</div>
+                  <div onClick="{{ c.onSnooze }}" style="font-size:12.5px;font-weight:600;color:var(--sec);border:1px solid var(--border);padding:8px 13px;border-radius:9px;cursor:pointer;">Snooze</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- ==================== CARDS ==================== -->
+      <sc-if value="{{ isCards }}" hint-placeholder-val="{{ true }}">
+      <div style="animation:obfade .4s ease both;">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px 26px;box-shadow:var(--shadow);margin-bottom:22px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px;">
+          <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">Net across 4 cards</div><div style="font-family:'IBM Plex Mono',monospace;font-size:38px;font-weight:600;letter-spacing:-.02em;color:var(--accent);margin-top:4px;">{{ netStr }}</div><div style="font-size:13px;color:var(--sec);margin-top:2px;">{{ capturedStr }} captured · {{ feesStr }} in fees</div></div>
+          <div style="display:flex;gap:24px;">
+            <div style="text-align:center;"><div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:var(--accent);">3</div><div style="font-size:12px;color:var(--sec);">worth keeping</div></div>
+            <div style="width:1px;background:var(--border);"></div>
+            <div style="text-align:center;"><div style="font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:600;color:var(--warn);">1</div><div style="font-size:12px;color:var(--sec);">to review</div></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:18px;">
+          <sc-for list="{{ cards }}" as="card" hint-placeholder-count="4">
+            <div onClick="{{ card.onSelect }}" style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:22px;box-shadow:var(--shadow-sm);cursor:pointer;">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div style="width:88px;height:56px;border-radius:10px;background:{{ card.color }};position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.18),rgba(0,0,0,.15));"></div></div>
+                <span style="font-size:11px;font-weight:600;color:{{ card.verdictInk }};background:{{ card.verdictBg }};padding:5px 11px;border-radius:8px;">{{ card.verdict }}</span>
+              </div>
+              <div style="font-family:'Source Serif 4',serif;font-size:20px;font-weight:600;margin-top:16px;">{{ card.name }}</div>
+              <div style="font-size:13px;color:var(--sec);margin-top:2px;">{{ card.sub }}</div>
+              <div style="height:8px;border-radius:5px;background:var(--track);margin-top:16px;overflow:hidden;"><div style="width:{{ card.pct }};height:100%;background:{{ card.netColor }};border-radius:5px;"></div></div>
+              <div style="display:flex;justify-content:space-between;margin-top:10px;"><span style="font-size:12.5px;color:var(--sec);">{{ card.capturedStr }} captured</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13.5px;font-weight:600;color:{{ card.netColor }};">{{ card.netStr }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ==================== CARD DETAIL ==================== -->
+      <sc-if value="{{ isCardDetail }}" hint-placeholder-val="{{ true }}">
+      <div style="animation:obfade .4s ease both;">
+        <div onClick="{{ goCards }}" style="display:inline-flex;align-items:center;gap:6px;color:var(--accent);font-size:14px;font-weight:600;cursor:pointer;margin-bottom:18px;"><svg width="8" height="14" viewBox="0 0 9 16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1 1 8l7 7"></path></svg>All cards</div>
+        <div style="display:grid;grid-template-columns:1fr 1.4fr;gap:22px;align-items:start;">
+          <div style="display:flex;flex-direction:column;gap:18px;">
+            <div style="height:172px;border-radius:18px;background:{{ detail.color }};position:relative;overflow:hidden;padding:22px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:var(--shadow);">
+              <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.16));"></div>
+              <div style="position:relative;display:flex;justify-content:space-between;align-items:flex-start;"><span style="font-family:'Source Serif 4',serif;font-weight:600;color:#F1ECE0;font-size:17px;letter-spacing:.02em;">{{ detail.name }}</span><div style="width:34px;height:26px;border-radius:5px;background:rgba(255,255,255,.35);"></div></div>
+              <div style="position:relative;font-size:12.5px;color:#DED9CD;">{{ detail.terms }}</div>
+            </div>
+            <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;box-shadow:var(--shadow-sm);">
+              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">Captured this year</span><span style="font-size:11px;font-weight:600;color:{{ detail.verdictInk }};background:{{ detail.verdictBg }};padding:4px 10px;border-radius:7px;">{{ detail.verdict }}</span></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:34px;font-weight:600;letter-spacing:-.03em;margin-top:6px;">{{ detail.capturedStr }}</div>
+              <div style="height:8px;border-radius:5px;background:var(--track);margin-top:12px;overflow:hidden;"><div style="width:{{ detail.pct }};height:100%;background:{{ detail.netColor }};"></div></div>
+              <div style="font-size:13px;color:{{ detail.netColor }};font-weight:600;margin-top:9px;">{{ detail.netLine }}</div>
+            </div>
+          </div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);">
+            <div style="padding:18px 22px 12px;font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;">Credits · {{ detail.creditCount }}</div>
+            <sc-for list="{{ detail.credits }}" as="c" hint-placeholder-count="5">
+              <div style="display:flex;align-items:center;gap:14px;padding:14px 22px;border-top:1px solid var(--sep);">
+                <div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;">{{ c.name }}</div><div style="font-size:12px;color:{{ c.subColor }};">{{ c.detailSub }}</div></div>
+                <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--sec);">{{ c.progStr }}</span>
+                <div onClick="{{ c.onToggle }}" style="{{ c.btnStyle }}">{{ c.btnLabel }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ==================== SETTINGS ==================== -->
+      <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ true }}">
+      <div style="animation:obfade .4s ease both;max-width:720px;display:flex;flex-direction:column;gap:24px;">
+        <!-- profile -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:24px;box-shadow:var(--shadow);display:flex;align-items:center;gap:18px;">
+          <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#F5B14D,#E8680E);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:26px;flex-shrink:0;">M</div>
+          <div style="flex:1;"><div style="font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;">Maya Okafor</div><div style="font-size:13.5px;color:var(--sec);">maya@okafor.co · member since 2024</div></div>
+          <div style="font-size:13px;font-weight:600;color:var(--sec);border:1px solid var(--border);padding:9px 15px;border-radius:10px;cursor:pointer;">Edit profile</div>
+        </div>
+        <!-- plan -->
+        <div style="background:var(--ink);border-radius:20px;padding:24px;box-shadow:var(--shadow);display:flex;justify-content:space-between;align-items:center;color:var(--bg);">
+          <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;opacity:.7;">Current plan</div><div style="font-family:'Source Serif 4',serif;font-size:22px;font-weight:600;margin-top:4px;">OfferBee Pro</div><div style="font-size:13px;opacity:.75;margin-top:2px;">$4/mo · unlimited cards · renews Aug 2026</div></div>
+          <div style="background:var(--accent);color:var(--on-accent);font-size:13.5px;font-weight:600;padding:11px 18px;border-radius:11px;cursor:pointer;">Manage billing</div>
+        </div>
+        <!-- appearance -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow-sm);">
+          <div style="padding:16px 22px 8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">Appearance</div>
+          <div style="display:flex;align-items:center;gap:14px;padding:16px 22px;border-top:1px solid var(--sep);">
+            <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Theme</div><div style="font-size:12.5px;color:var(--sec);">Switch between Honey and Onyx.</div></div>
+            <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:3px;gap:2px;">
+              <div onClick="{{ setHoney }}" style="{{ honeyTabStyle }}">Honey</div>
+              <div onClick="{{ setOnyx }}" style="{{ onyxTabStyle }}">Onyx</div>
+            </div>
+          </div>
+        </div>
+        <!-- notifications -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow-sm);">
+          <div style="padding:16px 22px 8px;font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);">Notifications</div>
+          <sc-for list="{{ settingRows }}" as="s" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:14px;padding:16px 22px;border-top:1px solid var(--sep);">
+              <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ s.label }}</div><div style="font-size:12.5px;color:var(--sec);">{{ s.desc }}</div></div>
+              <div onClick="{{ s.onToggle }}" style="{{ s.trackStyle }}"><div style="{{ s.knobStyle }}"></div></div>
+            </div>
+          </sc-for>
+        </div>
+        <!-- danger -->
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;text-align:center;font-size:13.5px;font-weight:600;color:var(--sec);border:1px solid var(--border);padding:13px;border-radius:12px;cursor:pointer;">Export data (CSV)</div>
+          <div style="flex:1;text-align:center;font-size:13.5px;font-weight:600;color:var(--alert);border:1px solid var(--border);padding:13px;border-radius:12px;cursor:pointer;">Sign out</div>
+        </div>
+      </div>
+      </sc-if>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1280,&quot;height&quot;:860}}">
+class Component extends DCLogic {
+  state = {
+    page: 'dashboard',
+    theme: 'honey',
+    dashLayout: 'A',
+    selectedCardId: 'platinum',
+    benefitFilter: 'monthly',
+    expiringRange: 'week',
+    settings: { reminders: true, weekly: true, expiryPush: true, renewalAlert: false },
+    credits: [
+      // ---- Amex Platinum ----
+      { id:'p1', name:'Uber Cash',        card:'Amex Platinum', cardId:'platinum', color:'#3A4048', amount:15,  cycle:'monthly',   used:true,  days:12 },
+      { id:'p2', name:'Streaming credit', card:'Amex Platinum', cardId:'platinum', color:'#3A4048', amount:20,  cycle:'monthly',   used:true,  days:12 },
+      { id:'p3', name:'Wireless credit',  card:'Amex Platinum', cardId:'platinum', color:'#3A4048', amount:10,  cycle:'monthly',   used:false, days:6 },
+      { id:'p4', name:'Saks Fifth Ave',   card:'Amex Platinum', cardId:'platinum', color:'#3A4048', amount:50,  cycle:'quarterly', used:false, days:18 },
+      { id:'p5', name:'Airline fee credit',card:'Amex Platinum',cardId:'platinum', color:'#3A4048', amount:200, cycle:'annual',    used:true,  days:210 },
+      { id:'p6', name:'CLEAR Plus',       card:'Amex Platinum', cardId:'platinum', color:'#3A4048', amount:189, cycle:'annual',    used:false, days:96 },
+      { id:'p7', name:'Hotel credit',     card:'Amex Platinum', cardId:'platinum', color:'#3A4048', amount:300, cycle:'annual',    used:true,  days:150 },
+      { id:'p8', name:'Equinox credit',   card:'Amex Platinum', cardId:'platinum', color:'#3A4048', amount:300, cycle:'annual',    used:true,  days:120 },
+      // ---- Amex Gold ----
+      { id:'g1', name:'Dining credit',    card:'Amex Gold',     cardId:'gold',     color:'#B08A3E', amount:10,  cycle:'monthly',   used:false, days:2 },
+      { id:'g2', name:'Resy dining',      card:'Amex Gold',     cardId:'gold',     color:'#B08A3E', amount:250, cycle:'quarterly', used:true,  days:40 },
+      { id:'g3', name:'Hotel collection', card:'Amex Gold',     cardId:'gold',     color:'#B08A3E', amount:160, cycle:'annual',    used:true,  days:100 },
+      // ---- Sapphire Reserve ----
+      { id:'s1', name:'Travel credit',    card:'Sapphire Reserve', cardId:'sapphire', color:'#1E6FB8', amount:25, cycle:'monthly',   used:false, days:5 },
+      { id:'s2', name:'Lyft credit',      card:'Sapphire Reserve', cardId:'sapphire', color:'#1E6FB8', amount:15, cycle:'monthly',   used:false, days:23 },
+      { id:'s3', name:'DoorDash credit',  card:'Sapphire Reserve', cardId:'sapphire', color:'#1E6FB8', amount:45, cycle:'quarterly', used:false, days:31 },
+      { id:'s4', name:'Hotel credit',     card:'Sapphire Reserve', cardId:'sapphire', color:'#1E6FB8', amount:300, cycle:'annual',   used:true,  days:150 },
+      { id:'s5', name:'Annual travel',    card:'Sapphire Reserve', cardId:'sapphire', color:'#1E6FB8', amount:300, cycle:'annual',   used:true,  days:180 },
+      // ---- Hilton Aspire ----
+      { id:'x1', name:'Resort credit',    card:'Hilton Aspire', cardId:'aspire',   color:'#7A2E3B', amount:400, cycle:'annual',    used:true,  days:120 },
+      { id:'x2', name:'Flight credit',    card:'Hilton Aspire', cardId:'aspire',   color:'#7A2E3B', amount:100, cycle:'annual',    used:true,  days:90 },
+      { id:'x3', name:'Airline incidental',card:'Hilton Aspire',cardId:'aspire',   color:'#7A2E3B', amount:100, cycle:'annual',    used:false, days:88 },
+    ],
+  };
+
+  cardsBase() {
+    return [
+      { id:'platinum', name:'Amex Platinum',    color:'#3A4048', fee:695, terms:'$695 / yr · renews Mar 2027' },
+      { id:'gold',     name:'Amex Gold',        color:'#B08A3E', fee:325, terms:'$325 / yr · renews Sep 2026' },
+      { id:'sapphire', name:'Sapphire Reserve', color:'#1E6FB8', fee:550, terms:'$550 / yr · renews Jan 2027' },
+      { id:'aspire',   name:'Hilton Aspire',    color:'#7A2E3B', fee:550, terms:'$550 / yr · renews Nov 2026' },
+    ];
+  }
+
+  usd(n){ return '$' + Math.round(n).toLocaleString('en-US'); }
+
+  icon(name) {
+    const P = (d, extra) => React.createElement('svg', Object.assign({ width:19, height:19, viewBox:'0 0 24 24', fill:'none', stroke:'currentColor', strokeWidth:1.8, strokeLinecap:'round', strokeLinejoin:'round' }, extra||{}), d.map((dd,i)=>React.createElement('path',{key:i,d:dd})));
+    switch(name){
+      case 'dashboard': return P(['M4 11.5 12 4.5l8 7','M6 10.5V20h4v-5h4v5h4v-9.5']);
+      case 'benefits':  return P(['M4 6.5 5.3 7.8 7.5 5.5','M4 12.5 5.3 13.8 7.5 11.5','M4 18.3 5.3 19.6 7.5 17.3','M11 6.5h9M11 12.5h9M11 18.5h6']);
+      case 'expiring':  return React.createElement('svg',{width:19,height:19,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('circle',{cx:12,cy:12,r:8.2}),React.createElement('path',{d:'M12 7.5V12l3 1.8'}));
+      case 'cards':     return React.createElement('svg',{width:19,height:19,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('rect',{x:3,y:6,width:18,height:12,rx:2.5}),React.createElement('path',{d:'M3 10h18'}));
+      case 'settings':  return React.createElement('svg',{width:19,height:19,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.8,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('circle',{cx:12,cy:12,r:3}),React.createElement('path',{d:'M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z'}));
+      case 'sun': return React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('circle',{cx:12,cy:12,r:4}),React.createElement('path',{d:'M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4'}));
+      case 'moon': return React.createElement('svg',{width:18,height:18,viewBox:'0 0 24 24',fill:'none',stroke:'currentColor',strokeWidth:1.9,strokeLinecap:'round',strokeLinejoin:'round'},React.createElement('path',{d:'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'}));
+    }
+    return null;
+  }
+
+  setPage(p){ this.setState({ page:p }); }
+  toggleTheme(){ this.setState(s=>({ theme: s.theme==='honey'?'onyx':'honey' })); }
+  markUsed(id){ this.setState(s=>({ credits: s.credits.map(c=>c.id===id?Object.assign({},c,{used:!c.used}):c) })); }
+  snooze(id){ this.setState(s=>({ credits: s.credits.map(c=>c.id===id?Object.assign({},c,{days:c.days+30}):c) })); }
+  selectCard(id){ this.setState({ selectedCardId:id, page:'cardDetail' }); }
+  toggleSetting(k){ this.setState(s=>({ settings: Object.assign({}, s.settings, { [k]: !s.settings[k] }) })); }
+
+  navItemStyle(active){
+    return 'display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:11px;font-size:14.5px;font-weight:'+(active?'600':'500')+';cursor:pointer;color:'+(active?'var(--accent)':'var(--sec)')+';background:'+(active?'var(--accent-soft)':'transparent')+';';
+  }
+  segStyle(active){
+    return 'padding:7px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;color:'+(active?'var(--ink)':'var(--sec)')+';background:'+(active?'var(--surface)':'transparent')+';box-shadow:'+(active?'var(--shadow-sm)':'none')+';';
+  }
+  btnStyle(used){
+    if(used) return 'font-size:12.5px;font-weight:600;color:var(--accent);background:var(--accent-soft);padding:7px 12px;border-radius:9px;cursor:pointer;white-space:nowrap;';
+    return 'font-size:12.5px;font-weight:600;color:var(--on-accent);background:var(--accent);padding:7px 13px;border-radius:9px;cursor:pointer;white-space:nowrap;';
+  }
+
+  renderVals(){
+    const s = this.state;
+    const credits = s.credits;
+    const cardsBase = this.cardsBase();
+    const usd = (n)=>this.usd(n);
+
+    // ---- totals ----
+    const total = credits.reduce((a,c)=>a+c.amount,0);
+    const captured = credits.filter(c=>c.used).reduce((a,c)=>a+c.amount,0);
+    const pct = total? Math.round(captured/total*100) : 0;
+    const fees = cardsBase.reduce((a,c)=>a+c.fee,0);
+    const net = captured - fees;
+    const remainMonth = credits.filter(c=>c.cycle==='monthly'&&!c.used).reduce((a,c)=>a+c.amount,0);
+    const atRisk = credits.filter(c=>!c.used&&c.days<=7).reduce((a,c)=>a+c.amount,0);
+
+    // ---- per-card computed ----
+    const cardCaptured = {};
+    cardsBase.forEach(cb=>{ cardCaptured[cb.id] = credits.filter(c=>c.cardId===cb.id&&c.used).reduce((a,c)=>a+c.amount,0); });
+    const cards = cardsBase.map(cb=>{
+      const cap = cardCaptured[cb.id];
+      const cnet = cap - cb.fee;
+      const keep = cnet >= 0;
+      return {
+        id:cb.id, name:cb.name, color:cb.color,
+        sub:'$'+cb.fee+' fee · '+usd(cap)+' captured',
+        capturedStr: usd(cap),
+        netStr:(cnet>=0?'+':'−')+'$'+Math.abs(cnet),
+        netColor: keep?'var(--accent)':'var(--warn)',
+        verdict: keep?'Keep':'Review',
+        verdictInk: keep?'var(--accent)':'var(--warn)',
+        verdictBg: keep?'var(--accent-soft)':'var(--warn-soft)',
+        pct: Math.min(100, Math.round(cap/cb.fee*100))+'%',
+        onSelect: ()=>this.selectCard(cb.id),
+      };
+    });
+
+    // ---- credit decorator ----
+    const cycleLabel = { monthly:'Monthly', quarterly:'Quarterly', annual:'Annual' };
+    const decorate = (c)=>({
+      id:c.id, name:c.name, card:c.card, color:c.color, used:c.used, days:c.days,
+      amountStr: usd(c.amount),
+      sub: c.card+' · '+usd(c.amount),
+      reset: c.used ? 'Used this cycle' : (c.cycle==='monthly'?('$'+c.amount+' · resets in '+c.days+'d'):('$'+c.amount+' · '+cycleLabel[c.cycle])),
+      subColor: (!c.used && c.days<=3) ? 'var(--alert)' : 'var(--sec)',
+      btnLabel: c.used?'Used ✓':'Mark used',
+      btnStyle: this.btnStyle(c.used),
+      onToggle: ()=>this.markUsed(c.id),
+      onSnooze: ()=>this.snooze(c.id),
+    });
+
+    // ---- benefits (filtered) ----
+    const f = s.benefitFilter;
+    const filtered = credits.filter(c=> f==='all' ? true : c.cycle===f);
+    const visibleCredits = filtered.map(decorate);
+    const benefitOpen = filtered.filter(c=>!c.used);
+    const benefitAvail = benefitOpen.reduce((a,c)=>a+c.amount,0);
+
+    // ---- expiring ----
+    const range = s.expiringRange;
+    const horizon = range==='week'?7:31;
+    const exp = credits.filter(c=>!c.used && c.days<=horizon).sort((a,b)=>a.days-b.days);
+    const expTotal = exp.reduce((a,c)=>a+c.amount,0);
+    const soonItems = exp.filter(c=>c.days<=7);
+    const laterItems = exp.filter(c=>c.days>7);
+    const mkExp = (c)=>{
+      const d = decorate(c);
+      const urgent = c.days<=7;
+      d.tileBg = urgent?'var(--warn-soft)':'var(--track)';
+      d.tileColor = urgent?'var(--warn)':'var(--sec)';
+      return d;
+    };
+    const expiringGroups = [];
+    if(soonItems.length) expiringGroups.push({ label:'Next 7 days', labelColor:'var(--alert)', sumStr:usd(soonItems.reduce((a,c)=>a+c.amount,0))+' at risk', items:soonItems.map(mkExp) });
+    if(laterItems.length) expiringGroups.push({ label: range==='week'?'Also soon':'Later this month', labelColor:'var(--ter)', sumStr:usd(laterItems.reduce((a,c)=>a+c.amount,0)), items:laterItems.map(mkExp) });
+
+    const dashExpiring = credits.filter(c=>!c.used).sort((a,b)=>a.days-b.days).slice(0,4).map(decorate);
+
+    // ---- card detail ----
+    const cb = cardsBase.find(c=>c.id===s.selectedCardId) || cardsBase[0];
+    const detCap = cardCaptured[cb.id];
+    const detNet = detCap - cb.fee;
+    const detKeep = detNet>=0;
+    const detCredits = credits.filter(c=>c.cardId===cb.id).map(c=>{
+      const d = decorate(c);
+      d.detailSub = cycleLabel[c.cycle] + (c.used?' · used':' · available');
+      d.progStr = c.used ? ('$'+c.amount+'/$'+c.amount) : ('$0/$'+c.amount);
+      d.subColor = (!c.used && c.days<=3)?'var(--alert)':'var(--sec)';
+      return d;
+    });
+    const detail = {
+      name:cb.name, color:cb.color, terms:cb.terms,
+      capturedStr: usd(detCap),
+      pct: Math.min(100,Math.round(detCap/cb.fee*100))+'%',
+      netColor: detKeep?'var(--accent)':'var(--warn)',
+      netLine: (detKeep?'+$'+detNet+' over':'−$'+Math.abs(detNet)+' under')+' the $'+cb.fee+' fee',
+      verdict: detKeep?'Keep':'Review',
+      verdictInk: detKeep?'var(--accent)':'var(--warn)',
+      verdictBg: detKeep?'var(--accent-soft)':'var(--warn-soft)',
+      creditCount: detCredits.length,
+      credits: detCredits,
+    };
+
+    // ---- nav ----
+    const page = s.page;
+    const navDef = [
+      ['dashboard','Dashboard','dashboard', null],
+      ['benefits','Benefits','benefits', null],
+      ['expiring','Expiring','expiring', atRisk>0? String(credits.filter(c=>!c.used&&c.days<=7).length) : null],
+      ['cards','Cards','cards', null],
+      ['settings','Settings','settings', null],
+    ];
+    const navItems = navDef.map(n=>{
+      const active = (n[0]===page) || (n[0]==='cards' && page==='cardDetail');
+      return { label:n[1], icon:this.icon(n[2]), badge:n[3], style:this.navItemStyle(active), onClick:()=>this.setPage(n[0]) };
+    });
+
+    // ---- page titles ----
+    const titles = {
+      dashboard:['Wednesday, July 8','Good morning, Maya'],
+      benefits:['All credits','Benefits'],
+      expiring:['Act before they reset','Expiring soon'],
+      cards:['Fee vs. value','Your cards'],
+      cardDetail:['Card detail', cb.name],
+      settings:['Preferences','Settings'],
+    };
+    const tt = titles[page] || titles.dashboard;
+
+    // ---- settings toggles ----
+    const st = s.settings;
+    const toggleTrack = (on)=>'width:44px;height:26px;border-radius:14px;padding:3px;cursor:pointer;display:flex;transition:background .2s;background:'+(on?'var(--accent)':'var(--track)')+';justify-content:'+(on?'flex-end':'flex-start')+';';
+    const toggleKnob = 'width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);';
+    const settingDefs = [
+      ['reminders','Smart reminders','Timed to how you actually spend.'],
+      ['expiryPush','Expiry alerts','Push me before a credit resets.'],
+      ['weekly','Weekly digest','A Monday summary of what to use.'],
+      ['renewalAlert','Renewal alerts','Warn me before an annual fee posts.'],
+    ];
+    const settingRows = settingDefs.map(d=>({
+      label:d[1], desc:d[2],
+      trackStyle: toggleTrack(st[d[0]]),
+      knobStyle: toggleKnob,
+      onToggle: ()=>this.toggleSetting(d[0]),
+    }));
+
+    return {
+      theme: s.theme,
+      themeIcon: this.icon(s.theme==='honey'?'moon':'sun'),
+      toggleTheme: ()=>this.toggleTheme(),
+
+      navItems,
+      pageTitle: tt[1], pageEyebrow: tt[0],
+
+      isDashboard: page==='dashboard',
+      isBenefits: page==='benefits',
+      isExpiring: page==='expiring',
+      isCards: page==='cards',
+      isCardDetail: page==='cardDetail',
+      isSettings: page==='settings',
+
+      goExpiring: ()=>this.setPage('expiring'),
+      goCards: ()=>this.setPage('cards'),
+      goAddCard: ()=>this.setPage('cards'),
+
+      // dashboard layout
+      isLayoutA: s.dashLayout==='A',
+      isLayoutB: s.dashLayout==='B',
+      setLayoutA: ()=>this.setState({dashLayout:'A'}),
+      setLayoutB: ()=>this.setState({dashLayout:'B'}),
+      layoutTabAStyle: this.segStyle(s.dashLayout==='A'),
+      layoutTabBStyle: this.segStyle(s.dashLayout==='B'),
+
+      // totals
+      capturedStr: usd(captured), totalStr: usd(total), pctStr: pct+'%',
+      netStr:(net>=0?'+':'−')+'$'+Math.abs(net).toLocaleString('en-US'),
+      feesStr: usd(fees),
+      remainMonthStr: usd(remainMonth),
+      atRiskStr: usd(atRisk),
+
+      cards, dashExpiring,
+
+      // benefits
+      visibleCredits,
+      benefitAvailStr: usd(benefitAvail),
+      benefitOpenCount: benefitOpen.length,
+      setFilterMonthly: ()=>this.setState({benefitFilter:'monthly'}),
+      setFilterQuarterly: ()=>this.setState({benefitFilter:'quarterly'}),
+      setFilterAnnual: ()=>this.setState({benefitFilter:'annual'}),
+      setFilterAll: ()=>this.setState({benefitFilter:'all'}),
+      fMonthlyStyle: this.segStyle(f==='monthly'),
+      fQuarterlyStyle: this.segStyle(f==='quarterly'),
+      fAnnualStyle: this.segStyle(f==='annual'),
+      fAllStyle: this.segStyle(f==='all'),
+
+      // expiring
+      expiringGroups, expiringTotalStr: usd(expTotal),
+      setRangeWeek: ()=>this.setState({expiringRange:'week'}),
+      setRangeMonth: ()=>this.setState({expiringRange:'month'}),
+      rWeekStyle: this.segStyle(range==='week'),
+      rMonthStyle: this.segStyle(range==='month'),
+
+      // card detail
+      detail,
+
+      // settings
+      settingRows,
+      setHoney: ()=>this.setState({theme:'honey'}),
+      setOnyx: ()=>this.setState({theme:'onyx'}),
+      honeyTabStyle: this.segStyle(s.theme==='honey'),
+      onyxTabStyle: this.segStyle(s.theme==='onyx'),
+    };
+  }
+}
+</script>
+</body>
+</html>
