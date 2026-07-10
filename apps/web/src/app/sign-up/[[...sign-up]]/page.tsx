@@ -5,8 +5,8 @@ export default function SignUpPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-16">
       {/* Land straight on the wallet, not the /app redirect index. */}
       <SignUp
-        fallbackRedirectUrl="/app/cards"
-        signInFallbackRedirectUrl="/app/cards"
+        fallbackRedirectUrl="/app"
+        signInFallbackRedirectUrl="/app"
       />
     </div>
   );

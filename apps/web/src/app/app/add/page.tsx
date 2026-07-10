@@ -25,9 +25,11 @@ export default function AddCardPage() {
   useEffect(() => {
     const t = term.trim();
     if (t.length < 2) {
+      /* eslint-disable react-hooks/set-state-in-effect -- reset debounced search state when the query is cleared */
       setResults([]);
       setSearched(false);
       setSearching(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
       return;
     }
     const id = ++reqId.current;
@@ -56,7 +58,7 @@ export default function AddCardPage() {
     setError(null);
     try {
       await addCard({ cardKey });
-      router.push("/app/cards");
+      router.push("/app/wallet");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add card");
       setAdding(null);
