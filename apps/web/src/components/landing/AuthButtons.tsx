@@ -10,7 +10,7 @@ export function NavAuthButtons() {
     return (
       <>
         <Link
-          href="/app"
+          href="/app/cards"
           className="text-[15px] font-semibold text-ink transition-colors hover:text-accent"
         >
           Open app
@@ -22,7 +22,11 @@ export function NavAuthButtons() {
 
   return (
     <>
-      <SignInButton mode="modal">
+      <SignInButton
+        mode="modal"
+        fallbackRedirectUrl="/app/cards"
+        signUpFallbackRedirectUrl="/app/cards"
+      >
         <button
           type="button"
           className="text-[15px] font-semibold text-ink transition-colors hover:text-accent"
@@ -44,7 +48,7 @@ export function HeroAuthButton() {
   const { isSignedIn } = useUser();
   return (
     <Link
-      href={isSignedIn ? "/app" : "/sign-up"}
+      href={isSignedIn ? "/app/cards" : "/sign-up"}
       className="rounded-[13px] bg-accent px-[26px] py-[14px] text-[16px] font-semibold text-white shadow-[0_8px_20px_rgba(232,104,14,.24)] transition-colors hover:bg-accent-strong"
     >
       {isSignedIn ? "Open app" : "Get started"}
