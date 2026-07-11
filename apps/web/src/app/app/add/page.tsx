@@ -2,11 +2,40 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { Button, Card, EmptyState, Spinner } from "@/components/app/ui";
+import { cardColor } from "@/components/app/data";
 
 type Result = { cardKey: string; cardName: string; cardIssuer: string };
+
+function CardArt({
+  cardKey,
+  imageUrl,
+  size = 44,
+}: {
+  cardKey: string;
+  imageUrl?: string | null;
+  size?: number;
+}) {
+  if (imageUrl)
+    // Plain <img>: the card-image host path rotates (see wallet page).
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={imageUrl}
+        alt=""
+        style={{ width: size * 1.4, height: size }}
+        className="shrink-0 rounded-[6px] border border-border object-cover"
+      />
+    );
+  return (
+    <span
+      style={{ width: size * 1.4, height: size, background: cardColor(cardKey) }}
+      className="shrink-0 rounded-[6px] border border-border"
+    />
+  );
+}
 
 export default function AddCardPage() {
   const router = useRouter();
@@ -19,7 +48,10 @@ export default function AddCardPage() {
 
   const searchCards = useAction(api.rapidapi.searchCards);
   const addCard = useMutation(api.wallet.addCard);
+  const popular = useQuery(api.catalog.popularCards);
   const reqId = useRef(0);
+
+  const browsing = term.trim().length < 2;
 
   // Debounced live search against the card API's name-search endpoint.
   useEffect(() => {
@@ -53,14 +85,17 @@ export default function AddCardPage() {
     return () => clearTimeout(timer);
   }, [term, searchCards]);
 
-  const onAdd = async (cardKey: string) => {
+  // navigate = jump to wallet after adding (search flow); browse flow stays put
+  // and lets the reactive `owned` flag flip to "Added".
+  const onAdd = async (cardKey: string, navigate: boolean) => {
     setAdding(cardKey);
     setError(null);
     try {
       await addCard({ cardKey });
-      router.push("/app/wallet");
+      if (navigate) router.push("/app/wallet");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add card");
+    } finally {
       setAdding(null);
     }
   };
@@ -84,42 +119,100 @@ export default function AddCardPage() {
         <p className="mt-3 text-[13px] font-medium text-alert">{error}</p>
       )}
 
-      <div className="mt-6">
-        {searching ? (
-          <div className="flex justify-center py-16">
+      {/* Browse curated top cards per bank when not searching. */}
+      {browsing ? (
+        popular === undefined ? (
+          <div className="mt-6 flex justify-center py-16">
             <Spinner />
           </div>
-        ) : results.length === 0 ? (
-          <EmptyState
-            title={searched ? "No matches" : "Start typing to search"}
-            description={
-              searched
-                ? "Try a different card name."
-                : "Search the card catalog for the cards you own."
-            }
-          />
         ) : (
-          <div className="flex flex-col gap-2">
-            {results.map((c) => (
-              <Card
-                key={c.cardKey}
-                className="flex items-center justify-between py-3"
-              >
-                <div>
-                  <p className="font-semibold text-ink">{c.cardName}</p>
-                  <p className="text-[13px] text-secondary">{c.cardIssuer}</p>
+          <div className="mt-6 flex flex-col gap-7">
+            <p className="text-[13.5px] text-secondary">
+              Popular cards by bank — or search above for any other card.
+            </p>
+            {popular.map((group) => (
+              <section key={group.issuer} className="flex flex-col gap-2">
+                <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-tertiary">
+                  {group.issuer}
+                </h2>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {group.cards.map((c) => (
+                    <Card
+                      key={c.cardKey}
+                      className="flex items-center justify-between gap-3 py-3"
+                    >
+                      <div className="flex min-w-0 items-center gap-3">
+                        <CardArt cardKey={c.cardKey} imageUrl={c.imageUrl} />
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-ink">
+                            {c.cardName}
+                          </p>
+                          <p className="text-[12.5px] text-secondary">
+                            {c.annualFee != null
+                              ? c.annualFee > 0
+                                ? `$${c.annualFee}/yr`
+                                : "No annual fee"
+                              : " "}
+                          </p>
+                        </div>
+                      </div>
+                      {c.owned ? (
+                        <Button variant="secondary" disabled>
+                          Added ✓
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => onAdd(c.cardKey, false)}
+                          disabled={adding === c.cardKey}
+                        >
+                          {adding === c.cardKey ? "Adding…" : "Add"}
+                        </Button>
+                      )}
+                    </Card>
+                  ))}
                 </div>
-                <Button
-                  onClick={() => onAdd(c.cardKey)}
-                  disabled={adding === c.cardKey}
-                >
-                  {adding === c.cardKey ? "Adding…" : "Add"}
-                </Button>
-              </Card>
+              </section>
             ))}
           </div>
-        )}
-      </div>
+        )
+      ) : (
+        <div className="mt-6">
+          {searching ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : results.length === 0 ? (
+            <EmptyState
+              title={searched ? "No matches" : "Keep typing…"}
+              description={
+                searched
+                  ? "Try a different card name."
+                  : "Search the card catalog for the cards you own."
+              }
+            />
+          ) : (
+            <div className="flex flex-col gap-2">
+              {results.map((c) => (
+                <Card
+                  key={c.cardKey}
+                  className="flex items-center justify-between py-3"
+                >
+                  <div>
+                    <p className="font-semibold text-ink">{c.cardName}</p>
+                    <p className="text-[13px] text-secondary">{c.cardIssuer}</p>
+                  </div>
+                  <Button
+                    onClick={() => onAdd(c.cardKey, true)}
+                    disabled={adding === c.cardKey}
+                  >
+                    {adding === c.cardKey ? "Adding…" : "Add"}
+                  </Button>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
