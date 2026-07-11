@@ -53,6 +53,31 @@ export const getStaleDetailCards = internalQuery({
   },
 });
 
+// One page of the catalog, each card flagged whether its detail is missing or
+// past the TTL — drives rapidapi.prefillCatalog (skip-fresh keeps re-runs cheap).
+export const getCatalogPageForWarm = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()), limit: v.number() },
+  handler: async (ctx, { cursor, limit }) => {
+    const page = await ctx.db
+      .query("cardCatalog")
+      .paginate({ numItems: limit, cursor });
+    const now = Date.now();
+    const items = await Promise.all(
+      page.page.map(async (row) => {
+        const detail = await ctx.db
+          .query("cardDetails")
+          .withIndex("by_cardKey", (q) => q.eq("cardKey", row.cardKey))
+          .unique();
+        return {
+          cardKey: row.cardKey,
+          needsFetch: !detail || detail.detailFetchedAt < now - DETAIL_TTL_MS,
+        };
+      }),
+    );
+    return { items, continueCursor: page.continueCursor, isDone: page.isDone };
+  },
+});
+
 export const saveCardDetail = internalMutation({
   args: {
     cardKey: v.string(),

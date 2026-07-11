@@ -329,6 +329,63 @@ export const warmPopularCards = internalAction({
   },
 });
 
+// Reusable catalog prefill: walk cardCatalog and fetch any missing/stale
+// cardDetails (image + fee), one card per tick. Spaces only when it actually
+// hits the API (fresh cards zip by), so it respects the BASIC per-second limit
+// and re-runs are cheap. Idempotent. Kick off with
+//   convex run rapidapi:prefillCatalog {} [--deployment X]
+// (or use scripts/prefill-card-details.sh). See also warmPopularCards for just
+// the curated set.
+const PREFILL_FETCH_SPACING_MS = 2500; // between real API fetches
+const PREFILL_SKIP_SPACING_MS = 100; // between already-fresh cards
+export const prefillCatalog = internalAction({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    fetched: v.optional(v.number()),
+  },
+  handler: async (ctx, { cursor, fetched }) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      return;
+    }
+    const page = await ctx.runQuery(internal.catalogSync.getCatalogPageForWarm, {
+      cursor: cursor ?? null,
+      limit: 1,
+    });
+
+    let total = fetched ?? 0;
+    let didFetch = false;
+    for (const item of page.items) {
+      if (!item.needsFetch) continue;
+      didFetch = true;
+      try {
+        const detail = await fetchDetail(key, item.cardKey);
+        if (detail) {
+          await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+            cardKey: item.cardKey,
+            content: detail.content,
+            hash: detail.hash,
+          });
+          total += 1;
+        }
+      } catch (e) {
+        console.error(`Prefill failed for '${item.cardKey}'`, e);
+      }
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        didFetch ? PREFILL_FETCH_SPACING_MS : PREFILL_SKIP_SPACING_MS,
+        internal.rapidapi.prefillCatalog,
+        { cursor: page.continueCursor, fetched: total },
+      );
+    } else {
+      console.log(`prefillCatalog complete — fetched ${total} card details`);
+    }
+  },
+});
+
 // Lazy single fetch triggered when a user adds a not-yet-cached card.
 export const fetchCardDetail = internalAction({
   args: { cardKey: v.string() },
