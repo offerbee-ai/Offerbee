@@ -1,8 +1,9 @@
-import { action, internalAction } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { missingEnvVariableUrl } from "./utils";
 import { POPULAR_CARD_KEYS } from "./catalog";
+import { ONBOARDING_CARD_KEYS } from "./onboardingCatalog";
 import type { CardDetailContent } from "./validators";
 
 // The Rewards Credit Card API. fetch() works in Convex's default runtime, so no
@@ -291,11 +292,28 @@ export const refreshStaleDetails = internalAction({
   },
 });
 
-// Pre-warm the curated "popular cards" details (image + fee) one at a time,
+// Pre-warm a curated cardKey list's details (image + fee) one at a time,
 // self-scheduling with a delay so the BASIC-plan per-second rate limit isn't
-// tripped. Kick off with `convex run rapidapi:warmPopularCards {}` after a
-// deploy (dev and prod). Idempotent (hash-gated saves).
+// tripped. Idempotent (hash-gated saves). Shared by the popular-cards (Add
+// screen) and onboarding-wizard warmers below.
 const WARM_SPACING_MS = 2500;
+
+async function warmOne(ctx: ActionCtx, apiKey: string, cardKey: string) {
+  try {
+    const detail = await fetchDetail(apiKey, cardKey);
+    if (detail) {
+      await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+        cardKey,
+        content: detail.content,
+        hash: detail.hash,
+      });
+    }
+  } catch (e) {
+    console.error(`Warm failed for '${cardKey}'`, e);
+  }
+}
+
+// Kick off with `convex run rapidapi:warmPopularCards {}` after a deploy.
 export const warmPopularCards = internalAction({
   args: { index: v.optional(v.number()) },
   handler: async (ctx, { index }) => {
@@ -306,23 +324,35 @@ export const warmPopularCards = internalAction({
     }
     const i = index ?? 0;
     if (i >= POPULAR_CARD_KEYS.length) return;
-    const cardKey = POPULAR_CARD_KEYS[i];
-    try {
-      const detail = await fetchDetail(key, cardKey);
-      if (detail) {
-        await ctx.runMutation(internal.catalogSync.saveCardDetail, {
-          cardKey,
-          content: detail.content,
-          hash: detail.hash,
-        });
-      }
-    } catch (e) {
-      console.error(`Warm failed for '${cardKey}'`, e);
-    }
+    await warmOne(ctx, key, POPULAR_CARD_KEYS[i]);
     if (i + 1 < POPULAR_CARD_KEYS.length) {
       await ctx.scheduler.runAfter(
         WARM_SPACING_MS,
         internal.rapidapi.warmPopularCards,
+        { index: i + 1 },
+      );
+    }
+  },
+});
+
+// Pre-warm the onboarding wizard's curated catalog so StepWallet shows real
+// card art + real annual fee. Kick off with
+// `convex run rapidapi:warmOnboardingCards {}` after a deploy (dev and prod).
+export const warmOnboardingCards = internalAction({
+  args: { index: v.optional(v.number()) },
+  handler: async (ctx, { index }) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      return;
+    }
+    const i = index ?? 0;
+    if (i >= ONBOARDING_CARD_KEYS.length) return;
+    await warmOne(ctx, key, ONBOARDING_CARD_KEYS[i]);
+    if (i + 1 < ONBOARDING_CARD_KEYS.length) {
+      await ctx.scheduler.runAfter(
+        WARM_SPACING_MS,
+        internal.rapidapi.warmOnboardingCards,
         { index: i + 1 },
       );
     }

@@ -24,20 +24,29 @@ export interface OnboardingCard {
   next: { name: string; amt: number; days: number }; // soonest-resetting credit
 }
 
+// `cardKey` values are verified against the live Rewards API (namesearch /
+// detail-bycard) so cardDetails — real card art + real annual fee — resolves
+// for every card. They match the compact keys the backend uses in
+// catalog.POPULAR_CARDS; keep them in sync when either list changes.
 export const ONBOARDING_CARDS: OnboardingCard[] = [
   { id: "amexPlat", cardKey: "amex-platinum", name: "Amex Platinum", issuer: "Amex", fee: 695, color: "#3A4048", credits: 1400, popular: true, next: { name: "Uber Cash", amt: 15, days: 6 } },
   { id: "amexGold", cardKey: "amex-gold", name: "Amex Gold", issuer: "Amex", fee: 325, color: "#B08A3E", credits: 420, popular: true, next: { name: "Dining credit", amt: 10, days: 2 } },
-  { id: "csr", cardKey: "chase-sapphire-reserve", name: "Sapphire Reserve", issuer: "Chase", fee: 550, color: "#1E6FB8", credits: 800, popular: true, next: { name: "Travel credit", amt: 25, days: 5 } },
-  { id: "venturex", cardKey: "capital-one-venture-x", name: "Venture X", issuer: "Capital One", fee: 395, color: "#2B2B2B", credits: 400, popular: true, next: { name: "Travel portal credit", amt: 25, days: 9 } },
-  { id: "hiltonAspire", cardKey: "amex-hilton-aspire", name: "Hilton Aspire", issuer: "Amex", fee: 550, color: "#7A2E3B", credits: 650, popular: true, next: { name: "Airline flight credit", amt: 50, days: 4 } },
-  { id: "marriott", cardKey: "amex-bonvoy-brilliant", name: "Bonvoy Brilliant", issuer: "Amex", fee: 650, color: "#3A2E2A", credits: 600, popular: true, next: { name: "Dining credit", amt: 25, days: 3 } },
-  { id: "cspreferred", cardKey: "chase-sapphire-preferred", name: "Sapphire Preferred", issuer: "Chase", fee: 95, color: "#2A5C8A", credits: 100, next: { name: "Hotel credit", amt: 50, days: 14 } },
-  { id: "deltaReserve", cardKey: "amex-delta-reserve", name: "Delta Reserve", issuer: "Amex", fee: 650, color: "#6A1B2E", credits: 500, next: { name: "Resy dining", amt: 20, days: 7 } },
+  { id: "csr", cardKey: "chase-sapphirereserve", name: "Sapphire Reserve", issuer: "Chase", fee: 550, color: "#1E6FB8", credits: 800, popular: true, next: { name: "Travel credit", amt: 25, days: 5 } },
+  { id: "venturex", cardKey: "capitalone-venturex", name: "Venture X", issuer: "Capital One", fee: 395, color: "#2B2B2B", credits: 400, popular: true, next: { name: "Travel portal credit", amt: 25, days: 9 } },
+  { id: "hiltonAspire", cardKey: "amex-hiltonaspire", name: "Hilton Aspire", issuer: "Amex", fee: 550, color: "#7A2E3B", credits: 650, popular: true, next: { name: "Airline flight credit", amt: 50, days: 4 } },
+  { id: "marriott", cardKey: "amex-marriottbonvoybrilliant", name: "Bonvoy Brilliant", issuer: "Amex", fee: 650, color: "#3A2E2A", credits: 600, popular: true, next: { name: "Dining credit", amt: 25, days: 3 } },
+  { id: "cspreferred", cardKey: "chase-sapphirepreferred", name: "Sapphire Preferred", issuer: "Chase", fee: 95, color: "#2A5C8A", credits: 100, next: { name: "Hotel credit", amt: 50, days: 14 } },
+  { id: "deltaReserve", cardKey: "amex-deltareserve", name: "Delta Reserve", issuer: "Amex", fee: 650, color: "#6A1B2E", credits: 500, next: { name: "Resy dining", amt: 20, days: 7 } },
   { id: "amexGreen", cardKey: "amex-green", name: "Amex Green", issuer: "Amex", fee: 150, color: "#1F5C3D", credits: 200, next: { name: "CLEAR credit", amt: 16, days: 11 } },
-  { id: "citiStrata", cardKey: "citi-strata-elite", name: "Citi Strata Elite", issuer: "Citi", fee: 595, color: "#2E2A55", credits: 600, next: { name: "Splurge credit", amt: 25, days: 8 } },
-  { id: "boaElite", cardKey: "bofa-premium-rewards-elite", name: "BofA Premium Elite", issuer: "Bank of America", fee: 550, color: "#7A1F2B", credits: 450, next: { name: "Airline incidental", amt: 33, days: 10 } },
-  { id: "usbAltitude", cardKey: "usbank-altitude-reserve", name: "Altitude Reserve", issuer: "U.S. Bank", fee: 400, color: "#16405C", credits: 325, next: { name: "Travel/dining credit", amt: 27, days: 12 } },
+  { id: "citiStrata", cardKey: "citi-strataelite", name: "Citi Strata Elite", issuer: "Citi", fee: 595, color: "#2E2A55", credits: 600, next: { name: "Splurge credit", amt: 25, days: 8 } },
+  { id: "boaElite", cardKey: "boa-premiumrewardselite", name: "BofA Premium Elite", issuer: "Bank of America", fee: 550, color: "#7A1F2B", credits: 450, next: { name: "Airline incidental", amt: 33, days: 10 } },
+  { id: "usbAltitude", cardKey: "usbank-infinite", name: "Altitude Reserve", issuer: "U.S. Bank", fee: 400, color: "#16405C", credits: 325, next: { name: "Travel/dining credit", amt: 27, days: 12 } },
 ];
+
+/** Flat cardKey list for pre-warming onboarding details (see rapidapi.warmOnboardingCards). */
+export const ONBOARDING_CARD_KEYS: string[] = ONBOARDING_CARDS.map(
+  (c) => c.cardKey,
+);
 
 export const ONBOARDING_CARDS_BY_ID: ReadonlyMap<string, OnboardingCard> =
   new Map(ONBOARDING_CARDS.map((c) => [c.id, c]));
