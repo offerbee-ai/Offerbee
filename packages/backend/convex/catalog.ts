@@ -1,6 +1,7 @@
 import { query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserId } from "./auth";
+import { ONBOARDING_CARD_KEYS } from "./onboardingCatalog";
 
 // Card search is a live action against the API's name-search endpoint — see
 // rapidapi.searchCards (the API has no bulk card-list endpoint to cache).
@@ -15,6 +16,38 @@ export const getCardDetail = query({
       .query("cardDetails")
       .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
       .unique();
+  },
+});
+
+// Real card art + annual fee for the onboarding wizard's curated catalog,
+// keyed by cardKey. Joins cached cardDetails (pre-warmed via
+// rapidapi.warmOnboardingCards); a card missing from the cache is simply
+// absent, and StepWallet falls back to the brand color chip + static fee.
+export const onboardingCardArt = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getUserId(ctx);
+    if (!userId) return {};
+
+    const entries = await Promise.all(
+      ONBOARDING_CARD_KEYS.map(async (cardKey) => {
+        const detail = await ctx.db
+          .query("cardDetails")
+          .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
+          .unique();
+        return [
+          cardKey,
+          {
+            imageUrl: detail?.cardImageUrl ?? null,
+            annualFee: detail?.annualFee ?? null,
+          },
+        ] as const;
+      }),
+    );
+    return Object.fromEntries(entries) as Record<
+      string,
+      { imageUrl: string | null; annualFee: number | null }
+    >;
   },
 });
 

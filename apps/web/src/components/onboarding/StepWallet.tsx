@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "convex/react";
+import { api } from "@packages/backend/convex/_generated/api";
 import { ONBOARDING_CARDS } from "@packages/backend/convex/onboardingCatalog";
 import { cn } from "@/lib/utils";
 
-const feeStr = (fee: number) => `$${fee}/yr`;
+const feeStr = (fee: number) => (fee > 0 ? `$${fee}/yr` : "No annual fee");
 const creditsStr = (credits: number) =>
   `$${credits.toLocaleString("en-US")} value`;
+
+type CardArt = { imageUrl: string | null; annualFee: number | null };
 
 function CheckIcon({ size = 13 }: { size?: number }) {
   return (
@@ -35,6 +39,12 @@ export function StepWallet({
   onToggle: (id: string) => void;
 }) {
   const [search, setSearch] = useState("");
+  // Real card art + annual fee, keyed by cardKey (pre-warmed cardDetails).
+  // undefined while loading / when signed out → we fall back to the brand
+  // color chip + the catalog's static fee.
+  const art = useQuery(api.catalog.onboardingCardArt) as
+    | Record<string, CardArt>
+    | undefined;
 
   const q = search.trim().toLowerCase();
   const results = q
@@ -58,9 +68,11 @@ export function StepWallet({
         cards — we track every credit for you.
       </p>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-[14px]">
+      <div className="grid max-w-[1080px] grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-[14px]">
         {popular.map((c) => {
           const on = selected.has(c.id);
+          const image = art?.[c.cardKey]?.imageUrl ?? null;
+          const fee = art?.[c.cardKey]?.annualFee ?? c.fee;
           return (
             <button
               key={c.id}
@@ -75,11 +87,23 @@ export function StepWallet({
               )}
             >
               <div
-                className="relative h-[62px] overflow-hidden rounded-[10px] lg:h-[76px]"
+                className="relative aspect-[1.586] overflow-hidden rounded-[10px]"
                 style={{ background: c.color }}
               >
-                <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2))]" />
-                <div className="absolute left-3 top-3 h-[18px] w-[26px] rounded-[4px] bg-white/30" />
+                {image ? (
+                  // Plain <img>: the card-image host path rotates (see wallet page).
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={image}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                ) : (
+                  <>
+                    <div className="absolute inset-0 bg-[linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2))]" />
+                    <div className="absolute left-3 top-3 h-[18px] w-[26px] rounded-[4px] bg-white/30" />
+                  </>
+                )}
                 {on && (
                   <div className="absolute right-[9px] top-[9px] flex size-6 items-center justify-center rounded-full bg-accent text-white">
                     <CheckIcon />
@@ -88,14 +112,14 @@ export function StepWallet({
               </div>
               <div className="mt-[10px] text-[14px] font-semibold">{c.name}</div>
               <div className="mt-px text-[12px] text-secondary">
-                {feeStr(c.fee)} · {creditsStr(c.credits)}
+                {feeStr(fee)} · {creditsStr(c.credits)}
               </div>
             </button>
           );
         })}
       </div>
 
-      <div className="relative mt-[22px]">
+      <div className="relative mt-[22px] max-w-[1080px]">
         <svg
           width="17"
           height="17"
@@ -120,25 +144,36 @@ export function StepWallet({
       </div>
 
       {q.length > 0 && (
-        <div className="mt-[14px] overflow-hidden rounded-[14px] border border-border bg-surface">
+        <div className="mt-[14px] max-w-[1080px] overflow-hidden rounded-[14px] border border-border bg-surface">
           <div className="px-4 pb-1 pt-3 font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-tertiary">
             Search results
           </div>
           {results.map((c) => {
             const on = selected.has(c.id);
+            const image = art?.[c.cardKey]?.imageUrl ?? null;
+            const fee = art?.[c.cardKey]?.annualFee ?? c.fee;
             return (
               <div
                 key={c.id}
                 className="flex items-center gap-3 border-t border-separator px-4 py-[13px]"
               >
-                <span
-                  className="block h-[23px] w-[34px] shrink-0 rounded-[5px]"
-                  style={{ background: c.color }}
-                />
+                {image ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={image}
+                    alt=""
+                    className="h-[23px] w-[34px] shrink-0 rounded-[5px] object-cover"
+                  />
+                ) : (
+                  <span
+                    className="block h-[23px] w-[34px] shrink-0 rounded-[5px]"
+                    style={{ background: c.color }}
+                  />
+                )}
                 <div className="min-w-0 flex-1">
                   <div className="text-[14px] font-semibold">{c.name}</div>
                   <div className="text-[12px] text-secondary">
-                    {c.issuer} · {feeStr(c.fee)}
+                    {c.issuer} · {feeStr(fee)}
                   </div>
                 </div>
                 <button
