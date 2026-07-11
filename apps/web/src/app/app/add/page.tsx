@@ -102,10 +102,6 @@ export default function AddCardPage() {
 
   return (
     <div>
-      <h1 className="mb-6 font-display text-[28px] font-semibold text-ink">
-        Add a card
-      </h1>
-
       <input
         type="search"
         autoFocus
