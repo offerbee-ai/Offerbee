@@ -69,9 +69,9 @@ Set (dashboard for the prod deployment, or `convex env set`):
 
 ## Staging deployment
 
-Staging is a **dedicated, durable Convex deployment** — a standing deployment
-(staging's own Convex project, whose *production* deployment serves staging), not
-an ephemeral preview. Every merge into `preview` redeploys it, so it's always the
+Staging is a **dedicated, durable Convex deployment** — an additional standing
+deployment within the same OfferBee Convex project (created with `convex
+deployment create staging --type prod`), not an ephemeral preview. Every merge into `preview` redeploys it, so it's always the
 latest validated state of that branch, and you can click through changes before
 promoting to production without affecting prod. Its data persists indefinitely:
 a seeded catalog, warmed card details, or data imported from prod all survive
@@ -87,12 +87,17 @@ deploys.
 
 ### One-time setup for staging (needs a repo admin)
 
-1. **Create the staging Convex deployment** — a durable deployment requires its
-   own Convex project (a project has only one production deployment; dev/preview
-   deployments are per-developer/ephemeral). In the Convex dashboard create a
-   second project (e.g. `offerbee-staging`); its **production** deployment is
-   staging. Generate a **Production Deploy Key** for it and add it as the GitHub
-   secret `CONVEX_STAGING_DEPLOY_KEY` (distinct from the prod `CONVEX_DEPLOY_KEY`).
+1. **Create the staging deployment (same project)** — Convex supports additional
+   durable deployments within a project, so no separate project is needed. From
+   `packages/backend`, logged in with org access (`npx convex login`):
+   ```sh
+   npx convex deployment create staging --type prod
+   npx convex deployment token create staging-ci --deployment staging
+   ```
+   The first creates a durable `staging` deployment in the existing OfferBee
+   project; the second prints a deploy key scoped to it. Add that key as the
+   GitHub secret `CONVEX_STAGING_DEPLOY_KEY` (distinct from prod
+   `CONVEX_DEPLOY_KEY`). Its data/functions/env are isolated from prod.
 2. **Staging deployment env vars** — set on the staging deployment (dashboard, or
    `convex env set --deployment <staging>`):
    - `CLERK_JWT_ISSUER_DOMAIN` — else `auth.config.ts` throws and the `convex
