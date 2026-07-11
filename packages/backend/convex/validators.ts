@@ -9,6 +9,14 @@ export const platformValidator = v.union(
   v.literal("web"),
 );
 
+// The four onboarding reminder toggles (step 4 of the wizard).
+export const reminderPrefsValidator = v.object({
+  expiry: v.boolean(),
+  digest: v.boolean(),
+  renewal: v.boolean(),
+  smart: v.boolean(),
+});
+
 export const deliveryStatusValidator = v.union(
   v.literal("pending"),
   v.literal("sent"),

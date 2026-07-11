@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<meta name="design_doc_mode" content="canvas">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  a { color: #E8680E; text-decoration: none; }
+  a:hover { opacity: .82; }
+  h1 { margin: 0; }
+  .obscr::-webkit-scrollbar { width: 8px; }
+  .obscr::-webkit-scrollbar-thumb { background: rgba(120,110,90,.28); border-radius: 8px; }
+  .scrm::-webkit-scrollbar { width: 0; height: 0; }
+  .scrm { scrollbar-width: none; }
+  input::placeholder { color: #B7AF9C; }
+</style>
+</helmet>
+
+<section style="min-width:max-content;padding:60px 72px 80px;background:#E9E2D2;border-bottom:1px solid #D5CCB8;font-family:'Public Sans',sans-serif;color:#211D16;">
+
+  <div style="max-width:880px;margin-bottom:34px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#B4693A;">OfferBee · Onboarding · Turn 2</div>
+    <div style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:8px;">The sidebar wizard, on mobile</div>
+    <div style="font-size:16px;line-height:1.55;color:#6F6757;margin-top:8px;max-width:70ch;">Direction <a href="#1a">1A</a> translated to iOS. The progress rail collapses into a tappable horizontal stepper, and the live credits counter moves into a floating glass action bar. Same 5 steps, same Clerk sign-up, fully interactive — click through <a href="#2a">2a</a>.</div>
+  </div>
+
+  <div style="display:flex;gap:64px;align-items:flex-start;flex-wrap:wrap;">
+
+    <div id="2a" style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#fff;background:#E8680E;padding:4px 11px;border-radius:8px;">2A</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;">Mobile · Honey · same 5 steps</div>
+          <div style="font-size:13.5px;color:#6F6757;">Stepper header · floating action bar · 2-column card tiles</div>
+        </div>
+      </div>
+
+      <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="402px" height="874px" hint-size="402px,874px">
+        <div style="position:relative;height:100%;display:flex;flex-direction:column;background:#FBF8F0;font-family:'Public Sans',sans-serif;color:#211D16;">
+
+          <!-- header + stepper -->
+          <div style="flex-shrink:0;padding:58px 20px 12px;border-bottom:1px solid #ECE5D6;background:#FBF8F0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div style="display:flex;align-items:center;gap:9px;">
+                <svg width="24" height="24" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberM" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeM"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberM)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeM)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+                <span style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+              </div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A927F;">{{ M.stepLabel }}</div>
+            </div>
+            <div style="display:flex;align-items:flex-start;margin-top:14px;">
+              <sc-for list="{{ M.stepList }}" as="st" hint-placeholder-count="5">
+                <div onClick="{{ st.onClick }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
+                  <div style="{{ st.numStyle }}">
+                    <sc-if value="{{ st.done }}" hint-placeholder-val="{{ true }}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                    <sc-if value="{{ st.showNum }}" hint-placeholder-val="{{ true }}">{{ st.num }}</sc-if>
+                  </div>
+                  <span style="font-size:9.5px;font-weight:600;letter-spacing:.01em;color:{{ st.labelColor }};">{{ st.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <!-- content -->
+          <div class="scrm" style="flex:1;overflow:auto;padding:20px 20px 130px;">
+
+            <!-- m step 0 · Clerk -->
+            <sc-if value="{{ M.s0 }}" hint-placeholder-val="{{ true }}">
+            <div style="padding-top:14px;">
+              <div style="background:#fff;border:1px solid #EAE3D4;border-radius:16px;box-shadow:0 12px 40px rgba(33,29,22,.09);overflow:hidden;">
+                <div style="padding:26px 24px 22px;">
+                  <div style="text-align:center;font-size:18px;font-weight:700;color:#211D16;">Create your account</div>
+                  <div style="text-align:center;font-size:13px;color:#8A8272;margin-top:6px;line-height:1.4;">Welcome! Please fill in the details to get started.</div>
+                  <div onClick="{{ M.authContinue }}" style="margin-top:20px;display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid #E3DCCB;border-radius:9px;padding:12px;font-size:14px;font-weight:600;color:#3A342B;cursor:pointer;background:#FFFEFB;">
+                    <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.28-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>Continue with Google
+                  </div>
+                  <div style="display:flex;align-items:center;gap:12px;margin:18px 0;"><div style="flex:1;height:1px;background:#EDE6D8;"></div><span style="font-size:12.5px;color:#9A927F;">or</span><div style="flex:1;height:1px;background:#EDE6D8;"></div></div>
+                  <div style="font-size:13px;font-weight:600;color:#211D16;margin-bottom:7px;">Email address</div>
+                  <input value="{{ M.email }}" onChange="{{ M.onEmail }}" placeholder="Enter your email address" style="width:100%;margin-bottom:14px;padding:12px 13px;border:1px solid #E3DCCB;border-radius:8px;background:#FFFEFB;font-size:14px;font-family:inherit;color:#211D16;outline:none;" />
+                  <div style="font-size:13px;font-weight:600;color:#211D16;margin-bottom:7px;">Password</div>
+                  <div style="position:relative;margin-bottom:20px;">
+                    <input value="{{ M.pw }}" onChange="{{ M.onPw }}" type="password" placeholder="Create a password" style="width:100%;padding:12px 40px 12px 13px;border:1px solid #E3DCCB;border-radius:8px;background:#FFFEFB;font-size:14px;font-family:inherit;color:#211D16;outline:none;" />
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9A927F" stroke-width="1.8" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                  </div>
+                  <div onClick="{{ M.authContinue }}" style="background:#E8680E;color:#fff;text-align:center;font-size:14px;font-weight:600;padding:13px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">Continue <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div>
+                </div>
+                <div style="border-top:1px solid #EDE6D8;padding:14px;text-align:center;font-size:13px;color:#6F6757;">Already have an account? <a href="#2a" style="font-weight:600;">Sign in</a></div>
+                <div style="border-top:1px solid #EDE6D8;background:#FAF6EE;padding:10px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#9A927F;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke-linecap="round"></path></svg>Secured by <span style="font-weight:600;color:#6F6757;">clerk</span></div>
+              </div>
+              <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:#B4A88E;margin-top:12px;line-height:1.5;">Your existing Clerk sign-up, unchanged.</div>
+            </div>
+            </sc-if>
+
+            <!-- m step 1 · wallet -->
+            <sc-if value="{{ M.s1 }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <h1 style="font-family:'Source Serif 4',serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1;">Which cards are in your wallet?</h1>
+              <p style="font-size:13.5px;line-height:1.5;color:#6F6757;margin:8px 0 16px;">Tap the ones you carry, or search 65+ cards.</p>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <sc-for list="{{ M.popular }}" as="c" hint-placeholder-count="6">
+                  <div onClick="{{ c.onToggle }}" style="{{ c.tileStyle }}">
+                    <div style="position:relative;height:62px;border-radius:9px;background:{{ c.color }};overflow:hidden;">
+                      <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div>
+                      <div style="position:absolute;top:10px;left:10px;width:22px;height:15px;border-radius:3px;background:rgba(255,255,255,.3);"></div>
+                      <sc-if value="{{ c.selected }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div></sc-if>
+                    </div>
+                    <div style="margin-top:8px;font-size:13px;font-weight:600;">{{ c.name }}</div>
+                    <div style="font-size:11px;color:#6F6757;margin-top:1px;">{{ c.feeStr }} · {{ c.creditsStr }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="position:relative;margin-top:16px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A927F" stroke-width="2" stroke-linecap="round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                <input value="{{ M.search }}" onChange="{{ M.onSearch }}" placeholder="Search Chase, Citi, Capital One…" style="width:100%;padding:12px 13px 12px 38px;border:1px solid #E8E1D2;border-radius:12px;background:#FFFEFB;font-size:14px;font-family:inherit;color:#211D16;outline:none;" />
+              </div>
+              <sc-if value="{{ M.showSearch }}" hint-placeholder-val="{{ true }}">
+              <div style="margin-top:12px;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:14px;overflow:hidden;">
+                <sc-for list="{{ M.searchResults }}" as="c" hint-placeholder-count="3">
+                  <div onClick="{{ c.onToggle }}" style="{{ c.rowStyle }}">
+                    <div style="width:30px;height:20px;border-radius:4px;flex-shrink:0;background:{{ c.color }};"></div>
+                    <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">{{ c.name }}</div><div style="font-size:11.5px;color:#6F6757;">{{ c.issuer }} · {{ c.feeStr }}</div></div>
+                    <div style="{{ c.addStyle }}">{{ c.addLabel }}</div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ M.noResults }}" hint-placeholder-val="{{ true }}"><div style="padding:14px;font-size:13px;color:#9A927F;">No cards match — try an issuer name.</div></sc-if>
+              </div>
+              </sc-if>
+            </div>
+            </sc-if>
+
+            <!-- m step 2 · spending -->
+            <sc-if value="{{ M.s2 }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <h1 style="font-family:'Source Serif 4',serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1;">What do you actually spend on?</h1>
+              <p style="font-size:13.5px;line-height:1.5;color:#6F6757;margin:8px 0 18px;">We'll float the credits that match your life to the top.</p>
+              <div style="display:flex;flex-wrap:wrap;gap:9px;">
+                <sc-for list="{{ M.cats }}" as="c" hint-placeholder-count="9">
+                  <div onClick="{{ c.onToggle }}" style="{{ c.style }}">{{ c.label }}</div>
+                </sc-for>
+              </div>
+              <div style="display:inline-flex;align-items:center;gap:8px;background:#FBEAD5;border-radius:11px;padding:10px 14px;margin-top:20px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v5M12 16v5M3 12h5M16 12h5"></path></svg>
+                <span style="font-size:12.5px;font-weight:600;color:#B4550B;">{{ M.catFeedback }}</span>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- m step 3 · reminders -->
+            <sc-if value="{{ M.s3 }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <h1 style="font-family:'Source Serif 4',serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1;">Never miss a reset.</h1>
+              <p style="font-size:13.5px;line-height:1.5;color:#6F6757;margin:8px 0 16px;">We nudge you right before a credit resets — never more.</p>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A927F;margin-bottom:8px;">What a nudge looks like</div>
+              <div style="display:flex;gap:11px;align-items:flex-start;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;padding:13px 14px;box-shadow:0 10px 26px rgba(33,29,22,.09);margin-bottom:16px;transition:opacity .25s;opacity:{{ M.notifOpacity }};">
+                <svg width="30" height="30" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberN3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeN3"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberN3)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeN3)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.05em;color:#9A927F;">OFFERBEE</span><span style="font-size:10.5px;color:#9A927F;">now</span></div>
+                  <div style="font-size:13.5px;font-weight:600;margin-top:2px;">{{ M.notifHead }}</div>
+                  <div style="font-size:12px;color:#6F6757;">{{ M.notifBody }}</div>
+                </div>
+              </div>
+              <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+                <sc-for list="{{ M.notifs }}" as="n" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid #ECE5D6;">
+                    <div style="flex:1;"><div style="font-size:14px;font-weight:600;">{{ n.label }}</div><div style="font-size:11.5px;color:#6F6757;">{{ n.desc }}</div></div>
+                    <div onClick="{{ n.onToggle }}" style="{{ n.trackStyle }}"><div style="{{ n.knobStyle }}"></div></div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            </sc-if>
+
+            <!-- m step 4 · reveal -->
+            <sc-if value="{{ M.s4 }}" hint-placeholder-val="{{ true }}">
+            <div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#E8680E;">You're all set</div>
+              <h1 style="font-family:'Source Serif 4',serif;font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.06;margin-top:8px;">{{ M.reveal.totalStr }} is about to slip away.</h1>
+              <p style="font-size:13.5px;line-height:1.5;color:#6F6757;margin:10px 0 16px;">{{ M.reveal.countStr }} reset within a week. This is your Review screen the moment you land.</p>
+              <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;padding:4px 16px 8px;box-shadow:0 1px 2px rgba(33,29,22,.05);">
+                <sc-for list="{{ M.reveal.items }}" as="it" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:11px;padding:12px 0;border-top:1px solid #ECE5D6;">
+                    <div style="{{ it.dayStyle }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;line-height:1;">{{ it.days }}</span><span style="font-size:8px;font-weight:600;">days</span></div>
+                    <div style="width:30px;height:20px;border-radius:4px;flex-shrink:0;background:{{ it.color }};"></div>
+                    <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">{{ it.name }}</div><div style="font-size:11.5px;color:#6F6757;">{{ it.card }}</div></div>
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:#E8680E;">{{ it.amtStr }}</div>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ M.reveal.empty }}" hint-placeholder-val="{{ true }}"><div style="padding:14px 0;font-size:13px;color:#9A927F;">Add a card or two and we'll show what's about to reset.</div></sc-if>
+              </div>
+              <div style="display:flex;align-items:center;gap:16px;margin-top:16px;padding:13px 18px;background:#F5F1E8;border:1px solid #E8E1D2;border-radius:14px;">
+                <div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;">{{ M.sumCards }}</div><div style="font-size:10.5px;color:#6F6757;">cards added</div></div>
+                <div style="width:1px;height:28px;background:#E8E1D2;"></div>
+                <div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:#E8680E;">{{ M.sumValue }}</div><div style="font-size:10.5px;color:#6F6757;">tracked per year</div></div>
+                <div style="width:1px;height:28px;background:#E8E1D2;"></div>
+                <div><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;">{{ M.sumRem }}</div><div style="font-size:10.5px;color:#6F6757;">reminders on</div></div>
+              </div>
+            </div>
+            </sc-if>
+
+          </div>
+
+          <!-- floating action bar -->
+          <sc-if value="{{ M.showFooter }}" hint-placeholder-val="{{ true }}">
+          <div style="position:absolute;left:16px;right:16px;bottom:16px;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 16px;background:rgba(251,248,240,.72);backdrop-filter:blur(20px) saturate(170%);-webkit-backdrop-filter:blur(20px) saturate(170%);border-radius:22px;border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 30px rgba(33,29,22,.16), inset 0 1px 0 rgba(255,255,255,.6);">
+            <div style="flex:1;min-width:0;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#E8680E;line-height:1;">{{ M.selValueStr }}</div>
+              <div style="font-size:10px;color:#6F6757;margin-top:2px;">credits in play</div>
+            </div>
+            <sc-if value="{{ M.showBack }}" hint-placeholder-val="{{ true }}"><div onClick="{{ M.back }}" style="font-size:13.5px;font-weight:600;color:#6F6757;border:1px solid #E8E1D2;background:#FFFEFB;padding:11px 15px;border-radius:12px;cursor:pointer;">Back</div></sc-if>
+            <div onClick="{{ M.next }}" style="font-size:13.5px;font-weight:600;color:#fff;background:#E8680E;padding:11px 18px;border-radius:12px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.24);white-space:nowrap;">{{ M.continueLabel }}</div>
+          </div>
+          </sc-if>
+
+        </div>
+      </x-import>
+    </div>
+
+    <!-- mapping notes -->
+    <div style="width:340px;padding-top:52px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#9A927F;margin-bottom:14px;">How the sidebar maps to mobile</div>
+      <div style="display:flex;flex-direction:column;gap:0;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+        <div style="display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid #ECE5D6;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8680E;flex-shrink:0;">01</span><div><div style="font-size:14px;font-weight:600;">Progress rail → horizontal stepper</div><div style="font-size:12.5px;color:#6F6757;margin-top:2px;">Same 5 numbered stops, tappable to jump back, checkmarks persist.</div></div></div>
+        <div style="display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid #ECE5D6;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8680E;flex-shrink:0;">02</span><div><div style="font-size:14px;font-weight:600;">Credits counter → action bar</div><div style="font-size:12.5px;color:#6F6757;margin-top:2px;">The live "$ in play" total sits beside Continue in a floating glass bar — iOS 26 Liquid Glass, same as the app's tab bar.</div></div></div>
+        <div style="display:flex;gap:12px;padding:14px 16px;border-bottom:1px solid #ECE5D6;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8680E;flex-shrink:0;">03</span><div><div style="font-size:14px;font-weight:600;">3-column tiles → 2-column</div><div style="font-size:12.5px;color:#6F6757;margin-top:2px;">Card art tiles stay tappable with the same check state; search sits below.</div></div></div>
+        <div style="display:flex;gap:12px;padding:14px 16px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;color:#E8680E;flex-shrink:0;">04</span><div><div style="font-size:14px;font-weight:600;">Clerk card, unchanged</div><div style="font-size:12.5px;color:#6F6757;margin-top:2px;">Clerk's component is responsive out of the box — the action bar hides on this step so Clerk's own Continue drives the flow.</div></div></div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section style="min-width:max-content;padding:60px 72px 96px;background:#EDE7D9;font-family:'Public Sans',sans-serif;color:#211D16;">
+
+  <div style="max-width:920px;margin-bottom:34px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:#B4693A;">OfferBee · Onboarding · Turn 1</div>
+    <div style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:8px;">The sidebar wizard · chosen direction</div>
+    <div style="font-size:16px;line-height:1.55;color:#6F6757;margin-top:8px;max-width:70ch;">The sidebar wizard (<a href="#1a">1a</a>) — a live, click-through flow ending on the "aha" of credits about to slip away. Its mobile translation is in Turn 2 above.</div>
+  </div>
+
+  <div style="display:flex;gap:72px;align-items:flex-start;flex-wrap:wrap;">
+
+    <!-- ============================== 1A ============================== -->
+    <div id="1a" style="display:flex;flex-direction:column;gap:16px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:700;color:#fff;background:#E8680E;padding:4px 11px;border-radius:8px;">1A</span>
+        <div>
+          <div style="font-size:16px;font-weight:700;">Sidebar wizard · Honey</div>
+          <div style="font-size:13.5px;color:#6F6757;">5 steps · persistent progress rail · popular cards first · separate spending &amp; reminders</div>
+        </div>
+      </div>
+
+      <div style="width:1180px;height:764px;border-radius:18px;overflow:hidden;background:#FBF8F0;border:1px solid #D8D0BF;box-shadow:0 30px 70px rgba(33,29,22,.18);">
+        <!-- browser bar -->
+        <div style="height:46px;background:#F1ECDF;border-bottom:1px solid #E4DDCC;display:flex;align-items:center;padding:0 16px;gap:8px;">
+          <div style="display:flex;gap:7px;"><span style="width:11px;height:11px;border-radius:50%;background:#E6A08A;"></span><span style="width:11px;height:11px;border-radius:50%;background:#E9C77E;"></span><span style="width:11px;height:11px;border-radius:50%;background:#A9CFA0;"></span></div>
+          <div style="flex:1;display:flex;justify-content:center;"><div style="display:flex;align-items:center;gap:8px;background:#FBF8F0;border:1px solid #E4DDCC;border-radius:9px;padding:6px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9A927F;">app.offerbee.ai/welcome</div></div>
+        </div>
+
+        <div style="display:flex;height:718px;">
+          <!-- rail -->
+          <aside style="width:296px;flex-shrink:0;background:#FFFEFB;border-right:1px solid #E8E1D2;display:flex;flex-direction:column;padding:26px 18px 18px;">
+            <div style="display:flex;align-items:center;gap:11px;padding:0 8px 22px;">
+              <svg width="30" height="30" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberA" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeA"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberA)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeA)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+              <span style="font-family:'Source Serif 4',serif;font-size:20px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:2px;">
+              <sc-for list="{{ A.stepList }}" as="st" hint-placeholder-count="5">
+                <div onClick="{{ st.onClick }}" style="display:flex;align-items:center;gap:13px;padding:10px 10px;border-radius:11px;cursor:pointer;background:{{ st.rowBg }};">
+                  <div style="{{ st.numStyle }}">
+                    <sc-if value="{{ st.done }}" hint-placeholder-val="{{ true }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+                    <sc-if value="{{ st.showNum }}" hint-placeholder-val="{{ true }}">{{ st.num }}</sc-if>
+                  </div>
+                  <span style="font-size:14.5px;font-weight:600;color:{{ st.labelColor }};">{{ st.label }}</span>
+                </div>
+              </sc-for>
+            </div>
+
+            <div style="margin-top:auto;">
+              <div style="background:#F5F1E8;border:1px solid #E8E1D2;border-radius:16px;padding:16px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A927F;">Credits in play</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;letter-spacing:-.02em;color:#E8680E;margin-top:4px;">{{ A.selValueStr }}</div>
+                <div style="font-size:12.5px;color:#6F6757;margin-top:1px;">{{ A.selCountStr }} · adds up as you go</div>
+              </div>
+            </div>
+          </aside>
+
+          <!-- content -->
+          <div style="flex:1;display:flex;flex-direction:column;min-width:0;">
+            <div class="obscr" style="flex:1;overflow:auto;padding:44px 54px;">
+
+              <!-- step 0 -->
+              <sc-if value="{{ A.s0 }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:572px;">
+                <div style="width:400px;">
+                  <div style="background:#fff;border:1px solid #EAE3D4;border-radius:16px;box-shadow:0 12px 44px rgba(33,29,22,.09);overflow:hidden;">
+                    <div style="padding:30px 32px 26px;">
+                      <div style="text-align:center;font-size:19px;font-weight:700;color:#211D16;">Create your account</div>
+                      <div style="text-align:center;font-size:13.5px;color:#8A8272;margin-top:6px;line-height:1.4;">Welcome! Please fill in the details to get started.</div>
+                      <div onClick="{{ A.authContinue }}" style="margin-top:22px;display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid #E3DCCB;border-radius:9px;padding:11px;font-size:14px;font-weight:600;color:#3A342B;cursor:pointer;background:#FFFEFB;">
+                        <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.28-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg>Continue with Google
+                      </div>
+                      <div style="display:flex;align-items:center;gap:12px;margin:20px 0;"><div style="flex:1;height:1px;background:#EDE6D8;"></div><span style="font-size:12.5px;color:#9A927F;">or</span><div style="flex:1;height:1px;background:#EDE6D8;"></div></div>
+                      <div style="font-size:13px;font-weight:600;color:#211D16;margin-bottom:7px;">Email address</div>
+                      <input value="{{ A.email }}" onChange="{{ A.onEmail }}" placeholder="Enter your email address" style="width:100%;margin-bottom:16px;padding:11px 13px;border:1px solid #E3DCCB;border-radius:8px;background:#FFFEFB;font-size:14px;font-family:inherit;color:#211D16;outline:none;" />
+                      <div style="font-size:13px;font-weight:600;color:#211D16;margin-bottom:7px;">Password</div>
+                      <div style="position:relative;margin-bottom:22px;">
+                        <input value="{{ A.pw }}" onChange="{{ A.onPw }}" type="password" placeholder="Create a password" style="width:100%;padding:11px 40px 11px 13px;border:1px solid #E3DCCB;border-radius:8px;background:#FFFEFB;font-size:14px;font-family:inherit;color:#211D16;outline:none;" />
+                        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9A927F" stroke-width="1.8" style="position:absolute;right:13px;top:50%;transform:translateY(-50%);"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                      </div>
+                      <div onClick="{{ A.authContinue }}" style="background:#E8680E;color:#fff;text-align:center;font-size:14px;font-weight:600;padding:12px;border-radius:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;">Continue <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"></path></svg></div>
+                    </div>
+                    <div style="border-top:1px solid #EDE6D8;padding:15px;text-align:center;font-size:13px;color:#6F6757;">Already have an account? <a href="#1a" style="font-weight:600;">Sign in</a></div>
+                    <div style="border-top:1px solid #EDE6D8;background:#FAF6EE;padding:11px;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:#9A927F;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3" stroke-linecap="round"></path></svg>Secured by <span style="font-weight:600;color:#6F6757;">clerk</span></div>
+                  </div>
+                  <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:11px;color:#B4A88E;margin-top:14px;line-height:1.5;">Your existing Clerk sign-up, unchanged.<br>OfferBee setup begins right after.</div>
+                </div>
+              </div>
+              </sc-if>
+
+              <!-- step 1 -->
+              <sc-if value="{{ A.s1 }}" hint-placeholder-val="{{ true }}">
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#9A927F;">Step 02 · Your wallet</div>
+                <h1 style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:10px;">Which cards are in your wallet?</h1>
+                <p style="font-size:15px;line-height:1.5;color:#6F6757;margin:10px 0 22px;">Tap the ones you carry. Start with the popular picks, or search 65+ cards — we track every credit for you.</p>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;">
+                  <sc-for list="{{ A.popular }}" as="c" hint-placeholder-count="6">
+                    <div onClick="{{ c.onToggle }}" style="{{ c.tileStyle }}">
+                      <div style="position:relative;height:76px;border-radius:10px;background:{{ c.color }};overflow:hidden;">
+                        <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div>
+                        <div style="position:absolute;top:12px;left:12px;width:26px;height:18px;border-radius:4px;background:rgba(255,255,255,.3);"></div>
+                        <sc-if value="{{ c.selected }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;top:9px;right:9px;width:24px;height:24px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div></sc-if>
+                      </div>
+                      <div style="margin-top:10px;font-size:14px;font-weight:600;">{{ c.name }}</div>
+                      <div style="font-size:12px;color:#6F6757;margin-top:1px;">{{ c.feeStr }} · {{ c.creditsStr }}</div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="position:relative;margin-top:22px;">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9A927F" stroke-width="2" stroke-linecap="round" style="position:absolute;left:15px;top:50%;transform:translateY(-50%);"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                  <input value="{{ A.search }}" onChange="{{ A.onSearch }}" placeholder="Search Chase, Citi, Capital One…" style="width:100%;padding:13px 14px 13px 42px;border:1px solid #E8E1D2;border-radius:12px;background:#FFFEFB;font-size:14.5px;font-family:inherit;color:#211D16;outline:none;" />
+                </div>
+                <sc-if value="{{ A.showSearch }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top:14px;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:14px;overflow:hidden;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A927F;padding:12px 16px 4px;">Search results</div>
+                  <sc-for list="{{ A.searchResults }}" as="c" hint-placeholder-count="3">
+                    <div onClick="{{ c.onToggle }}" style="{{ c.rowStyle }}">
+                      <div style="width:34px;height:23px;border-radius:5px;flex-shrink:0;background:{{ c.color }};"></div>
+                      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;">{{ c.name }}</div><div style="font-size:12px;color:#6F6757;">{{ c.issuer }} · {{ c.feeStr }}</div></div>
+                      <div style="{{ c.addStyle }}">{{ c.addLabel }}</div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ A.noResults }}" hint-placeholder-val="{{ true }}"><div style="padding:16px;font-size:13.5px;color:#9A927F;">No cards match — try an issuer name.</div></sc-if>
+                </div>
+                </sc-if>
+              </div>
+              </sc-if>
+
+              <!-- step 2 -->
+              <sc-if value="{{ A.s2 }}" hint-placeholder-val="{{ true }}">
+              <div style="max-width:560px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#9A927F;">Step 03 · Spending</div>
+                <h1 style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:10px;">What do you actually spend on?</h1>
+                <p style="font-size:15px;line-height:1.5;color:#6F6757;margin:10px 0 24px;">We'll float the credits that match your life to the top — so the ones you'll really use come first.</p>
+                <div style="display:flex;flex-wrap:wrap;gap:11px;">
+                  <sc-for list="{{ A.cats }}" as="c" hint-placeholder-count="9">
+                    <div onClick="{{ c.onToggle }}" style="{{ c.style }}">{{ c.label }}</div>
+                  </sc-for>
+                </div>
+                <div style="display:inline-flex;align-items:center;gap:9px;background:#FBEAD5;border-radius:11px;padding:11px 16px;margin-top:26px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v5M12 16v5M3 12h5M16 12h5"></path></svg>
+                  <span style="font-size:14px;font-weight:600;color:#B4550B;">{{ A.catFeedback }}</span>
+                </div>
+              </div>
+              </sc-if>
+
+              <!-- step 3 -->
+              <sc-if value="{{ A.s3 }}" hint-placeholder-val="{{ true }}">
+              <div style="max-width:540px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#9A927F;">Step 04 · Reminders</div>
+                <h1 style="font-family:'Source Serif 4',serif;font-size:32px;font-weight:600;letter-spacing:-.02em;margin-top:10px;">Never miss a reset.</h1>
+                <p style="font-size:15px;line-height:1.5;color:#6F6757;margin:10px 0 22px;">We nudge you at the right moment — right before a credit resets, and never more than that.</p>
+                <div style="margin-bottom:20px;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A927F;margin-bottom:8px;">What a nudge looks like</div>
+                  <div style="display:flex;gap:12px;align-items:flex-start;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;padding:14px 16px;box-shadow:0 10px 26px rgba(33,29,22,.09);transition:opacity .25s;opacity:{{ A.notifOpacity }};">
+                    <svg width="32" height="32" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberN1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeN1"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberN1)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeN1)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+                    <div style="flex:1;min-width:0;">
+                      <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.05em;color:#9A927F;">OFFERBEE</span><span style="font-size:11px;color:#9A927F;">now</span></div>
+                      <div style="font-size:14px;font-weight:600;margin-top:2px;">{{ A.notifHead }}</div>
+                      <div style="font-size:12.5px;color:#6F6757;">{{ A.notifBody }}</div>
+                    </div>
+                  </div>
+                </div>
+                <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+                  <sc-for list="{{ A.notifs }}" as="n" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-top:1px solid #ECE5D6;">
+                      <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ n.label }}</div><div style="font-size:12.5px;color:#6F6757;">{{ n.desc }}</div></div>
+                      <div onClick="{{ n.onToggle }}" style="{{ n.trackStyle }}"><div style="{{ n.knobStyle }}"></div></div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              </sc-if>
+
+              <!-- step 4 -->
+              <sc-if value="{{ A.s4 }}" hint-placeholder-val="{{ true }}">
+              <div style="max-width:560px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#E8680E;">You're all set</div>
+                <h1 style="font-family:'Source Serif 4',serif;font-size:38px;font-weight:600;letter-spacing:-.02em;line-height:1.04;margin-top:12px;">{{ A.reveal.totalStr }} is about<br>to slip away.</h1>
+                <p style="font-size:15px;line-height:1.5;color:#6F6757;margin:14px 0 22px;">{{ A.reveal.countStr }} reset within a week across your wallet. This is what OfferBee will surface the moment you sign in.</p>
+                <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:18px;padding:8px 22px 14px;box-shadow:0 1px 2px rgba(33,29,22,.05);">
+                  <sc-for list="{{ A.reveal.items }}" as="it" hint-placeholder-count="3">
+                    <div style="display:flex;align-items:center;gap:14px;padding:14px 0;border-top:1px solid #ECE5D6;">
+                      <div style="{{ it.dayStyle }}"><span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;line-height:1;">{{ it.days }}</span><span style="font-size:8.5px;font-weight:600;">days</span></div>
+                      <div style="width:34px;height:23px;border-radius:5px;flex-shrink:0;background:{{ it.color }};"></div>
+                      <div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:600;">{{ it.name }}</div><div style="font-size:12.5px;color:#6F6757;">{{ it.card }}</div></div>
+                      <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#E8680E;">{{ it.amtStr }}</div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ A.reveal.empty }}" hint-placeholder-val="{{ true }}"><div style="padding:16px 0;font-size:13.5px;color:#9A927F;">Add a card or two and we'll show what's about to reset.</div></sc-if>
+                </div>
+                <div style="display:flex;align-items:center;gap:26px;margin-top:22px;padding:16px 24px;background:#F5F1E8;border:1px solid #E8E1D2;border-radius:14px;">
+                  <div><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;">{{ A.sumCards }}</div><div style="font-size:12px;color:#6F6757;">cards added</div></div>
+                  <div style="width:1px;height:32px;background:#E8E1D2;"></div>
+                  <div><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;color:#E8680E;">{{ A.sumValue }}</div><div style="font-size:12px;color:#6F6757;">tracked per year</div></div>
+                  <div style="width:1px;height:32px;background:#E8E1D2;"></div>
+                  <div><div style="font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:600;">{{ A.sumRem }}</div><div style="font-size:12px;color:#6F6757;">reminders on</div></div>
+                </div>
+              </div>
+              </sc-if>
+
+            </div>
+
+            <!-- footer -->
+            <sc-if value="{{ A.showFooter }}" hint-placeholder-val="{{ true }}">
+            <div style="border-top:1px solid #E8E1D2;padding:16px 54px;display:flex;justify-content:space-between;align-items:center;background:#FFFEFB;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9A927F;">{{ A.stepLabel }}</div>
+              <div style="display:flex;gap:12px;align-items:center;">
+                <sc-if value="{{ A.showBack }}" hint-placeholder-val="{{ true }}"><div onClick="{{ A.back }}" style="font-size:14px;font-weight:600;color:#6F6757;border:1px solid #E8E1D2;background:#FFFEFB;padding:11px 18px;border-radius:11px;cursor:pointer;">Back</div></sc-if>
+                <div onClick="{{ A.next }}" style="font-size:14px;font-weight:600;color:#fff;background:#E8680E;padding:11px 22px;border-radius:11px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.22);">{{ A.continueLabel }}</div>
+              </div>
+            </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </div>
+</section>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    a: { step:0, email:'', pw:'', search:'', cards:{amexPlat:true,amexGold:true}, cats:{dining:true,travel:true}, notifs:{expiry:true,digest:true,renewal:false,smart:true} },
+    m: { step:0, email:'', pw:'', search:'', issuer:'all', cards:{amexPlat:true,amexGold:true}, cats:{dining:true,travel:true}, notifs:{expiry:true,digest:true,renewal:false,smart:true} },
+  };
+
+  CAT(){ return [
+    {id:'amexPlat',name:'Amex Platinum',issuer:'Amex',fee:695,color:'#3A4048',credits:1400,popular:true,next:{name:'Uber Cash',amt:15,days:6}},
+    {id:'amexGold',name:'Amex Gold',issuer:'Amex',fee:325,color:'#B08A3E',credits:420,popular:true,next:{name:'Dining credit',amt:10,days:2}},
+    {id:'csr',name:'Sapphire Reserve',issuer:'Chase',fee:550,color:'#1E6FB8',credits:800,popular:true,next:{name:'Travel credit',amt:25,days:5}},
+    {id:'venturex',name:'Venture X',issuer:'Capital One',fee:395,color:'#2B2B2B',credits:400,popular:true,next:{name:'Travel portal credit',amt:25,days:9}},
+    {id:'hiltonAspire',name:'Hilton Aspire',issuer:'Amex',fee:550,color:'#7A2E3B',credits:650,popular:true,next:{name:'Airline flight credit',amt:50,days:4}},
+    {id:'marriott',name:'Bonvoy Brilliant',issuer:'Amex',fee:650,color:'#3A2E2A',credits:600,popular:true,next:{name:'Dining credit',amt:25,days:3}},
+    {id:'cspreferred',name:'Sapphire Preferred',issuer:'Chase',fee:95,color:'#2A5C8A',credits:100,next:{name:'Hotel credit',amt:50,days:14}},
+    {id:'deltaReserve',name:'Delta Reserve',issuer:'Amex',fee:650,color:'#6A1B2E',credits:500,next:{name:'Resy dining',amt:20,days:7}},
+    {id:'amexGreen',name:'Amex Green',issuer:'Amex',fee:150,color:'#1F5C3D',credits:200,next:{name:'CLEAR credit',amt:16,days:11}},
+    {id:'citiStrata',name:'Citi Strata Elite',issuer:'Citi',fee:595,color:'#2E2A55',credits:600,next:{name:'Splurge credit',amt:25,days:8}},
+    {id:'boaElite',name:'BofA Premium Elite',issuer:'Bank of America',fee:550,color:'#7A1F2B',credits:450,next:{name:'Airline incidental',amt:33,days:10}},
+    {id:'usbAltitude',name:'Altitude Reserve',issuer:'U.S. Bank',fee:400,color:'#16405C',credits:325,next:{name:'Travel/dining credit',amt:27,days:12}},
+  ]; }
+
+  CATS(){ return [['dining','Dining'],['travel','Travel'],['groceries','Groceries'],['streaming','Streaming'],['rideshare','Rideshare'],['hotels','Hotels'],['airlines','Airlines'],['shopping','Shopping'],['wellness','Wellness']]; }
+  NOTIF(){ return [['expiry','Expiry alerts','Ping me before a credit resets'],['digest','Weekly digest','A Monday plan of what to use'],['renewal','Renewal alerts','Warn me before an annual fee posts'],['smart','Smart reminders','Timed to how you actually spend']]; }
+
+  usd(n){ return '$' + Math.round(n).toLocaleString('en-US'); }
+
+  cols(t){
+    if(t==='onyx') return {bg:'#131417',surface:'#1C1D21',surface2:'#232529',border:'#2E3036',sep:'#292B30',ink:'#ECEBE6',sec:'#9C9A93',ter:'#6E6C67',accent:'#F59E3C',accentSoft:'#3A2C17',onAccent:'#17140E',track:'#2E3036',warn:'#D18A4E',warnSoft:'#332A20',shadowSm:'0 1px 2px rgba(0,0,0,.35)'};
+    return {bg:'#FBF8F0',surface:'#FFFEFB',surface2:'#F5F1E8',border:'#E8E1D2',sep:'#ECE5D6',ink:'#211D16',sec:'#6F6757',ter:'#9A927F',accent:'#E8680E',accentSoft:'#FBEAD5',onAccent:'#ffffff',track:'#E4DECF',warn:'#B4693A',warnSoft:'#F6E9DF',shadowSm:'0 1px 2px rgba(33,29,22,.06)'};
+  }
+
+  maxStep(opt){ return opt==='b' ? 3 : 4; }
+  setStep(opt,n){ const m=this.maxStep(opt); n=Math.max(0,Math.min(m,n)); this.setState(s=>({[opt]:Object.assign({},s[opt],{step:n})})); }
+  next(opt){ this.setStep(opt, this.state[opt].step+1); }
+  back(opt){ this.setStep(opt, this.state[opt].step-1); }
+  setField(opt,f,v){ this.setState(s=>({[opt]:Object.assign({},s[opt],{[f]:v})})); }
+  toggleKey(opt,group,k){ this.setState(s=>{ const g=Object.assign({},s[opt][group]); g[k]=!g[k]; return {[opt]:Object.assign({},s[opt],{[group]:g})}; }); }
+
+  buildView(opt){
+    const s = this.state[opt];
+    const isA = opt!=='b';
+    const k = this.cols(isA?'honey':'onyx');
+    const usd = (n)=>this.usd(n);
+    const cat = this.CAT();
+    const sel = (id)=>!!s.cards[id];
+
+    const decorate = (c)=>{
+      const on = sel(c.id);
+      return {
+        id:c.id, name:c.name, issuer:c.issuer, color:c.color,
+        feeStr:'$'+c.fee+'/yr',
+        creditsStr: usd(c.credits)+' value',
+        selected:on,
+        onToggle: ()=>this.toggleKey(opt,'cards',c.id),
+        addLabel: on?'Added':'Add',
+        tileStyle: 'background:'+k.surface+';border:1px solid '+(on?k.accent:k.border)+';border-radius:14px;padding:12px;cursor:pointer;box-shadow:'+(on?'0 0 0 3px '+k.accentSoft:k.shadowSm)+';transition:box-shadow .15s,border-color .15s;',
+        rowStyle: 'display:flex;align-items:center;gap:12px;padding:13px 16px;border-top:1px solid '+k.sep+';cursor:pointer;',
+        addStyle: on
+          ? 'font-size:12.5px;font-weight:600;color:'+k.accent+';background:'+k.accentSoft+';padding:7px 13px;border-radius:9px;cursor:pointer;white-space:nowrap;'
+          : 'font-size:12.5px;font-weight:600;color:'+k.onAccent+';background:'+k.accent+';padding:7px 14px;border-radius:9px;cursor:pointer;white-space:nowrap;',
+      };
+    };
+
+    const q = s.search.trim().toLowerCase();
+    const matches = (c)=> c.name.toLowerCase().includes(q) || c.issuer.toLowerCase().includes(q);
+
+    // popular (A)
+    const popular = cat.filter(c=>c.popular).map(decorate);
+    const searchResults = q ? cat.filter(matches).map(decorate) : [];
+
+    // catalog list (B)
+    const list = cat.filter(c=> (s.issuer==='all' || c.issuer===s.issuer) && (q==='' || matches(c))).map(decorate);
+    const selectedChips = cat.filter(c=>sel(c.id)).map(c=>({ name:c.name, color:c.color, onToggle:()=>this.toggleKey(opt,'cards',c.id) }));
+    const issuerKeys = ['all'].concat(Array.from(new Set(cat.map(c=>c.issuer))));
+    const issChip = (active)=> 'font-size:13px;font-weight:600;padding:7px 13px;border-radius:9px;cursor:pointer;white-space:nowrap;color:'+(active?k.onAccent:k.sec)+';background:'+(active?k.accent:k.surface2)+';border:1px solid '+(active?k.accent:k.border)+';';
+    const issuers = issuerKeys.map(key=>({ key, label: key==='all'?'All':key, active: s.issuer===key, onClick: ()=>this.setField(opt,'issuer',key), style: issChip(s.issuer===key) }));
+
+    // value counter
+    const selCards = cat.filter(c=>sel(c.id));
+    const selCount = selCards.length;
+    const selValue = selCards.reduce((a,c)=>a+c.credits,0);
+
+    // categories
+    const catChip = (active)=> 'font-size:14px;font-weight:600;padding:9px 15px;border-radius:11px;cursor:pointer;white-space:nowrap;color:'+(active?k.onAccent:k.ink)+';background:'+(active?k.accent:k.surface)+';border:1px solid '+(active?k.accent:k.border)+';';
+    const cats = this.CATS().map(d=>({ key:d[0], label:d[1], active:!!s.cats[d[0]], onToggle:()=>this.toggleKey(opt,'cats',d[0]), style:catChip(!!s.cats[d[0]]) }));
+
+    // notifications
+    const notifs = this.NOTIF().map(d=>{
+      const on = !!s.notifs[d[0]];
+      return {
+        label:d[1], desc:d[2], on,
+        onToggle: ()=>this.toggleKey(opt,'notifs',d[0]),
+        trackStyle: 'width:44px;height:26px;border-radius:14px;padding:3px;cursor:pointer;display:flex;flex-shrink:0;transition:background .2s;background:'+(on?k.accent:k.track)+';justify-content:'+(on?'flex-end':'flex-start')+';',
+        knobStyle: 'width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);',
+      };
+    });
+
+    // reveal (expiring)
+    const revItems = selCards
+      .map(c=>({ name:c.next.name, card:c.name, color:c.color, amt:c.next.amt, days:c.next.days }))
+      .sort((a,b)=>a.days-b.days)
+      .slice(0,5)
+      .map(it=>{
+        const urgent = it.days<=7;
+        return {
+          name:it.name, card:it.card, color:it.color, days:it.days, amtStr:usd(it.amt),
+          dayStyle: 'display:flex;flex-direction:column;align-items:center;justify-content:center;width:46px;height:46px;border-radius:12px;flex-shrink:0;background:'+(urgent?k.warnSoft:k.track)+';color:'+(urgent?k.warn:k.sec)+';',
+        };
+      });
+    const urgentCards = selCards.filter(c=>c.next.days<=7);
+    const revTotal = urgentCards.reduce((a,c)=>a+c.next.amt,0) || selCards.reduce((a,c)=>a+c.next.amt,0);
+    const urgentCount = urgentCards.length || selCards.length;
+
+    // engagement extras
+    const CATN = {dining:6,travel:9,groceries:2,streaming:3,rideshare:4,hotels:7,airlines:5,shopping:3,wellness:2};
+    const selCatDefs = this.CATS().filter(d=>!!s.cats[d[0]]);
+    const matched = selCatDefs.reduce((a,d)=>a+(CATN[d[0]]||0),0);
+    const catFeedback = selCatDefs.length===0 ? "Pick a few — we'll rank every credit around them." : "Nice — "+matched+" matching credits move to the top of your feed.";
+    const firstRev = revItems[0];
+    const notifHead = firstRev ? firstRev.name+' resets in '+firstRev.days+(firstRev.days===1?' day':' days') : 'Dining credit resets in 2 days';
+    const notifBody = firstRev ? 'Use your '+firstRev.amtStr+' '+firstRev.card+' credit before it disappears.' : 'Use your $10 Amex Gold credit before it disappears.';
+    const notifOpacity = s.notifs.expiry ? '1' : '.35';
+    const remindersOn = this.NOTIF().filter(d=>!!s.notifs[d[0]]).length;
+
+    // step list (A sidebar)
+    const stepMeta = [['01','Account'],['02','Wallet'],['03','Spending'],['04','Reminders'],['05','Review']];
+    const stepList = stepMeta.map((m,i)=>{
+      const state = i<s.step ? 'done' : (i===s.step ? 'current' : 'todo');
+      return {
+        num:m[0], label:m[1], done: state==='done', showNum: state!=='done',
+        onClick: ()=>this.setStep(opt,i),
+        rowBg: state==='current' ? k.accentSoft : 'transparent',
+        labelColor: state==='todo' ? k.ter : k.ink,
+        numStyle: 'width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:\'IBM Plex Mono\',monospace;font-size:11px;font-weight:600;flex-shrink:0;'+(state==='todo' ? 'border:1.5px solid '+k.border+';color:'+k.ter+';background:transparent;' : 'background:'+k.accent+';color:'+k.onAccent+';'),
+      };
+    });
+
+    // segments (B top)
+    const segments = [0,1,2,3].map(i=>({ style:'flex:1;height:4px;border-radius:2px;background:'+(i<=s.step?k.accent:k.track)+';transition:background .3s;' }));
+
+    const total = isA?5:4;
+    const lastStep = this.maxStep(opt);
+
+    return {
+      s0:s.step===0, s1:s.step===1, s2:s.step===2, s3:s.step===3, s4:s.step===4,
+      email:s.email, pw:s.pw, search:s.search,
+      onEmail:(e)=>this.setField(opt,'email',e.target.value),
+      onPw:(e)=>this.setField(opt,'pw',e.target.value),
+      onSearch:(e)=>this.setField(opt,'search',e.target.value),
+      next:()=>this.next(opt), back:()=>this.back(opt),
+      showBack: s.step>0,
+      showFooter: s.step>0,
+      authContinue: ()=>this.next(opt),
+      continueLabel: s.step===lastStep ? 'Enter OfferBee →' : 'Continue',
+      stepLabel: 'Step '+(s.step+1)+' of '+total,
+
+      popular, searchResults, showSearch:q.length>0, noResults:q.length>0 && list.length===0 && searchResults.length===0 && (isA ? searchResults.length===0 : true),
+      list, selectedChips, hasSelectedChips:selectedChips.length>0, issuers,
+      selCount, selCountStr: selCount+(selCount===1?' card added':' cards added'), selValueStr: usd(selValue),
+      cats, notifs,
+      catFeedback, notifHead, notifBody, notifOpacity,
+      sumCards: String(selCount), sumValue: usd(selValue), sumRem: remindersOn+' of 4',
+      stepList, segments,
+      reveal: { totalStr: usd(revTotal), countStr: urgentCount+(urgentCount===1?' credit':' credits'), items: revItems, empty: revItems.length===0 },
+    };
+  }
+
+  renderVals(){
+    // fix noResults for A (searchResults based) vs B (list based)
+    const A = this.buildView('a');
+    A.noResults = A.showSearch && A.searchResults.length===0;
+    const M = this.buildView('m');
+    M.noResults = M.showSearch && M.searchResults.length===0;
+    return { A, M };
+  }
+}
+</script>
+</body>
+</html>

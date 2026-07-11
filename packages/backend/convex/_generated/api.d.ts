@@ -17,6 +17,8 @@ import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
 import type * as notifications from "../notifications.js";
 import type * as offers from "../offers.js";
+import type * as onboarding from "../onboarding.js";
+import type * as onboardingCatalog from "../onboardingCatalog.js";
 import type * as push from "../push.js";
 import type * as rapidapi from "../rapidapi.js";
 import type * as review from "../review.js";
@@ -42,6 +44,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   notifications: typeof notifications;
   offers: typeof offers;
+  onboarding: typeof onboarding;
+  onboardingCatalog: typeof onboardingCatalog;
   push: typeof push;
   rapidapi: typeof rapidapi;
   review: typeof review;
