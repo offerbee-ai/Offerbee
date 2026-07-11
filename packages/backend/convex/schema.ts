@@ -5,6 +5,7 @@ import {
   deliveryStatusValidator,
   fieldProvenanceValidator,
   platformValidator,
+  reminderPrefsValidator,
   reviewObservationValidator,
   reviewReasonValidator,
   reviewStatusValidator,
@@ -23,6 +24,13 @@ export default defineSchema({
     quietHoursStart: v.optional(v.number()), // 0-23 local hour, inclusive
     quietHoursEnd: v.optional(v.number()), // 0-23 local hour, exclusive
     lastOfferScanAt: v.optional(v.number()),
+    // ── First-run onboarding (web wizard). Absent on rows that predate the
+    //    wizard or came from native — those users are never gated into it. ──
+    onboardingStep: v.optional(v.number()), // last reached step 1-4 (0 = Clerk, never stored)
+    onboardingCompletedAt: v.optional(v.number()),
+    onboardingCards: v.optional(v.array(v.string())), // curated onboardingCatalog ids
+    spendingCategories: v.optional(v.array(v.string())), // feeds feed ranking
+    reminderPrefs: v.optional(reminderPrefsValidator),
   }).index("by_userId", ["userId"]),
 
   // ── Catalog cache: cards seen via live name search (name fallback for the

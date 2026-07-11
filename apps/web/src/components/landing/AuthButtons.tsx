@@ -25,7 +25,7 @@ export function NavAuthButtons() {
       <SignInButton
         mode="modal"
         fallbackRedirectUrl="/app"
-        signUpFallbackRedirectUrl="/app"
+        signUpFallbackRedirectUrl="/welcome"
       >
         <button
           type="button"
@@ -35,7 +35,7 @@ export function NavAuthButtons() {
         </button>
       </SignInButton>
       <Link
-        href="/sign-up"
+        href="/welcome"
         className="rounded-button bg-accent px-[18px] py-[9px] text-[15px] font-semibold text-white transition-colors hover:bg-accent-strong"
       >
         Get OfferBee
@@ -48,7 +48,7 @@ export function HeroAuthButton() {
   const { isSignedIn } = useUser();
   return (
     <Link
-      href={isSignedIn ? "/app" : "/sign-up"}
+      href={isSignedIn ? "/app" : "/welcome"}
       className="rounded-[13px] bg-accent px-[26px] py-[14px] text-[16px] font-semibold text-white shadow-[0_8px_20px_rgba(232,104,14,.24)] transition-colors hover:bg-accent-strong"
     >
       {isSignedIn ? "Open app" : "Get started"}
