@@ -12,11 +12,12 @@
 #                                        Safe to re-run; self-schedules in the
 #                                        background.
 #
-#   copy  <src> <dst>                    Copy cardDetails from one deployment to
-#                                        another with NO API calls (export →
-#                                        strip system fields → import --replace).
-#                                        Use this to seed staging/prod from a
-#                                        warmed dev, avoiding the rate limit.
+#   copy  <src> <dst>                    Copy cardCatalog + cardDetails from one
+#                                        deployment to another with NO API calls
+#                                        (export → strip system fields → import
+#                                        --replace). Use this to seed staging/prod
+#                                        from a warmed dev, avoiding the rate
+#                                        limit. Only these two tables are touched.
 #
 # Deployment tokens: dev (default deployment in .env.local), prod, or an
 # explicit Convex deployment name (e.g. kindhearted-jackal-408 for staging).
@@ -63,24 +64,34 @@ case "$mode" in
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' EXIT
 
-    echo "▶ Exporting cardDetails from '$src'…"
+    # Seed both catalog + details: a fresh deployment needs cardCatalog for the
+    # local search index / name fallback and cardDetails for images + fees.
+    TABLES="cardCatalog cardDetails"
+
+    echo "▶ Exporting from '$src'…"
     npx convex export --path "$tmp/src.zip" "${SRC_FLAGS[@]}" >/dev/null
     (cd "$tmp" && unzip -o src.zip >/dev/null)
 
-    # Strip _id/_creationTime so import assigns fresh ids (avoids duplicate
-    # cardKeys — getCardDetail uses .unique() and would throw on dupes).
-    node -e '
-      const fs = require("fs");
-      const src = process.argv[1], out = process.argv[2];
-      const rows = fs.readFileSync(src, "utf8").trim().split("\n").filter(Boolean)
-        .map((l) => { const r = JSON.parse(l); delete r._id; delete r._creationTime; return JSON.stringify(r); });
-      fs.writeFileSync(out, rows.join("\n") + "\n");
-      console.log("  rows:", rows.length);
-    ' "$tmp/cardDetails/documents.jsonl" "$tmp/cardDetails.jsonl"
-
-    echo "▶ Importing into '$dst' (--replace, so no duplicate cardKeys)…"
-    npx convex import --table cardDetails --replace "$tmp/cardDetails.jsonl" "${DST_FLAGS[@]}" -y
-    echo "✓ Copied cardDetails: $src → $dst"
+    for table in $TABLES; do
+      docs="$tmp/$table/documents.jsonl"
+      if [ ! -f "$docs" ]; then
+        echo "  – $table: absent on '$src', skipping"
+        continue
+      fi
+      # Strip _id/_creationTime so import assigns fresh ids (avoids duplicate
+      # cardKeys — .unique() lookups would throw on dupes).
+      node -e '
+        const fs = require("fs");
+        const src = process.argv[1], out = process.argv[2], name = process.argv[3];
+        const rows = fs.readFileSync(src, "utf8").trim().split("\n").filter(Boolean)
+          .map((l) => { const r = JSON.parse(l); delete r._id; delete r._creationTime; return JSON.stringify(r); });
+        fs.writeFileSync(out, rows.join("\n") + "\n");
+        console.log("  – " + name + ": " + rows.length + " rows");
+      ' "$docs" "$tmp/$table.jsonl" "$table"
+      # --replace swaps the table contents atomically (no duplicate cardKeys).
+      npx convex import --table "$table" --replace "$tmp/$table.jsonl" "${DST_FLAGS[@]}" -y >/dev/null
+    done
+    echo "✓ Copied [$TABLES]: $src → $dst"
     ;;
 
   *)
