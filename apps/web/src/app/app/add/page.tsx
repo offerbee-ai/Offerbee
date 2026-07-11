@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
@@ -51,7 +51,24 @@ export default function AddCardPage() {
   const popular = useQuery(api.catalog.popularCards);
   const reqId = useRef(0);
 
-  const browsing = term.trim().length < 2;
+  const trimmed = term.trim();
+  const browsing = trimmed.length < 2;
+
+  // Instant, reactive matches from cards already in the catalog — no API call,
+  // no debounce. Grows automatically as the debounced action below backfills.
+  const localResults = useQuery(
+    api.catalog.searchCatalogLocal,
+    browsing ? "skip" : { term: trimmed },
+  );
+
+  // Show local hits immediately; the API action's authoritative results merge in
+  // and add anything the local index didn't have yet (deduped by cardKey).
+  const shown = useMemo(() => {
+    const map = new Map<string, Result>();
+    for (const r of localResults ?? []) map.set(r.cardKey, r);
+    for (const r of results) map.set(r.cardKey, r);
+    return Array.from(map.values());
+  }, [localResults, results]);
 
   // Debounced live search against the card API's name-search endpoint.
   useEffect(() => {
@@ -65,6 +82,9 @@ export default function AddCardPage() {
       return;
     }
     const id = ++reqId.current;
+    // Drop the previous term's API results so only current-term local hits show
+    // until this term's action returns (avoids a cross-term merge flash).
+    setResults([]);
     setSearching(true);
     const timer = setTimeout(async () => {
       try {
@@ -173,22 +193,9 @@ export default function AddCardPage() {
         )
       ) : (
         <div className="mt-6">
-          {searching ? (
-            <div className="flex justify-center py-16">
-              <Spinner />
-            </div>
-          ) : results.length === 0 ? (
-            <EmptyState
-              title={searched ? "No matches" : "Keep typing…"}
-              description={
-                searched
-                  ? "Try a different card name."
-                  : "Search the card catalog for the cards you own."
-              }
-            />
-          ) : (
+          {shown.length > 0 ? (
             <div className="flex flex-col gap-2">
-              {results.map((c) => (
+              {shown.map((c) => (
                 <Card
                   key={c.cardKey}
                   className="flex items-center justify-between py-3"
@@ -206,6 +213,19 @@ export default function AddCardPage() {
                 </Card>
               ))}
             </div>
+          ) : searching || localResults === undefined ? (
+            <div className="flex justify-center py-16">
+              <Spinner />
+            </div>
+          ) : (
+            <EmptyState
+              title={searched ? "No matches" : "Keep typing…"}
+              description={
+                searched
+                  ? "Try a different card name."
+                  : "Search the card catalog for the cards you own."
+              }
+            />
           )}
         </div>
       )}
