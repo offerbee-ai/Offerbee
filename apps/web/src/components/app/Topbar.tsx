@@ -36,7 +36,6 @@ function useTitle(pathname: string, name: string): { eyebrow: string; title: str
   if (pathname === "/app") return dash;
   const map: Record<string, { eyebrow: string; title: string }> = {
     "/app/benefits": { eyebrow: "All credits", title: "Benefits" },
-    "/app/expiring": { eyebrow: "Act before they reset", title: "Expiring soon" },
     "/app/settings": { eyebrow: "Preferences", title: "Settings" },
     "/app/offers": { eyebrow: "What to do next", title: "Offers" },
     "/app/add": { eyebrow: "Build your wallet", title: "Add a card" },

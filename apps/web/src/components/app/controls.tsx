@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -103,6 +103,79 @@ export function MarkUsedButton({
     >
       {used ? "Used ✓" : "Mark used"}
     </button>
+  );
+}
+
+// ── Log-partial button (compact "＋$" → inline amount entry) ────────────────
+export function LogPartialButton({
+  onLog,
+  disabled,
+}: {
+  onLog: (amount: number) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [val, setVal] = useState("");
+
+  if (!open)
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setOpen(true)}
+        aria-label="Log a partial amount"
+        className="whitespace-nowrap rounded-[9px] border border-border px-[10px] py-[7px] text-[12.5px] font-semibold text-secondary transition-colors hover:text-ink disabled:opacity-50"
+      >
+        ＋$
+      </button>
+    );
+
+  const submit = () => {
+    const n = parseFloat(val);
+    if (Number.isFinite(n) && n > 0) onLog(n);
+    setOpen(false);
+    setVal("");
+  };
+  const cancel = () => {
+    setOpen(false);
+    setVal("");
+  };
+
+  return (
+    <span className="inline-flex items-center gap-1">
+      <input
+        type="number"
+        inputMode="decimal"
+        min="0"
+        step="0.01"
+        autoFocus
+        value={val}
+        onChange={(e) => setVal(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") submit();
+          if (e.key === "Escape") cancel();
+        }}
+        placeholder="$"
+        className="w-[64px] rounded-[8px] border border-border bg-surface px-2 py-[6px] text-[13px] text-ink outline-none focus:border-accent"
+      />
+      <button
+        type="button"
+        onClick={submit}
+        disabled={disabled}
+        aria-label="Confirm amount"
+        className="rounded-[8px] bg-accent px-[9px] py-[6px] text-[12.5px] font-semibold text-on-accent hover:bg-accent-strong disabled:opacity-50"
+      >
+        ✓
+      </button>
+      <button
+        type="button"
+        onClick={cancel}
+        aria-label="Cancel"
+        className="rounded-[8px] border border-border px-[9px] py-[6px] text-[12.5px] font-semibold text-secondary hover:text-ink"
+      >
+        ✕
+      </button>
+    </span>
   );
 }
 

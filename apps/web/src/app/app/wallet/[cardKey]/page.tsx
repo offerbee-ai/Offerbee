@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { Button, Card, Pill, SectionLabel, Spinner } from "@/components/app/ui";
+import { TrackedCredits } from "@/components/app/TrackedCredits";
 
 function toInputDate(ms: number | undefined): string {
   if (ms === undefined) return "";
@@ -142,6 +143,9 @@ export default function CardDetailPage() {
           </div>
         </Card>
       )}
+
+      {/* Track this card's statement credits + log usage. */}
+      {owned && <TrackedCredits cardKey={cardKey} userCardId={owned._id} />}
 
       {detail && (
         <div className="mt-6 grid gap-4">

@@ -11,7 +11,6 @@ import { BeeLogo } from "@/components/landing/BrandMark";
 import {
   HomeIcon,
   ChecklistIcon,
-  ClockIcon,
   CardIcon,
   GearIcon,
   BellIcon,
@@ -33,7 +32,6 @@ interface NavDef {
 const PRIMARY: NavDef[] = [
   { href: "/app", label: "Dashboard", icon: <HomeIcon size={19} /> },
   { href: "/app/benefits", label: "Benefits", icon: <ChecklistIcon size={19} /> },
-  { href: "/app/expiring", label: "Expiring", icon: <ClockIcon size={19} /> },
   {
     href: "/app/wallet",
     label: "Wallet",
@@ -126,10 +124,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
             active={isActive(item, pathname)}
             onNavigate={onNavigate}
             badge={
-              item.href === "/app/expiring" && derived.atRiskCount > 0
+              item.href === "/app/benefits" && derived.atRiskCount > 0
                 ? derived.atRiskCount
                 : undefined
             }
+            badgeTone="warning"
           />
         ))}
 
