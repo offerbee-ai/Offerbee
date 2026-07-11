@@ -12,6 +12,31 @@ import {
   Panel,
 } from "../controls";
 import { EmptyState, Spinner } from "../ui";
+import type { DerivedCredit } from "../data";
+
+// Real card art when we have it, else the deterministic color chip.
+function CardMark({
+  credit,
+  width,
+  height,
+}: {
+  credit: DerivedCredit;
+  width: number;
+  height: number;
+}) {
+  if (credit.image)
+    // Plain <img>: the card-image host path rotates (see wallet page).
+    // eslint-disable-next-line @next/next/no-img-element
+    return (
+      <img
+        src={credit.image}
+        alt=""
+        style={{ width, height }}
+        className="shrink-0 rounded-[6px] border border-border object-cover"
+      />
+    );
+  return <BrandChip color={credit.color} width={width} height={height} />;
+}
 
 const FILTERS: { value: BenefitFilter; label: string }[] = [
   { value: "monthly", label: "Monthly" },
@@ -121,7 +146,7 @@ export function Benefits() {
                     className="flex flex-wrap items-center gap-x-3 gap-y-3 border-t border-separator px-4 py-4 first:border-t-0 sm:px-5"
                   >
                     <DaysTile days={c.days} size={48} urgent={c.days <= 7} />
-                    <BrandChip color={c.color} width={36} height={24} />
+                    <CardMark credit={c} width={38} height={25} />
                     <div className="min-w-0 flex-1 basis-[120px]">
                       <div className="truncate text-[15px] font-semibold text-ink">
                         {c.name}
@@ -188,7 +213,7 @@ export function Benefits() {
                 className={`grid ${GRID} border-t border-separator py-[14px] first:border-t-0`}
               >
                 <div className="flex min-w-0 items-center gap-3">
-                  <BrandChip color={c.color} width={30} height={21} />
+                  <CardMark credit={c} width={32} height={22} />
                   <div className="min-w-0">
                     <div className="truncate text-[14.5px] font-semibold text-ink">
                       {c.name}

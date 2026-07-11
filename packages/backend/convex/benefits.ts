@@ -102,7 +102,14 @@ export const listMyCredits = query({
 
     const cardMeta = new Map<
       string,
-      { userCardId: Id<"userCards">; cardKey: string; name: string; issuer: string; fee: number }
+      {
+        userCardId: Id<"userCards">;
+        cardKey: string;
+        name: string;
+        issuer: string;
+        fee: number;
+        imageUrl: string | null;
+      }
     >();
     const cards = await Promise.all(
       userCards.map(async (uc) => {
@@ -123,6 +130,7 @@ export const listMyCredits = query({
             uc.nickname ?? detail?.cardName ?? catalog?.cardName ?? uc.cardKey,
           issuer: detail?.cardIssuer ?? catalog?.cardIssuer ?? "",
           fee: detail?.annualFee ?? 0,
+          imageUrl: detail?.cardImageUrl ?? null,
         };
         cardMeta.set(uc._id, meta);
         return meta;
@@ -146,6 +154,7 @@ export const listMyCredits = query({
         title: b.title,
         cardKey: b.cardKey,
         cardName: meta.name,
+        cardImageUrl: meta.imageUrl,
         amount: b.amount,
         cycle: b.cycle,
         source: b.source,

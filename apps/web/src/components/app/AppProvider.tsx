@@ -120,6 +120,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         card: c.cardName,
         cardId: c.cardKey,
         color: cardColor(c.cardKey),
+        image: c.cardImageUrl ?? null,
         amount: c.amount,
         cycle: c.cycle,
         usedAmount: c.usedAmount,

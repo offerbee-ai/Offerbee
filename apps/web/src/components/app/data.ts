@@ -13,7 +13,8 @@ export interface Credit {
   name: string;
   card: string; // display name of the owning card
   cardId: string; // = cardKey
-  color: string; // brand hex (theme-independent, derived from cardKey)
+  color: string; // brand hex fallback (derived from cardKey) when no image
+  image: string | null; // real card art (cardDetails.cardImageUrl)
   amount: number; // dollars per cycle period
   cycle: Cycle;
   usedAmount: number; // dollars logged in the current period
