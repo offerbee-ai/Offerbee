@@ -26,8 +26,11 @@ const RANGES: { value: ExpiringRange; label: string }[] = [
   { value: "month", label: "This month" },
 ];
 
+// Each row is its own grid, so tracks must be content-independent to line up
+// across rows + header: minmax(0,fr) columns truncate instead of pushing, and
+// the amount/status columns are fixed-width (status content varies per row).
 const GRID =
-  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[1fr_auto_auto] md:grid-cols-[1.6fr_1fr_0.8fr_auto]";
+  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[minmax(0,1fr)_72px_auto] md:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)_88px_188px]";
 const HEAD =
   "font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary";
 
@@ -170,7 +173,7 @@ export function Benefits() {
           <div className={`hidden md:grid ${GRID} border-b border-separator py-3`}>
             <div className={HEAD}>Credit</div>
             <div className={HEAD}>Card</div>
-            <div className={HEAD}>Cycle</div>
+            <div className={HEAD}>Amount</div>
             <div className={`${HEAD} text-right`}>Status</div>
           </div>
 
