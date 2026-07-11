@@ -54,6 +54,16 @@ function toAmount(raw: string): number {
   return parseFloat(raw.replace(/,/g, ""));
 }
 
+// Blank out spend-REQUIREMENT dollars ("after you spend $75,000") so they're
+// never mistaken for the credit amount. Replaced with equal-length spaces to
+// keep every other match's index stable.
+function maskSpendRequirements(text: string): string {
+  return text.replace(
+    /\bspend(?:ing)?\s+\$\s?[\d,]+(?:\.\d{2})?/gi,
+    (m) => " ".repeat(m.length),
+  );
+}
+
 // All $amounts in text with their positions.
 function dollarsWithIndex(text: string): Array<{ amount: number; index: number }> {
   const out: Array<{ amount: number; index: number }> = [];
@@ -101,13 +111,17 @@ export function parseBenefitCredit(b: Benefit): ParsedCredit | null {
   const { cycle, text, index } = detected;
 
   // 6. amount closest to the cycle phrase (same-sentence-ish window), else
-  //    first $ in title, else first $ in desc.
+  //    first $ in title, else first $ in desc. Spend requirements are masked so
+  //    "$250 credit after you spend $75,000/year" never yields $75,000.
   let amount: number | undefined;
-  const near = dollarsWithIndex(text)
+  const near = dollarsWithIndex(maskSpendRequirements(text))
     .map((d) => ({ ...d, dist: Math.abs(d.index - index) }))
     .filter((d) => d.dist <= 120)
     .sort((a, b2) => a.dist - b2.dist);
-  amount = near[0]?.amount ?? firstDollar(title) ?? firstDollar(desc);
+  amount =
+    near[0]?.amount ??
+    firstDollar(title) ??
+    firstDollar(maskSpendRequirements(desc));
   if (amount === undefined || amount <= 0) return null;
 
   // 7. confidence
