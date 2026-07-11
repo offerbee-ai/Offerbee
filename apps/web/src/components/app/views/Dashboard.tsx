@@ -13,6 +13,7 @@ import {
   Panel,
   MonoLabel,
 } from "../controls";
+import { Spinner } from "../ui";
 import { ChecklistIcon, ClockIcon } from "@/components/landing/icons";
 
 function ResetRow({
@@ -92,9 +93,17 @@ function ListHeader({
 }
 
 export function Dashboard() {
-  const { derived, credits, markUsed, dashLayout, setDashLayout } = useApp();
+  const { derived, credits, markUsed, dashLayout, setDashLayout, isLoading } =
+    useApp();
   const expiring = dashExpiring(credits);
   const { captured, total, pct, net, fees, remainMonth, atRisk, cards } = derived;
+
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-24">
+        <Spinner />
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-5">
@@ -143,7 +152,7 @@ export function Dashboard() {
             </Panel>
 
             <Panel className="pb-2">
-              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/expiring" />
+              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/benefits" />
               <div>
                 {expiring.map((c) => (
                   <ResetRow key={c.id} credit={c} tileSize={46} onToggle={() => markUsed(c.id)} />
@@ -208,7 +217,7 @@ export function Dashboard() {
           {/* Two columns */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <Panel className="pb-2">
-              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/expiring" />
+              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/benefits" />
               <div>
                 {expiring.map((c) => (
                   <ResetRow key={c.id} credit={c} tileSize={42} onToggle={() => markUsed(c.id)} />

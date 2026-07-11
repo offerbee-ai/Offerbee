@@ -7,7 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { useApp, type Theme } from "../AppProvider";
 import { Segmented, ToggleSwitch, MonoLabel, Panel } from "../controls";
-import { SAMPLE_CREDITS, CYCLE_LABEL } from "../data";
+import { CYCLE_LABEL, usd, type Credit } from "../data";
 
 // Local (sample) toggles that don't yet have a dedicated backend field. Persist
 // them so they feel real; the master switch below is the real backend flag.
@@ -52,15 +52,24 @@ function ToggleRow({
   );
 }
 
-function downloadCreditsCsv() {
-  const header = ["Credit", "Card", "Cycle", "Amount", "Used", "Days to reset"];
-  const rows = SAMPLE_CREDITS.map((c) => [
+function downloadCreditsCsv(credits: Credit[]) {
+  const header = [
+    "Credit",
+    "Card",
+    "Cycle",
+    "Amount",
+    "Used this period",
+    "Remaining",
+    "Resets",
+  ];
+  const rows = credits.map((c) => [
     c.name,
     c.card,
     CYCLE_LABEL[c.cycle],
-    String(c.amount),
-    c.used ? "yes" : "no",
-    String(c.days),
+    usd(c.amount),
+    usd(Math.min(c.usedAmount, c.amount)),
+    usd(Math.max(0, c.amount - c.usedAmount)),
+    new Date(c.resetAt).toISOString().slice(0, 10),
   ]);
   const csv = [header, ...rows]
     .map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(","))
@@ -77,7 +86,7 @@ export function Settings() {
   const router = useRouter();
   const { user } = useUser();
   const { signOut, openUserProfile } = useClerk();
-  const { theme, setTheme } = useApp();
+  const { theme, setTheme, credits } = useApp();
 
   const me = useQuery(api.users.getMe);
   const updatePrefs = useMutation(api.users.updateNotificationPrefs);
@@ -226,7 +235,7 @@ export function Settings() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button
           type="button"
-          onClick={downloadCreditsCsv}
+          onClick={() => downloadCreditsCsv(credits)}
           className="rounded-[11px] border border-border bg-surface px-4 py-[11px] text-[14px] font-semibold text-secondary transition-colors hover:border-accent hover:text-ink"
         >
           Export data (CSV)

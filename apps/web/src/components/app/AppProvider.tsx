@@ -9,9 +9,13 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@packages/backend/convex/_generated/api";
+import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import {
-  SAMPLE_CREDITS,
+  cardColor,
   derive,
+  type CardBase,
   type Credit,
   type Cycle,
   type Derived,
@@ -23,11 +27,15 @@ export type ExpiringRange = "week" | "month";
 export type DashLayout = "A" | "B";
 
 interface AppState {
-  // Sample-data domain (no API yet)
+  // Live credit-tracking domain (Convex).
   credits: Credit[];
+  cards: CardBase[];
   derived: Derived;
-  markUsed: (id: string) => void;
+  isLoading: boolean;
+  markUsed: (id: string) => void; // one-tap: fill remaining, or clear if used
+  logPartial: (id: string, amount: number) => void;
   snooze: (id: string) => void;
+  pending: Set<string>; // ids with an in-flight mutation (disable buttons)
 
   // Theme (persisted). Drives the `.theme-onyx` class on the shell.
   theme: Theme;
@@ -48,17 +56,30 @@ interface AppState {
 const Ctx = createContext<AppState | null>(null);
 
 const THEME_KEY = "offerbee-theme";
+const DAY_MS = 86_400_000;
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [credits, setCredits] = useState<Credit[]>(SAMPLE_CREDITS);
+  const data = useQuery(api.benefits.listMyCredits);
+  const logUsageM = useMutation(api.benefits.logUsage);
+  const clearPeriodM = useMutation(api.benefits.clearCurrentPeriod);
+  const snoozeM = useMutation(api.benefits.snoozeBenefit);
+
   const [theme, setThemeState] = useState<Theme>("honey");
   const [dashLayout, setDashLayout] = useState<DashLayout>("A");
   const [benefitFilter, setBenefitFilter] = useState<BenefitFilter>("monthly");
   const [expiringRange, setExpiringRange] = useState<ExpiringRange>("week");
   const [search, setSearch] = useState("");
+  const [pending, setPending] = useState<Set<string>>(new Set());
 
-  // Restore the persisted theme once mounted. Default-first (honey on both SSR
-  // and first client paint) so there is no hydration mismatch; we switch after.
+  // A clock that ticks each minute so day-countdowns stay reactive without a
+  // server round-trip (query results don't re-evaluate as wall-clock advances).
+  const [now, setNow] = useState<number>(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Restore the persisted theme once mounted (default-first to avoid mismatch).
   useEffect(() => {
     const stored = window.localStorage.getItem(THEME_KEY);
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -79,26 +100,101 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [theme, setTheme],
   );
 
-  const markUsed = useCallback((id: string) => {
-    setCredits((cs) =>
-      cs.map((c) => (c.id === id ? { ...c, used: !c.used } : c)),
-    );
-  }, []);
+  const cards = useMemo<CardBase[]>(
+    () =>
+      (data?.cards ?? []).map((c) => ({
+        id: c.cardKey,
+        name: c.name,
+        color: cardColor(c.cardKey),
+        fee: c.fee,
+        terms: c.fee > 0 ? `$${c.fee} / yr` : "No annual fee",
+      })),
+    [data],
+  );
 
-  const snooze = useCallback((id: string) => {
-    setCredits((cs) =>
-      cs.map((c) => (c.id === id ? { ...c, days: c.days + 30 } : c)),
-    );
-  }, []);
+  const credits = useMemo<Credit[]>(
+    () =>
+      (data?.credits ?? []).map((c) => ({
+        id: c.id,
+        name: c.title,
+        card: c.cardName,
+        cardId: c.cardKey,
+        color: cardColor(c.cardKey),
+        amount: c.amount,
+        cycle: c.cycle,
+        usedAmount: c.usedAmount,
+        used: c.usedAmount >= c.amount,
+        days: Math.max(0, Math.ceil((c.resetAt - now) / DAY_MS)),
+        resetAt: c.resetAt,
+        snoozed: (c.snoozedUntil ?? 0) > now,
+      })),
+    [data, now],
+  );
 
-  const derived = useMemo(() => derive(credits), [credits]);
+  const derived = useMemo(() => derive(credits, cards), [credits, cards]);
+
+  // Wrap a mutation so the target id's buttons disable while it's in flight.
+  const runPending = useCallback(
+    async (id: string, fn: () => Promise<unknown>) => {
+      setPending((p) => new Set(p).add(id));
+      try {
+        await fn();
+      } catch (e) {
+        console.error("benefit mutation failed", e);
+      } finally {
+        setPending((p) => {
+          const next = new Set(p);
+          next.delete(id);
+          return next;
+        });
+      }
+    },
+    [],
+  );
+
+  const markUsed = useCallback(
+    (id: string) => {
+      const c = credits.find((x) => x.id === id);
+      if (!c) return;
+      const bid = id as Id<"userBenefits">;
+      void runPending(id, () =>
+        c.used
+          ? clearPeriodM({ userBenefitId: bid })
+          : logUsageM({ userBenefitId: bid, amount: c.amount - c.usedAmount }),
+      );
+    },
+    [credits, runPending, clearPeriodM, logUsageM],
+  );
+
+  const logPartial = useCallback(
+    (id: string, amount: number) => {
+      if (!(amount > 0)) return;
+      void runPending(id, () =>
+        logUsageM({ userBenefitId: id as Id<"userBenefits">, amount }),
+      );
+    },
+    [runPending, logUsageM],
+  );
+
+  const snooze = useCallback(
+    (id: string) => {
+      void runPending(id, () =>
+        snoozeM({ userBenefitId: id as Id<"userBenefits"> }),
+      );
+    },
+    [runPending, snoozeM],
+  );
 
   const value = useMemo<AppState>(
     () => ({
       credits,
+      cards,
       derived,
+      isLoading: data === undefined,
       markUsed,
+      logPartial,
       snooze,
+      pending,
       theme,
       setTheme,
       toggleTheme,
@@ -113,9 +209,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }),
     [
       credits,
+      cards,
       derived,
+      data,
       markUsed,
+      logPartial,
       snooze,
+      pending,
       theme,
       setTheme,
       toggleTheme,

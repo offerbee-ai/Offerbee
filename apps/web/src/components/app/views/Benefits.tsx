@@ -1,87 +1,226 @@
 "use client";
 
-import { useApp } from "../AppProvider";
-import { filterBenefits, usd } from "../data";
-import { BrandChip, MarkUsedButton, Segmented, Panel } from "../controls";
-import { type BenefitFilter } from "../AppProvider";
+import Link from "next/link";
+import { useApp, type BenefitFilter, type ExpiringRange } from "../AppProvider";
+import { expiringGroups, filterBenefits, usd } from "../data";
+import {
+  BrandChip,
+  DaysTile,
+  LogPartialButton,
+  MarkUsedButton,
+  Segmented,
+  Panel,
+} from "../controls";
+import { EmptyState, Spinner } from "../ui";
 
 const FILTERS: { value: BenefitFilter; label: string }[] = [
   { value: "monthly", label: "Monthly" },
   { value: "quarterly", label: "Quarterly" },
+  { value: "semiannual", label: "Semiannual" },
   { value: "annual", label: "Annual" },
   { value: "all", label: "All" },
 ];
 
-// Header + rows share this grid so columns align like a statement. On mobile
-// it collapses to 3 columns (Credit / Amount / Status) and the Card column is
-// dropped — its value is folded into the credit cell instead.
+const RANGES: { value: ExpiringRange; label: string }[] = [
+  { value: "week", label: "This week" },
+  { value: "month", label: "This month" },
+];
+
 const GRID =
   "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[1fr_auto_auto] md:grid-cols-[1.6fr_1fr_0.8fr_auto]";
 const HEAD =
   "font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary";
 
 export function Benefits() {
-  const { credits, benefitFilter, setBenefitFilter, search, markUsed } = useApp();
-  const { visible, available, openCount } = filterBenefits(credits, benefitFilter, search);
+  const {
+    credits,
+    isLoading,
+    benefitFilter,
+    setBenefitFilter,
+    expiringRange,
+    setExpiringRange,
+    search,
+    markUsed,
+    logPartial,
+    snooze,
+    pending,
+  } = useApp();
+
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-24">
+        <Spinner />
+      </div>
+    );
+
+  if (credits.length === 0)
+    return (
+      <EmptyState
+        title="No credits tracked yet"
+        description="Open a card in your wallet to track its statement credits, then log usage here."
+        action={
+          <Link
+            href="/app/wallet"
+            className="rounded-button bg-accent px-4 py-2 text-[14px] font-semibold text-on-accent hover:bg-accent-strong"
+          >
+            Go to wallet
+          </Link>
+        }
+      />
+    );
+
+  const { groups, total } = expiringGroups(credits, expiringRange);
+  const { visible, available, openCount } = filterBenefits(
+    credits,
+    benefitFilter,
+    search,
+  );
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <Segmented value={benefitFilter} onChange={setBenefitFilter} options={FILTERS} />
-        <div className="text-[13.5px] text-secondary">
-          <strong className="tabular font-mono font-semibold text-ink">
-            {usd(available)}
-          </strong>{" "}
-          still available across {openCount} credits
-        </div>
-      </div>
-
-      <Panel className="overflow-hidden">
-        <div className={`hidden md:grid ${GRID} border-b border-separator py-3`}>
-          <div className={HEAD}>Credit</div>
-          <div className={HEAD}>Card</div>
-          <div className={HEAD}>Cycle</div>
-          <div className={`${HEAD} text-right`}>Status</div>
-        </div>
-
-        {visible.length === 0 ? (
-          <div className="px-6 py-12 text-center text-[14px] text-secondary">
-            No credits match {search ? `“${search}”` : "this filter"}.
+    <div className="flex flex-col gap-7">
+      {/* ── Expiring soon (folded-in former Expiring view) ── */}
+      {groups.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <h2 className="font-display text-[19px] font-semibold text-ink">
+                Expiring soon
+              </h2>
+              <Segmented
+                value={expiringRange}
+                onChange={setExpiringRange}
+                options={RANGES}
+              />
+            </div>
+            <div className="tabular font-mono text-[14px] font-semibold text-alert">
+              {usd(total)} at risk
+            </div>
           </div>
-        ) : (
-          visible.map((c) => (
-            <div key={c.id} className={`grid ${GRID} border-t border-separator py-[14px] first:border-t-0`}>
-              <div className="flex min-w-0 items-center gap-3">
-                <BrandChip color={c.color} width={30} height={21} />
-                <div className="min-w-0">
-                  <div className="truncate text-[14.5px] font-semibold text-ink">
-                    {c.name}
-                  </div>
+
+          {groups.map((group) => (
+            <div key={group.label} className="flex flex-col gap-2">
+              <div className="flex items-center justify-between px-1">
+                <span
+                  className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em]"
+                  style={{ color: group.urgent ? "var(--ob-alert)" : "var(--ob-tertiary)" }}
+                >
+                  {group.label}
+                </span>
+                <span className="tabular font-mono text-[12px] font-semibold text-secondary">
+                  {group.sumStr}
+                </span>
+              </div>
+
+              <Panel className="overflow-hidden">
+                {group.items.map((c) => (
                   <div
-                    className="truncate text-[12px]"
-                    style={{ color: c.urgentReset ? "var(--ob-alert)" : "var(--ob-secondary)" }}
+                    key={c.id}
+                    className="flex flex-wrap items-center gap-x-3 gap-y-3 border-t border-separator px-4 py-4 first:border-t-0 sm:px-5"
                   >
-                    {c.reset}
+                    <DaysTile days={c.days} size={48} urgent={c.days <= 7} />
+                    <BrandChip color={c.color} width={36} height={24} />
+                    <div className="min-w-0 flex-1 basis-[120px]">
+                      <div className="truncate text-[15px] font-semibold text-ink">
+                        {c.name}
+                      </div>
+                      <div className="truncate text-[12.5px] text-secondary">
+                        {c.sub}
+                      </div>
+                    </div>
+                    <div className="ml-auto flex items-center gap-2">
+                      <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
+                      <LogPartialButton
+                        onLog={(amt) => logPartial(c.id, amt)}
+                        disabled={pending.has(c.id)}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => snooze(c.id)}
+                        disabled={pending.has(c.id)}
+                        className="rounded-[9px] border border-border px-[13px] py-2 text-[12.5px] font-semibold text-secondary transition-colors hover:text-ink disabled:opacity-50"
+                      >
+                        Snooze
+                      </button>
+                    </div>
                   </div>
-                  {/* Card name (its own column on desktop) folds in here on mobile. */}
-                  <div className="truncate text-[11.5px] text-tertiary md:hidden">
-                    {c.card}
+                ))}
+              </Panel>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* ── Full credits ledger ── */}
+      <section className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Segmented
+            value={benefitFilter}
+            onChange={setBenefitFilter}
+            options={FILTERS}
+          />
+          <div className="text-[13.5px] text-secondary">
+            <strong className="tabular font-mono font-semibold text-ink">
+              {usd(available)}
+            </strong>{" "}
+            still available across {openCount} credits
+          </div>
+        </div>
+
+        <Panel className="overflow-hidden">
+          <div className={`hidden md:grid ${GRID} border-b border-separator py-3`}>
+            <div className={HEAD}>Credit</div>
+            <div className={HEAD}>Card</div>
+            <div className={HEAD}>Cycle</div>
+            <div className={`${HEAD} text-right`}>Status</div>
+          </div>
+
+          {visible.length === 0 ? (
+            <div className="px-6 py-12 text-center text-[14px] text-secondary">
+              No credits match {search ? `“${search}”` : "this filter"}.
+            </div>
+          ) : (
+            visible.map((c) => (
+              <div
+                key={c.id}
+                className={`grid ${GRID} border-t border-separator py-[14px] first:border-t-0`}
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <BrandChip color={c.color} width={30} height={21} />
+                  <div className="min-w-0">
+                    <div className="truncate text-[14.5px] font-semibold text-ink">
+                      {c.name}
+                    </div>
+                    <div
+                      className="truncate text-[12px]"
+                      style={{ color: c.urgentReset ? "var(--ob-alert)" : "var(--ob-secondary)" }}
+                    >
+                      {c.reset}
+                    </div>
+                    <div className="truncate text-[11.5px] text-tertiary md:hidden">
+                      {c.card}
+                    </div>
                   </div>
                 </div>
+                <div className="hidden truncate text-[13.5px] text-secondary md:block">
+                  {c.card}
+                </div>
+                <div className="tabular font-mono text-[13px] font-semibold text-ink">
+                  {c.amountStr}
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  {!c.used && (
+                    <LogPartialButton
+                      onLog={(amt) => logPartial(c.id, amt)}
+                      disabled={pending.has(c.id)}
+                    />
+                  )}
+                  <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
+                </div>
               </div>
-              <div className="hidden truncate text-[13.5px] text-secondary md:block">
-                {c.card}
-              </div>
-              <div className="tabular font-mono text-[13px] font-semibold text-ink">
-                {c.amountStr}
-              </div>
-              <div className="flex justify-end">
-                <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
-              </div>
-            </div>
-          ))
-        )}
-      </Panel>
+            ))
+          )}
+        </Panel>
+      </section>
     </div>
   );
 }
