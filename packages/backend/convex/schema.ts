@@ -1,7 +1,9 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
+  benefitSourceValidator,
   cardDetailContentFields,
+  cycleValidator,
   deliveryStatusValidator,
   fieldProvenanceValidator,
   platformValidator,
@@ -117,4 +119,39 @@ export default defineSchema({
     .index("by_userId_and_isRead", ["userId", "isRead"])
     .index("by_userId_and_dedupKey", ["userId", "dedupKey"])
     .index("by_deliveryStatus", ["deliveryStatus"]),
+
+  // ── Benefit-usage tracking ──────────────────────────────────────────────
+  // A credit the user chose to track on one of their cards (e.g. "$200 Airline
+  // Fee Credit", $200 annual). `amount` is dollars PER cycle period.
+  userBenefits: defineTable({
+    userId: v.string(), // Clerk subject (ownership)
+    userCardId: v.id("userCards"),
+    cardKey: v.string(), // denormalized: card-detail listing + suggestion dedup
+    title: v.string(), // user-editable display name
+    amount: v.number(), // dollars per cycle period (> 0)
+    cycle: cycleValidator,
+    source: benefitSourceValidator,
+    benefitTitle: v.optional(v.string()), // original API title: provenance + idempotent re-track
+    snoozedUntil: v.optional(v.number()), // ms; hide from expiring until then
+    archivedAt: v.optional(v.number()), // ms; set when the card is removed (recoverable)
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_userCardId", ["userCardId"]) // archive/cascade on card removal
+    .index("by_userId_and_cardKey", ["userId", "cardKey"]), // card page + dedup + restore
+
+  // Append-only usage events. Many rows per (benefit, period) support partial
+  // dollar logging; the current-period sum is what "used" derives from.
+  benefitUsages: defineTable({
+    userId: v.string(),
+    userBenefitId: v.id("userBenefits"),
+    cardKey: v.string(), // denormalized for CSV/reporting without a double join
+    periodKey: v.string(), // "2026-07" | "2026-Q3" | "2026-H2" | "2026"
+    amount: v.number(), // dollars (> 0)
+    usedAt: v.number(),
+    note: v.optional(v.string()),
+  })
+    // Prefix also serves per-benefit history + cascade delete.
+    .index("by_userBenefitId_and_periodKey", ["userBenefitId", "periodKey"])
+    .index("by_userId", ["userId"]),
 });

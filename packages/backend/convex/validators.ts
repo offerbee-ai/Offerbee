@@ -16,6 +16,22 @@ export const deliveryStatusValidator = v.union(
   v.literal("skipped"),
 );
 
+// ── Benefit-usage tracking ──────────────────────────────────────────────────
+// The reset cadence of a tracked credit. Calendar periods (UTC v1).
+export const cycleValidator = v.union(
+  v.literal("monthly"),
+  v.literal("quarterly"),
+  v.literal("semiannual"),
+  v.literal("annual"),
+);
+export type BenefitCycle = Infer<typeof cycleValidator>;
+
+// How a tracked credit was created: parsed-and-confirmed vs hand-entered.
+export const benefitSourceValidator = v.union(
+  v.literal("suggested"),
+  v.literal("manual"),
+);
+
 // ── Data-verification pipeline ──────────────────────────────────────────────
 // Where a given field's value came from, in ascending order of trust.
 export const dataSourceValidator = v.union(

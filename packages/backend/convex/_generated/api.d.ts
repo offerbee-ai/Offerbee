@@ -9,6 +9,9 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as benefitCycles from "../benefitCycles.js";
+import type * as benefitParser from "../benefitParser.js";
+import type * as benefits from "../benefits.js";
 import type * as catalog from "../catalog.js";
 import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
@@ -31,6 +34,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  benefitCycles: typeof benefitCycles;
+  benefitParser: typeof benefitParser;
+  benefits: typeof benefits;
   catalog: typeof catalog;
   catalogSync: typeof catalogSync;
   crons: typeof crons;
