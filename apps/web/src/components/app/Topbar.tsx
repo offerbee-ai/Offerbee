@@ -1,10 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { PlusIcon, MenuIcon } from "@/components/landing/icons";
+import { MenuIcon } from "@/components/landing/icons";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -73,15 +72,6 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
             {title}
           </h1>
         </div>
-
-        <Link
-          href="/app/add"
-          aria-label="Add card"
-          className="flex shrink-0 items-center gap-1.5 rounded-[11px] bg-accent px-3 py-[9px] text-[14px] font-semibold text-on-accent shadow-[0_6px_16px_rgba(232,104,14,.22)] transition-colors hover:bg-accent-strong sm:px-4 sm:py-[10px]"
-        >
-          <PlusIcon size={18} />
-          <span className="hidden sm:inline">Add card</span>
-        </Link>
       </div>
     </div>
   );
