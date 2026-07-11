@@ -116,9 +116,12 @@ export function OnboardingWizard() {
     const json = JSON.stringify(payload);
     if (json === lastPersisted.current) return;
     lastPersisted.current = json;
-    updateOnboarding(payload).catch((e) =>
-      console.error("updateOnboarding failed", e),
-    );
+    updateOnboarding(payload).catch((e) => {
+      console.error("updateOnboarding failed", e);
+      // Forget the failed send so the same state is retried on the next
+      // change/flush instead of being considered saved.
+      if (lastPersisted.current === json) lastPersisted.current = null;
+    });
   }, [payload, updateOnboarding]);
   const persistRef = useRef({ persistNow, canPersist });
   persistRef.current = { persistNow, canPersist };
