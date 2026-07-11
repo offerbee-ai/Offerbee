@@ -53,6 +53,37 @@ export const getStaleDetailCards = internalQuery({
   },
 });
 
+// ── Search-term cache ───────────────────────────────────────────────────────
+const searchResultValidator = v.array(
+  v.object({
+    cardKey: v.string(),
+    cardName: v.string(),
+    cardIssuer: v.string(),
+  }),
+);
+
+export const getCachedSearch = internalQuery({
+  args: { term: v.string() },
+  handler: async (ctx, { term }) => {
+    return await ctx.db
+      .query("searchCache")
+      .withIndex("by_term", (q) => q.eq("term", term))
+      .unique();
+  },
+});
+
+export const saveSearchCache = internalMutation({
+  args: { term: v.string(), results: searchResultValidator },
+  handler: async (ctx, { term, results }) => {
+    const existing = await ctx.db
+      .query("searchCache")
+      .withIndex("by_term", (q) => q.eq("term", term))
+      .unique();
+    if (existing) await ctx.db.patch(existing._id, { results, fetchedAt: Date.now() });
+    else await ctx.db.insert("searchCache", { term, results, fetchedAt: Date.now() });
+  },
+});
+
 // One page of the catalog, each card flagged whether its detail is missing or
 // past the TTL — drives rapidapi.prefillCatalog (skip-fresh keeps re-runs cheap).
 export const getCatalogPageForWarm = internalQuery({
