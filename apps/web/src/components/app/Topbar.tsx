@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
-import { SearchIcon, PlusIcon, MenuIcon } from "@/components/landing/icons";
-import { useApp } from "./AppProvider";
+import { PlusIcon, MenuIcon } from "@/components/landing/icons";
 
 function greetingFor(hour: number): string {
   if (hour < 12) return "Good morning";
@@ -49,18 +48,9 @@ function useTitle(pathname: string, name: string): { eyebrow: string; title: str
 
 export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { user } = useUser();
-  const { search, setSearch } = useApp();
   const name = user?.firstName ?? user?.fullName ?? "Maya";
   const { eyebrow, title } = useTitle(pathname, name);
-
-  // The search field filters credits on the Benefits view; from anywhere else,
-  // typing jumps there so the query has somewhere to land.
-  const onSearch = (v: string) => {
-    setSearch(v);
-    if (v && pathname !== "/app/benefits") router.push("/app/benefits");
-  };
 
   return (
     <div className="sticky top-0 z-20 border-b border-border bg-glass px-4 py-3 backdrop-blur-[14px] backdrop-saturate-150 sm:px-6 lg:px-[34px] lg:py-4">
@@ -83,17 +73,6 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
             {title}
           </h1>
         </div>
-
-        <label className="hidden items-center gap-2 rounded-[11px] border border-border bg-surface px-[13px] py-[9px] text-tertiary focus-within:border-accent md:flex md:w-[190px] lg:w-[250px]">
-          <SearchIcon size={17} />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => onSearch(e.target.value)}
-            placeholder="Search credits…"
-            className="w-full bg-transparent text-[13.5px] text-ink outline-none placeholder:text-tertiary"
-          />
-        </label>
 
         <Link
           href="/app/add"
