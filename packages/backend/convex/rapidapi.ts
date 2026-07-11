@@ -15,6 +15,7 @@ const RAPIDAPI_SIGNUP_URL =
 
 const MAX_DETAILS_PER_RUN = 25;
 const DETAIL_RUN_SPACING_MS = 60_000;
+const SEARCH_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // card lists change rarely
 
 function headers(key: string) {
   return { "X-RapidAPI-Key": key, "X-RapidAPI-Host": RAPIDAPI_HOST };
@@ -68,11 +69,20 @@ export const searchCards = action({
 
     const t = term.trim();
     if (t.length < 2) return [];
+    const norm = t.toLowerCase();
+
+    // Cache hit: a term's cached results are the complete API answer for that
+    // term, so we can serve them without touching the API.
+    const cached = await ctx.runQuery(internal.catalogSync.getCachedSearch, {
+      term: norm,
+    });
+    if (cached && Date.now() - cached.fetchedAt < SEARCH_CACHE_TTL_MS)
+      return cached.results;
 
     const key = process.env.RAPIDAPI_KEY;
     if (!key) {
       console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
-      return [];
+      return cached?.results ?? []; // serve stale rather than nothing
     }
 
     try {
@@ -80,7 +90,7 @@ export const searchCards = action({
         `${BASE_URL}/creditcard-detail-namesearch/${encodeURIComponent(t)}`,
         { headers: headers(key) },
       );
-      if (!res.ok) return [];
+      if (!res.ok) return cached?.results ?? [];
       const body = await res.json();
       const rows = Array.isArray(body) ? body : [];
       const results = rows
@@ -91,6 +101,12 @@ export const searchCards = action({
         }))
         .filter((r) => r.cardKey);
 
+      // Cache the term's answer (even empty, to avoid re-hitting the API for
+      // no-match terms) and keep the catalog rows for the wallet name fallback.
+      await ctx.runMutation(internal.catalogSync.saveSearchCache, {
+        term: norm,
+        results,
+      });
       if (results.length > 0) {
         await ctx.runMutation(internal.catalogSync.upsertCatalogBatch, {
           cards: results.map((r) => ({ ...r, isActive: true })),
@@ -100,7 +116,7 @@ export const searchCards = action({
       return results;
     } catch (e) {
       console.error("Card search failed", e);
-      return [];
+      return cached?.results ?? []; // serve stale on transient API failure
     }
   },
 });
@@ -331,6 +347,63 @@ export const warmPopularCards = internalAction({
         internal.rapidapi.warmPopularCards,
         { index: i + 1 },
       );
+    }
+  },
+});
+
+// Reusable catalog prefill: walk cardCatalog and fetch any missing/stale
+// cardDetails (image + fee), one card per tick. Spaces only when it actually
+// hits the API (fresh cards zip by), so it respects the BASIC per-second limit
+// and re-runs are cheap. Idempotent. Kick off with
+//   convex run rapidapi:prefillCatalog {} [--deployment X]
+// (or use scripts/prefill-card-details.sh). See also warmPopularCards for just
+// the curated set.
+const PREFILL_FETCH_SPACING_MS = 2500; // between real API fetches
+const PREFILL_SKIP_SPACING_MS = 100; // between already-fresh cards
+export const prefillCatalog = internalAction({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    fetched: v.optional(v.number()),
+  },
+  handler: async (ctx, { cursor, fetched }) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      return;
+    }
+    const page = await ctx.runQuery(internal.catalogSync.getCatalogPageForWarm, {
+      cursor: cursor ?? null,
+      limit: 1,
+    });
+
+    let total = fetched ?? 0;
+    let didFetch = false;
+    for (const item of page.items) {
+      if (!item.needsFetch) continue;
+      didFetch = true;
+      try {
+        const detail = await fetchDetail(key, item.cardKey);
+        if (detail) {
+          await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+            cardKey: item.cardKey,
+            content: detail.content,
+            hash: detail.hash,
+          });
+          total += 1;
+        }
+      } catch (e) {
+        console.error(`Prefill failed for '${item.cardKey}'`, e);
+      }
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        didFetch ? PREFILL_FETCH_SPACING_MS : PREFILL_SKIP_SPACING_MS,
+        internal.rapidapi.prefillCatalog,
+        { cursor: page.continueCursor, fetched: total },
+      );
+    } else {
+      console.log(`prefillCatalog complete — fetched ${total} card details`);
     }
   },
 });

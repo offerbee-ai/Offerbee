@@ -3,8 +3,32 @@ import { v } from "convex/values";
 import { getUserId } from "./auth";
 import { ONBOARDING_CARD_KEYS } from "./onboardingCatalog";
 
-// Card search is a live action against the API's name-search endpoint — see
-// rapidapi.searchCards (the API has no bulk card-list endpoint to cache).
+// Card search is hybrid: searchCatalogLocal (below) serves instant, reactive
+// matches from cards already in the catalog, while rapidapi.searchCards is the
+// API-backed completeness backstop (the API has no bulk card-list endpoint).
+
+// Instant, reactive full-text search over the local catalog — no API call. Zero
+// cost, and it updates automatically as rapidapi.searchCards upserts newly
+// fetched cards. Covers the prefill set + anything previously name-searched;
+// obscure cards not yet in the catalog surface once the API backstop backfills.
+export const searchCatalogLocal = query({
+  args: { term: v.string() },
+  handler: async (ctx, { term }) => {
+    const userId = await getUserId(ctx);
+    if (!userId) return [];
+    const t = term.trim();
+    if (t.length < 2) return [];
+    const rows = await ctx.db
+      .query("cardCatalog")
+      .withSearchIndex("search_cardName", (q) => q.search("cardName", t))
+      .take(20);
+    return rows.map((r) => ({
+      cardKey: r.cardKey,
+      cardName: r.cardName,
+      cardIssuer: r.cardIssuer,
+    }));
+  },
+});
 
 // Cached full detail for a single card (or null if not yet fetched).
 export const getCardDetail = query({

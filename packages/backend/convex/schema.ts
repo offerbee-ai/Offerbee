@@ -45,7 +45,26 @@ export default defineSchema({
     lastSyncedAt: v.number(),
   })
     .index("by_cardKey", ["cardKey"])
-    .index("by_issuer", ["cardIssuer"]),
+    .index("by_issuer", ["cardIssuer"])
+    // Instant, reactive local search over cards already known (prefill + past
+    // name searches). Powers catalog.searchCatalogLocal; the API action stays
+    // the completeness backstop and its upserts grow this index reactively.
+    .searchIndex("search_cardName", { searchField: "cardName" }),
+
+  // Term-keyed cache of live name-search results. A term's cached results are
+  // the complete API answer for that term, so repeat searches skip the API
+  // (and can serve stale results if the API is down). See rapidapi.searchCards.
+  searchCache: defineTable({
+    term: v.string(), // normalized: trimmed + lowercased
+    results: v.array(
+      v.object({
+        cardKey: v.string(),
+        cardName: v.string(),
+        cardIssuer: v.string(),
+      }),
+    ),
+    fetchedAt: v.number(),
+  }).index("by_term", ["term"]),
 
   // ── Full card detail, cached only for owned/viewed cards ──
   cardDetails: defineTable({
