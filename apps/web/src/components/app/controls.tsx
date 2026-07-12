@@ -126,7 +126,7 @@ export function LogPartialButton({
         aria-label="Log a partial amount"
         className="whitespace-nowrap rounded-[9px] border border-border px-[10px] py-[7px] text-[12.5px] font-semibold text-secondary transition-colors hover:text-ink disabled:opacity-50"
       >
-        ＋$
+        ＋<span className="hidden md:inline">$</span>
       </button>
     );
 

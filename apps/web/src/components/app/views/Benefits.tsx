@@ -54,8 +54,11 @@ const RANGES: { value: ExpiringRange; label: string }[] = [
 // Each row is its own grid, so tracks must be content-independent to line up
 // across rows + header: minmax(0,fr) columns truncate instead of pushing, and
 // the amount/status columns are fixed-width (status content varies per row).
+// Mobile drops the standalone Amount column (redundant — the reset line already
+// shows the dollar figure) so the credit text isn't starved: just credit +
+// actions. md+ restores the full Credit/Card/Amount/Status table.
 const GRID =
-  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[minmax(0,1fr)_72px_auto] md:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)_88px_188px]";
+  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)_88px_188px]";
 const HEAD =
   "font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary";
 
@@ -232,7 +235,7 @@ export function Benefits() {
                 <div className="hidden truncate text-[13.5px] text-secondary md:block">
                   {c.card}
                 </div>
-                <div className="tabular font-mono text-[13px] font-semibold text-ink">
+                <div className="hidden tabular font-mono text-[13px] font-semibold text-ink md:block">
                   {c.amountStr}
                 </div>
                 <div className="flex items-center justify-end gap-2">

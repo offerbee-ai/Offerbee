@@ -52,28 +52,49 @@ function AmountInput({
   );
 }
 
-// A row for a parsed suggestion: track directly, or expand to adjust first.
-function SuggestionRow({
+type TrackedCredit = {
+  id: Id<"userBenefits">;
+  title: string;
+  amount: number;
+  cycle: Cycle;
+  usedAmount: number;
+};
+
+type Suggestion = {
+  benefitTitle: string;
+  title: string;
+  amount: number;
+  cycle: Cycle;
+  confidence: "high" | "medium";
+};
+
+// One row per credit — tracked or merely suggested — with the track/untrack
+// (and inline amount/cycle edit) controls in the same row. A suggestion that's
+// already tracked collapses into its tracked row, so nothing shows twice.
+function CreditRow({
+  tracked,
   suggestion,
   userCardId,
 }: {
-  suggestion: {
-    benefitTitle: string;
-    title: string;
-    amount: number;
-    cycle: Cycle;
-    confidence: "high" | "medium";
-    alreadyTracked: boolean;
-  };
+  tracked: TrackedCredit | null;
+  suggestion: Suggestion | null;
   userCardId: Id<"userCards">;
 }) {
   const track = useMutation(api.benefits.trackBenefit);
+  const update = useMutation(api.benefits.updateBenefit);
+  const untrack = useMutation(api.benefits.untrackBenefit);
+
+  // Seed the editable fields from whichever source drives this row.
+  const seed = tracked ?? suggestion!;
   const [editing, setEditing] = useState(false);
-  const [amount, setAmount] = useState(String(suggestion.amount));
-  const [cycle, setCycle] = useState<Cycle>(suggestion.cycle);
+  const [amount, setAmount] = useState(String(seed.amount));
+  const [cycle, setCycle] = useState<Cycle>(seed.cycle);
   const [busy, setBusy] = useState(false);
 
+  const title = seed.title;
+
   const onTrack = async () => {
+    if (!suggestion) return;
     const n = parseFloat(amount);
     if (!(n > 0)) return;
     setBusy(true);
@@ -86,103 +107,54 @@ function SuggestionRow({
         source: "suggested",
         benefitTitle: suggestion.benefitTitle,
       });
+      setEditing(false);
     } catch (e) {
       console.error("trackBenefit failed", e);
     } finally {
       setBusy(false);
-      setEditing(false);
     }
   };
 
-  return (
-    <div className="flex flex-col gap-2 border-t border-border py-3 first:border-t-0">
-      <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-ink">
-            {suggestion.title}
-          </p>
-          <div className="mt-1 flex items-center gap-2">
-            <Pill tone="accent">
-              {usd(suggestion.amount)} / {CYCLE_LABEL[suggestion.cycle]}
-            </Pill>
-            {suggestion.confidence === "medium" && (
-              <span className="text-[11px] text-tertiary">check amount</span>
-            )}
-          </div>
-        </div>
-        {suggestion.alreadyTracked ? (
-          <Button variant="secondary" disabled>
-            Tracked ✓
-          </Button>
-        ) : (
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setEditing((v) => !v)}
-              className="text-[13px] font-semibold text-secondary hover:text-ink"
-            >
-              Edit
-            </button>
-            <Button onClick={onTrack} disabled={busy}>
-              Track
-            </Button>
-          </div>
-        )}
-      </div>
-      {editing && !suggestion.alreadyTracked && (
-        <div className="flex items-center gap-2 pl-1">
-          <AmountInput value={amount} onChange={setAmount} />
-          <CycleSelect value={cycle} onChange={setCycle} />
-        </div>
-      )}
-    </div>
-  );
-}
-
-// A row for an already-tracked credit: inline edit amount/cycle, or untrack.
-function TrackedRow({
-  credit,
-}: {
-  credit: {
-    id: Id<"userBenefits">;
-    title: string;
-    amount: number;
-    cycle: Cycle;
-    usedAmount: number;
-  };
-}) {
-  const update = useMutation(api.benefits.updateBenefit);
-  const untrack = useMutation(api.benefits.untrackBenefit);
-  const [editing, setEditing] = useState(false);
-  const [amount, setAmount] = useState(String(credit.amount));
-  const [cycle, setCycle] = useState<Cycle>(credit.cycle);
-  const [busy, setBusy] = useState(false);
-
-  const save = async () => {
+  const onSave = async () => {
+    if (!tracked) return;
     const n = parseFloat(amount);
     if (!(n > 0)) return;
     setBusy(true);
     try {
-      await update({ userBenefitId: credit.id, amount: n, cycle });
+      await update({ userBenefitId: tracked.id, amount: n, cycle });
+      setEditing(false);
     } catch (e) {
       console.error("updateBenefit failed", e);
     } finally {
       setBusy(false);
-      setEditing(false);
     }
+  };
+
+  const onUntrack = () => {
+    if (!tracked) return;
+    void untrack({ userBenefitId: tracked.id });
   };
 
   return (
     <div className="flex flex-col gap-2 border-t border-border py-3 first:border-t-0">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-ink">
-            {credit.title}
-          </p>
-          <p className="mt-0.5 text-[12.5px] text-secondary">
-            {usd(credit.amount)} / {CYCLE_LABEL[credit.cycle]} ·{" "}
-            {usd(Math.min(credit.usedAmount, credit.amount))} used this period
-          </p>
+          <p className="truncate text-[14px] font-medium text-ink">{title}</p>
+          {tracked ? (
+            <p className="mt-0.5 text-[12.5px] text-secondary">
+              {usd(tracked.amount)} / {CYCLE_LABEL[tracked.cycle]} ·{" "}
+              {usd(Math.min(tracked.usedAmount, tracked.amount))} used this period
+            </p>
+          ) : (
+            <div className="mt-1 flex items-center gap-2">
+              <Pill tone="accent">
+                {usd(suggestion!.amount)} / {CYCLE_LABEL[suggestion!.cycle]}
+              </Pill>
+              {suggestion!.confidence === "medium" && (
+                <span className="text-[11px] text-tertiary">check amount</span>
+              )}
+            </div>
+          )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -192,22 +164,30 @@ function TrackedRow({
           >
             {editing ? "Cancel" : "Edit"}
           </button>
-          <button
-            type="button"
-            onClick={() => untrack({ userBenefitId: credit.id })}
-            className="text-[13px] font-semibold text-alert hover:underline"
-          >
-            Untrack
-          </button>
+          {tracked ? (
+            <button
+              type="button"
+              onClick={onUntrack}
+              className="text-[13px] font-semibold text-alert hover:underline"
+            >
+              Untrack
+            </button>
+          ) : (
+            <Button onClick={onTrack} disabled={busy}>
+              Track
+            </Button>
+          )}
         </div>
       </div>
       {editing && (
         <div className="flex items-center gap-2 pl-1">
           <AmountInput value={amount} onChange={setAmount} />
           <CycleSelect value={cycle} onChange={setCycle} />
-          <Button onClick={save} disabled={busy}>
-            Save
-          </Button>
+          {tracked && (
+            <Button onClick={onSave} disabled={busy}>
+              Save
+            </Button>
+          )}
         </div>
       )}
     </div>
@@ -285,44 +265,55 @@ export function TrackedCredits({
   const data = useQuery(api.benefits.listMyCredits);
   const tracked = (data?.credits ?? []).filter((c) => c.cardKey === cardKey);
 
+  // Merge into ONE list: a suggestion that's already tracked (matched by title,
+  // which trackBenefit copies verbatim) collapses into its tracked row. Rows
+  // follow the card's natural suggestion order; manual / unmatched tracked
+  // credits (no suggestion) come after.
+  const byTitle = new Map<string, TrackedCredit>(
+    tracked.map((c) => [
+      c.title,
+      { id: c.id, title: c.title, amount: c.amount, cycle: c.cycle, usedAmount: c.usedAmount },
+    ]),
+  );
+
+  type Row = {
+    key: string;
+    tracked: TrackedCredit | null;
+    suggestion: Suggestion | null;
+  };
+  const rows: Row[] = [];
+  const matched = new Set<string>();
+  for (const s of suggestions ?? []) {
+    const tc = byTitle.get(s.title) ?? null;
+    if (tc) matched.add(tc.id);
+    rows.push({ key: `s:${s.benefitTitle}`, tracked: tc, suggestion: s });
+  }
+  for (const tc of byTitle.values()) {
+    if (matched.has(tc.id)) continue;
+    rows.push({ key: `t:${tc.id}`, tracked: tc, suggestion: null });
+  }
+
   return (
     <Card className="mt-6">
-      <SectionLabel>Tracked credits</SectionLabel>
+      <SectionLabel>Credits</SectionLabel>
 
-      {tracked.length > 0 && (
-        <div className="mb-2">
-          {tracked.map((c) => (
-            <TrackedRow
-              key={c.id}
-              credit={{
-                id: c.id,
-                title: c.title,
-                amount: c.amount,
-                cycle: c.cycle,
-                usedAmount: c.usedAmount,
-              }}
+      {suggestions === undefined ? (
+        <p className="py-2 text-[13px] text-tertiary">Loading credits…</p>
+      ) : rows.length === 0 ? (
+        <p className="py-2 text-[13px] text-tertiary">
+          No credit-like benefits detected on this card. Add one manually below.
+        </p>
+      ) : (
+        <div>
+          {rows.map((r) => (
+            <CreditRow
+              key={r.key}
+              tracked={r.tracked}
+              suggestion={r.suggestion}
+              userCardId={userCardId}
             />
           ))}
         </div>
-      )}
-
-      {suggestions === undefined ? (
-        <p className="py-2 text-[13px] text-tertiary">Loading suggestions…</p>
-      ) : suggestions.length === 0 ? (
-        tracked.length === 0 && (
-          <p className="py-2 text-[13px] text-tertiary">
-            No credit-like benefits detected on this card. Add one manually below.
-          </p>
-        )
-      ) : (
-        <>
-          <p className="mb-1 mt-1 text-[12px] font-semibold uppercase tracking-[0.06em] text-tertiary">
-            Suggested from this card
-          </p>
-          {suggestions.map((s) => (
-            <SuggestionRow key={s.benefitTitle} suggestion={s} userCardId={userCardId} />
-          ))}
-        </>
       )}
 
       <ManualAdd userCardId={userCardId} />

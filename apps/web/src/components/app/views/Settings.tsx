@@ -8,6 +8,7 @@ import { api } from "@packages/backend/convex/_generated/api";
 import { useApp, type Theme } from "../AppProvider";
 import { Segmented, ToggleSwitch, MonoLabel, Panel } from "../controls";
 import { CYCLE_LABEL, usd, type Credit } from "../data";
+import { clerkImageUrl } from "@/lib/utils";
 
 // Local (sample) toggles that don't yet have a dedicated backend field. Persist
 // them so they feel real; the master switch below is the real backend flag.
@@ -133,17 +134,27 @@ export function Settings() {
     ? new Date(user.createdAt).getFullYear()
     : 2024;
   const initial = (name[0] ?? "M").toUpperCase();
+  const photo = user?.hasImage ? clerkImageUrl(user.imageUrl, 64) : null;
 
   return (
     <div className="flex max-w-[720px] flex-col gap-5">
       {/* Profile */}
       <Panel className="flex flex-wrap items-center gap-4 p-5">
-        <div
-          className="flex size-16 shrink-0 items-center justify-center rounded-full text-[26px] font-semibold text-white"
-          style={{ background: "linear-gradient(135deg,#F5B14D,#E8680E)" }}
-        >
-          {initial}
-        </div>
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photo}
+            alt=""
+            className="size-16 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex size-16 shrink-0 items-center justify-center rounded-full text-[26px] font-semibold text-white"
+            style={{ background: "linear-gradient(135deg,#F5B14D,#E8680E)" }}
+          >
+            {initial}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="font-display text-[22px] font-semibold text-ink">{name}</div>
           <div className="text-[13.5px] text-secondary">

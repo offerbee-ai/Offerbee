@@ -27,7 +27,8 @@ export interface Credit {
 export interface CardBase {
   id: string; // = cardKey
   name: string;
-  color: string;
+  color: string; // brand hex fallback when no image
+  image: string | null; // real card art (cardDetails.cardImageUrl)
   fee: number;
   terms: string;
 }
@@ -67,6 +68,7 @@ export interface DerivedCard {
   id: string;
   name: string;
   color: string;
+  image: string | null;
   fee: number;
   terms: string;
   captured: number;
@@ -148,6 +150,7 @@ export function derive(credits: Credit[], cards: CardBase[]): Derived {
       id: cb.id,
       name: cb.name,
       color: cb.color,
+      image: cb.image,
       fee: cb.fee,
       terms: cb.terms,
       captured: capCard,
