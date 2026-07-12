@@ -20,7 +20,7 @@ function Phone({ children }: { children: React.ReactNode }) {
 
 export default function Home() {
   return (
-    <main className="overflow-hidden bg-background text-ink">
+    <main className="overflow-x-clip bg-background text-ink">
       <Nav />
       <Hero />
       <TrustStrip />

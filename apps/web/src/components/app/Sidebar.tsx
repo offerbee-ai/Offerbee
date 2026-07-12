@@ -174,29 +174,36 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
         {/* User row */}
         <div className="flex items-center gap-[10px]">
-          {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photo}
-              alt=""
-              className="size-[34px] shrink-0 rounded-full object-cover"
-            />
-          ) : (
-            <div
-              className="flex size-[34px] shrink-0 items-center justify-center rounded-full text-[14px] font-semibold text-white"
-              style={{ background: "linear-gradient(135deg,#F5B14D,#E8680E)" }}
-            >
-              {initial}
+          <Link
+            href="/app/settings"
+            onClick={onNavigate}
+            aria-label="Open settings"
+            className="-mx-1 flex min-w-0 flex-1 items-center gap-[10px] rounded-[10px] px-1 py-1 transition-colors hover:bg-surface-2"
+          >
+            {photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={photo}
+                alt=""
+                className="size-[34px] shrink-0 rounded-full object-cover"
+              />
+            ) : (
+              <div
+                className="flex size-[34px] shrink-0 items-center justify-center rounded-full text-[14px] font-semibold text-white"
+                style={{ background: "linear-gradient(135deg,#F5B14D,#E8680E)" }}
+              >
+                {initial}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[13.5px] font-semibold text-ink">
+                {name}
+              </div>
+              <div className="text-[11.5px] text-tertiary">
+                Pro · {cardCount} cards
+              </div>
             </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13.5px] font-semibold text-ink">
-              {name}
-            </div>
-            <div className="text-[11.5px] text-tertiary">
-              Pro · {cardCount} cards
-            </div>
-          </div>
+          </Link>
           <button
             type="button"
             onClick={toggleTheme}
