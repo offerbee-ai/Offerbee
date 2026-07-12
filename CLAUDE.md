@@ -32,8 +32,9 @@ pnpm --filter @packages/backend add <pkg>
 Secrets live in git-ignored `.env.local` files (never commit them):
 
 - `apps/web/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
-- `apps/native/.env.local` — `EXPO_PUBLIC_CONVEX_URL`, `EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY`
 - Convex-side env (set in the Convex dashboard, not files): `CLERK_JWT_ISSUER_DOMAIN`, optional `OPENAI_API_KEY`
+
+The native app uses three committed env files (client-public values only — Convex URLs + Clerk publishable keys, never secrets): `apps/native/.env.development` (Convex dev `agreeable-labrador-799`), `.env.preview` (staging `adept-porpoise-776`), `.env.production` (prod `handsome-dodo-841`). Select with `pnpm --filter native-app dev` / `dev:preview` / `dev:prod`; `APP_ENV` drives per-env app name, scheme, and bundle id (`ai.offerbee.app[.dev|.preview]`) in `apps/native/app.config.ts`. EAS build profiles in `apps/native/eas.json` mirror the same three environments.
 
 `CONVEX_URL` comes from `packages/backend/.env.local` after running `pnpm --filter @packages/backend setup`.
 
@@ -42,7 +43,7 @@ Secrets live in git-ignored `.env.local` files (never commit them):
 - Convex code lives in `packages/backend/convex`. Follow Convex best practices: always declare arg validators (`v.*`), use the object-form function syntax, and keep sensitive logic in `internal*` functions.
 - Note ownership is enforced server-side in `packages/backend/convex/notes.ts`.
 - The web app protects note routes via `apps/web/src/proxy.ts`.
-- The native app uses Expo Router route groups under `apps/native/src/app`.
+- The native app uses Expo Router route groups under `apps/native/src/app` (routes stay thin; data hooks live in `src/features/*`, design-system primitives in `src/components/ui`, theme tokens in `src/theme` — sourced from `Design/design_handoff_kept/tokens.json`). Derivation logic in `apps/native/src/features/credits/derive.ts` is a port of `apps/web/src/components/app/data.ts` — keep the two in sync.
 - After changing Convex functions/schema, the generated `_generated/` types update via the running `convex dev` — don't hand-edit them.
 
 ## Deploy
