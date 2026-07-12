@@ -106,6 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         id: c.cardKey,
         name: c.name,
         color: cardColor(c.cardKey),
+        image: c.imageUrl ?? null,
         fee: c.fee,
         terms: c.fee > 0 ? `$${c.fee} / yr` : "No annual fee",
       })),

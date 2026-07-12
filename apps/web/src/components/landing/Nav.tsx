@@ -25,12 +25,21 @@ export function Nav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const className = `sticky top-0 z-50 border-b bg-glass backdrop-blur-[16px] backdrop-saturate-150 transition-[border-color,box-shadow] duration-300 ${
-    scrolled ? "border-border shadow-ob-sm" : "border-transparent"
+  // Transparent at the top; on scroll it settles into a blurred glass bar with a
+  // border, shadow, and slightly compacted height — all transitioned so the
+  // change animates rather than snapping.
+  const className = `sticky top-0 z-50 border-b backdrop-saturate-150 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300 ${
+    scrolled
+      ? "border-border bg-glass shadow-ob-sm backdrop-blur-[16px]"
+      : "border-transparent bg-transparent backdrop-blur-0"
   }`;
 
   const inner = (
-    <div className="mx-auto flex max-w-[1200px] items-center justify-between px-6 py-4 md:px-10">
+    <div
+      className={`mx-auto flex max-w-[1200px] items-center justify-between px-6 transition-[padding] duration-300 md:px-10 ${
+        scrolled ? "py-2.5" : "py-4"
+      }`}
+    >
       <Link href="/" aria-label="OfferBee home">
         <BrandMark gid="nav" />
       </Link>

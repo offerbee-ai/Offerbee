@@ -28,7 +28,6 @@ function ResetRow({
   return (
     <div className="flex items-center gap-3 border-t border-separator px-4 py-[13px] first:border-t-0 sm:px-6">
       <DaysTile days={credit.days} size={tileSize} urgent={credit.days <= 7} />
-      <BrandChip color={credit.color} width={32} height={22} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14.5px] font-semibold text-ink">
           {credit.name}
@@ -46,7 +45,18 @@ function WalletRow({ card }: { card: DerivedCard }) {
       href="/app/wallet"
       className="flex items-center gap-3 border-t border-separator px-4 py-[13px] transition-colors first:border-t-0 hover:bg-surface-2 sm:px-6"
     >
-      <BrandChip color={card.color} width={34} height={23} />
+      {card.image ? (
+        // Plain <img>: the card-image host path rotates (see wallet page).
+        // 46×29 keeps the real 1.586 card aspect ratio so art stays crisp.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.image}
+          alt=""
+          className="h-[29px] w-[46px] shrink-0 rounded-[5px] object-cover"
+        />
+      ) : (
+        <BrandChip color={card.color} width={46} height={29} />
+      )}
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-semibold text-ink">
           {card.name}

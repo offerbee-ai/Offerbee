@@ -173,9 +173,23 @@ export default function AddCardPage() {
                         </div>
                       </div>
                       {c.owned ? (
-                        <Button variant="secondary" disabled>
-                          Added ✓
-                        </Button>
+                        <>
+                          {/* Mobile: a compact check badge instead of the full
+                              "Added ✓" button, which crowds the narrow row. */}
+                          <span
+                            aria-label="Added"
+                            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-[15px] font-semibold text-accent sm:hidden"
+                          >
+                            ✓
+                          </span>
+                          <Button
+                            variant="secondary"
+                            disabled
+                            className="hidden sm:inline-flex"
+                          >
+                            Added ✓
+                          </Button>
+                        </>
                       ) : (
                         <Button
                           onClick={() => onAdd(c.cardKey, false)}
