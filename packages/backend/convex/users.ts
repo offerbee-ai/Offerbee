@@ -1,6 +1,7 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserId, requireUserId } from "./auth";
+import { reminderPrefsValidator } from "./validators";
 
 // Called by BOTH the web and native apps on login so the offer engine can
 // enumerate every user regardless of which app they signed up on.
@@ -53,6 +54,9 @@ export const updateNotificationPrefs = mutation({
     timeZone: v.optional(v.string()),
     quietHoursStart: v.optional(v.number()),
     quietHoursEnd: v.optional(v.number()),
+    // Per-reminder toggles, shared with the onboarding wizard. Editable from
+    // Settings after onboarding (updateOnboarding is locked once finished).
+    reminderPrefs: v.optional(reminderPrefsValidator),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -69,6 +73,7 @@ export const updateNotificationPrefs = mutation({
         timeZone: args.timeZone,
         quietHoursStart: args.quietHoursStart,
         quietHoursEnd: args.quietHoursEnd,
+        reminderPrefs: args.reminderPrefs,
       });
     }
 
