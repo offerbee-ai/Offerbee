@@ -1,5 +1,4 @@
 import { View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Text } from "@/components/ui";
 import { spacing } from "@/theme";
@@ -14,11 +13,12 @@ export function ScreenHeader({
   kicker?: string;
   trailing?: React.ReactNode;
 }) {
-  const insets = useSafeAreaInsets();
+  // NativeTabs lays screen content inside the top safe area already, so we only
+  // add breathing room here (no manual insets.top, which double-counted).
   return (
     <View
       style={{
-        paddingTop: insets.top + spacing.sm,
+        paddingTop: spacing.sm,
         paddingBottom: spacing.md,
         flexDirection: "row",
         alignItems: "flex-end",

@@ -111,7 +111,11 @@ export default function SettingsScreen() {
 
       {/* Profile */}
       <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.base }}>
-        <Avatar initial={initial} size={54} />
+        <Avatar
+          initial={initial}
+          imageUrl={user?.hasImage ? user.imageUrl : null}
+          size={54}
+        />
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: "SourceSerif4_600SemiBold", fontSize: 19, lineHeight: 24 }} numberOfLines={1}>
             {name}

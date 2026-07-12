@@ -103,6 +103,7 @@ export default function ReviewScreen() {
         trailing={
           <Avatar
             initial={initial}
+            imageUrl={user?.hasImage ? user.imageUrl : null}
             size={36}
             accessibilityLabel="Settings"
             onPress={() => router.push("/settings")}

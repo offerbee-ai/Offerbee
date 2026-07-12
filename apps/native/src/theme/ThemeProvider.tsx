@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { useColorScheme } from "react-native";
+import { Appearance, useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { themes, type ThemeColors, type ThemeName } from "./tokens";
@@ -45,6 +45,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       // Persistence is best-effort; the in-memory value still applies.
     });
   }, []);
+
+  // Force the *native* appearance to match the app theme so native UI — the iOS
+  // 26 Liquid Glass tab bar especially — doesn't render with the OS appearance
+  // (which caused a light bar in the app's dark theme until an interaction
+  // refreshed the trait collection). `null` restores OS control for "system".
+  useEffect(() => {
+    // `null` clears the override so "system" follows the OS. RN 0.86 types
+    // setColorScheme as 'light' | 'dark' only, but null is the documented reset.
+    const scheme = preference === "system" ? null : preference === "dark" ? "dark" : "light";
+    Appearance.setColorScheme(scheme as "light" | "dark");
+  }, [preference]);
 
   const resolved: ThemeName =
     preference === "system"

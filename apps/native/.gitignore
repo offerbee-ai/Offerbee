@@ -1,6 +1,11 @@
 node_modules/
 .expo/
 dist/
+
+# Native projects — generated on demand by `expo prebuild` (CNG). Do not commit.
+/ios/
+/android/
+
 npm-debug.*
 *.jks
 *.p8
