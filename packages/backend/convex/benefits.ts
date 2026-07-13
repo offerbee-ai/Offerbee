@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getUserId, requireUserId } from "./auth";
-import { periodEnd, periodKey } from "./benefitCycles";
+import { periodEnd, periodKey, periodsForYear } from "./benefitCycles";
 import { suggestCredits } from "./benefitParser";
 import { benefitSourceValidator, cycleValidator } from "./validators";
 
@@ -42,6 +42,31 @@ async function currentPeriodUsage(
     )
     .take(50);
   return roundCents(rows.reduce((a, r) => a + r.amount, 0));
+}
+
+// Usage summed per period for the calendar year containing `now`, keyed by
+// periodKey. Every current-year key (annual `2026`, `2026-Q3`, `2026-H2`,
+// `2026-07`) sorts within [`${y}`, `${y+1}`), so one range over the compound
+// index covers them all. Powers the per-period grid.
+async function yearPeriodUsage(
+  ctx: QueryCtx,
+  userBenefitId: Id<"userBenefits">,
+  now: number,
+): Promise<Map<string, number>> {
+  const y = new Date(now).getUTCFullYear();
+  const rows = await ctx.db
+    .query("benefitUsages")
+    .withIndex("by_userBenefitId_and_periodKey", (q) =>
+      q
+        .eq("userBenefitId", userBenefitId)
+        .gte("periodKey", `${y}`)
+        .lt("periodKey", `${y + 1}`),
+    )
+    .take(200);
+  const sums = new Map<string, number>();
+  for (const r of rows) sums.set(r.periodKey, (sums.get(r.periodKey) ?? 0) + r.amount);
+  for (const [k, val] of sums) sums.set(k, roundCents(val));
+  return sums;
 }
 
 // ── Queries ─────────────────────────────────────────────────────────────────
@@ -149,6 +174,35 @@ export const listMyCredits = query({
       const meta = cardMeta.get(b.userCardId);
       if (!meta) continue; // orphan guard (card removed mid-flight)
       const pk = periodKey(b.cycle, now);
+      const usedAmount = await currentPeriodUsage(ctx, b._id, pk);
+
+      // Per-period grid cells for non-monthly credits (annual → 1 cell = a
+      // checkbox; quarterly → 4; semiannual → 2). Monthly stays ungridded.
+      let periods:
+        | {
+            key: string;
+            label: string;
+            usedAmount: number;
+            used: boolean;
+            status: "elapsed" | "current" | "upcoming";
+          }[]
+        | undefined;
+      if (b.cycle !== "monthly") {
+        const sums = await yearPeriodUsage(ctx, b._id, now);
+        periods = periodsForYear(b.cycle, now).map((p) => {
+          // Current cell reuses the authoritative currentPeriodUsage so the grid
+          // and the top-level usedAmount/aggregates can never disagree.
+          const cellUsed = p.status === "current" ? usedAmount : (sums.get(p.key) ?? 0);
+          return {
+            key: p.key,
+            label: p.label,
+            usedAmount: cellUsed,
+            used: cellUsed >= b.amount,
+            status: p.status,
+          };
+        });
+      }
+
       credits.push({
         id: b._id,
         title: b.title,
@@ -158,10 +212,11 @@ export const listMyCredits = query({
         amount: b.amount,
         cycle: b.cycle,
         source: b.source,
-        usedAmount: await currentPeriodUsage(ctx, b._id, pk),
+        usedAmount,
         periodKey: pk,
         resetAt: periodEnd(b.cycle, now),
         snoozedUntil: b.snoozedUntil ?? null,
+        periods,
       });
     }
 

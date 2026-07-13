@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useApp, type BenefitFilter, type ExpiringRange } from "../AppProvider";
-import { expiringGroups, filterBenefits, usd } from "../data";
+import { expiringGroups, filterBenefits, hasGrid, usd } from "../data";
 import {
   BrandChip,
   DaysTile,
@@ -11,6 +11,7 @@ import {
   Segmented,
   Panel,
 } from "../controls";
+import { PeriodGrid } from "../PeriodGrid";
 import { EmptyState, Spinner } from "../ui";
 import type { DerivedCredit } from "../data";
 
@@ -159,11 +160,23 @@ export function Benefits() {
                       </div>
                     </div>
                     <div className="ml-auto flex items-center gap-2">
-                      <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
-                      <LogPartialButton
-                        onLog={(amt) => logPartial(c.id, amt)}
-                        disabled={pending.has(c.id)}
-                      />
+                      {hasGrid(c.cycle) && c.periods ? (
+                        <PeriodGrid
+                          periods={c.periods}
+                          amount={c.amount}
+                          onMarkCurrent={() => markUsed(c.id)}
+                          onLogPartial={(amt) => logPartial(c.id, amt)}
+                          pending={pending.has(c.id)}
+                        />
+                      ) : (
+                        <>
+                          <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
+                          <LogPartialButton
+                            onLog={(amt) => logPartial(c.id, amt)}
+                            disabled={pending.has(c.id)}
+                          />
+                        </>
+                      )}
                       <button
                         type="button"
                         onClick={() => snooze(c.id)}
@@ -239,13 +252,25 @@ export function Benefits() {
                   {c.amountStr}
                 </div>
                 <div className="flex items-center justify-end gap-2">
-                  {!c.used && (
-                    <LogPartialButton
-                      onLog={(amt) => logPartial(c.id, amt)}
-                      disabled={pending.has(c.id)}
+                  {hasGrid(c.cycle) && c.periods ? (
+                    <PeriodGrid
+                      periods={c.periods}
+                      amount={c.amount}
+                      onMarkCurrent={() => markUsed(c.id)}
+                      onLogPartial={(amt) => logPartial(c.id, amt)}
+                      pending={pending.has(c.id)}
                     />
+                  ) : (
+                    <>
+                      {!c.used && (
+                        <LogPartialButton
+                          onLog={(amt) => logPartial(c.id, amt)}
+                          disabled={pending.has(c.id)}
+                        />
+                      )}
+                      <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
+                    </>
                   )}
-                  <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
                 </div>
               </div>
             ))

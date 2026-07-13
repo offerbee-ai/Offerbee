@@ -1,6 +1,10 @@
+import { View } from "react-native";
+
 import { CardArt, ListRow, PillButton, Text } from "@/components/ui";
-import type { DerivedCredit } from "../derive";
+import { spacing } from "@/theme";
+import { hasGrid, type DerivedCredit } from "../derive";
 import { DaysTile } from "./DaysTile";
+import { PeriodGrid } from "./PeriodGrid";
 
 type CreditRowProps = {
   credit: DerivedCredit;
@@ -8,6 +12,7 @@ type CreditRowProps = {
   leading?: "days" | "art";
   pending?: boolean;
   onMarkUsed?: () => void;
+  onLogPartial?: (amount: number) => void;
   onSnooze?: () => void;
   /** Row tap → Credit detail. The action pill stays a separate press target. */
   onPress?: () => void;
@@ -22,12 +27,18 @@ export function CreditRow({
   leading = "art",
   pending = false,
   onMarkUsed,
+  onLogPartial,
   onSnooze,
   onPress,
   markLabel,
   markTone,
   separator = true,
 }: CreditRowProps) {
+  // Non-monthly credits render a per-period grid (annual → checkbox) inline
+  // instead of the single mark-used pill; the grid's current cell is the
+  // interactive control. Monthly keeps the pill.
+  const showGrid = hasGrid(credit.cycle) && !!credit.periods && !!onMarkUsed;
+
   return (
     <ListRow
       separator={separator}
@@ -44,7 +55,7 @@ export function CreditRow({
           {onSnooze && !credit.used ? (
             <PillButton label="Snooze" tone="neutral" onPress={onSnooze} disabled={pending} />
           ) : null}
-          {onMarkUsed ? (
+          {onMarkUsed && !showGrid ? (
             credit.used ? (
               <PillButton label="Used ✓" tone="neutral" onPress={onMarkUsed} disabled={pending} />
             ) : (
@@ -70,6 +81,17 @@ export function CreditRow({
       >
         {credit.sub} · {credit.reset}
       </Text>
+      {showGrid && credit.periods ? (
+        <View style={{ marginTop: spacing.sm }}>
+          <PeriodGrid
+            periods={credit.periods}
+            amount={credit.amount}
+            onMarkCurrent={onMarkUsed!}
+            onLogPartial={onLogPartial}
+            pending={pending}
+          />
+        </View>
+      ) : null}
     </ListRow>
   );
 }

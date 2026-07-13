@@ -17,7 +17,8 @@ import { InlineHeader } from "@/components/navigation/InlineHeader";
 import { goBack } from "@/features/nav/back";
 import { radius, spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
-import { usd, type Cycle } from "@/features/credits/derive";
+import { hasGrid, usd, type Cycle } from "@/features/credits/derive";
+import { PeriodGrid } from "@/features/credits/components/PeriodGrid";
 
 const PERIODS_PER_YEAR: Record<Cycle, number> = {
   monthly: 12,
@@ -81,7 +82,7 @@ function DetailRow({
 export default function CreditDetailScreen() {
   const { creditId, from } = useLocalSearchParams<{ creditId: string; from?: string }>();
   const { colors } = useTheme();
-  const { derived, markUsed, untrack, pending } = useCredits();
+  const { derived, markUsed, logPartial, untrack, pending } = useCredits();
 
   const credit = derived.decorated.find((c) => c.id === creditId);
   const backLabel = from && from.length ? from : "Back";
@@ -190,7 +191,16 @@ export default function CreditDetailScreen() {
           </Text>
         </View>
 
-        {credit.used ? (
+        {hasGrid(credit.cycle) && credit.periods ? (
+          <PeriodGrid
+            periods={credit.periods}
+            amount={credit.amount}
+            onMarkCurrent={() => markUsed(credit.id)}
+            onLogPartial={(amt) => logPartial(credit.id, amt)}
+            pending={busy}
+            size="full"
+          />
+        ) : credit.used ? (
           <Pressable
             accessibilityRole="button"
             disabled={busy}

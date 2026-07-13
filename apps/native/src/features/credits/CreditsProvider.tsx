@@ -90,6 +90,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         days: Math.max(0, Math.ceil((c.resetAt - now) / DAY_MS)),
         resetAt: c.resetAt,
         snoozed: (c.snoozedUntil ?? 0) > now,
+        periods: c.periods ?? undefined,
       })),
     [data, now],
   );

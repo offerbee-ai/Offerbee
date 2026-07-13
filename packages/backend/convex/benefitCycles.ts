@@ -47,6 +47,39 @@ export function periodEnd(cycle: BenefitCycle, now: number): number {
   }
 }
 
+// The N periods of `cycle` for the calendar year containing `now`, in
+// chronological order, each tagged relative to the current period. Drives the
+// per-period grid UI (annual → 1 cell = a checkbox; quarterly → 4; semiannual
+// → 2). Returns [] for monthly (12 cells is intentionally not gridded).
+// Keys match `periodKey` exactly so callers can join usage sums by key.
+export type PeriodStatus = "elapsed" | "current" | "upcoming";
+
+export function periodsForYear(
+  cycle: BenefitCycle,
+  now: number,
+): { key: string; label: string; status: PeriodStatus }[] {
+  const { y } = parts(now);
+  const defs: { key: string; label: string }[] =
+    cycle === "quarterly"
+      ? [1, 2, 3, 4].map((q) => ({ key: `${y}-Q${q}`, label: `Q${q}` }))
+      : cycle === "semiannual"
+        ? [
+            { key: `${y}-H1`, label: "Jan–Jun" },
+            { key: `${y}-H2`, label: "Jul–Dec" },
+          ]
+        : cycle === "annual"
+          ? [{ key: `${y}`, label: `${y}` }]
+          : []; // monthly: no grid
+
+  const currentKey = periodKey(cycle, now);
+  const currentIdx = defs.findIndex((d) => d.key === currentKey);
+  return defs.map((d, i) => ({
+    key: d.key,
+    label: d.label,
+    status: i < currentIdx ? "elapsed" : i === currentIdx ? "current" : "upcoming",
+  }));
+}
+
 // v2 timezone upgrade path: `users.timeZone` (optional, IANA) is unset for most
 // rows today, so v1 uses UTC. The only distortion is within hours of a period
 // boundary; day-granular countdowns are unaffected. To upgrade, resolve the

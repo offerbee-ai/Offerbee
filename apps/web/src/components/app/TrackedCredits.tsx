@@ -5,7 +5,9 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { Button, Card, Pill, SectionLabel } from "./ui";
-import { CYCLE_LABEL, usd, type Cycle } from "./data";
+import { CYCLE_LABEL, hasGrid, usd, type Cycle, type PeriodCell } from "./data";
+import { PeriodGrid } from "./PeriodGrid";
+import { useApp } from "./AppProvider";
 
 const CYCLES: Cycle[] = ["monthly", "quarterly", "semiannual", "annual"];
 
@@ -58,6 +60,7 @@ type TrackedCredit = {
   amount: number;
   cycle: Cycle;
   usedAmount: number;
+  periods?: PeriodCell[];
 };
 
 type Suggestion = {
@@ -75,10 +78,16 @@ function CreditRow({
   tracked,
   suggestion,
   userCardId,
+  onMarkUsed,
+  onLogPartial,
+  pending,
 }: {
   tracked: TrackedCredit | null;
   suggestion: Suggestion | null;
   userCardId: Id<"userCards">;
+  onMarkUsed?: (id: string) => void;
+  onLogPartial?: (id: string, amount: number) => void;
+  pending?: boolean;
 }) {
   const track = useMutation(api.benefits.trackBenefit);
   const update = useMutation(api.benefits.updateBenefit);
@@ -179,6 +188,22 @@ function CreditRow({
           )}
         </div>
       </div>
+      {tracked &&
+        hasGrid(tracked.cycle) &&
+        tracked.periods &&
+        onMarkUsed &&
+        onLogPartial && (
+          <div className="pl-1">
+            <PeriodGrid
+              periods={tracked.periods}
+              amount={tracked.amount}
+              onMarkCurrent={() => onMarkUsed(tracked.id)}
+              onLogPartial={(amt) => onLogPartial(tracked.id, amt)}
+              pending={pending}
+              size="full"
+            />
+          </div>
+        )}
       {editing && (
         <div className="flex items-center gap-2 pl-1">
           <AmountInput value={amount} onChange={setAmount} />
@@ -263,6 +288,7 @@ export function TrackedCredits({
 }) {
   const suggestions = useQuery(api.benefits.suggestionsForCard, { cardKey });
   const data = useQuery(api.benefits.listMyCredits);
+  const { markUsed, logPartial, pending } = useApp();
   const tracked = (data?.credits ?? []).filter((c) => c.cardKey === cardKey);
 
   // Credits are auto-tracked when the card is added, so the primary list is
@@ -273,7 +299,14 @@ export function TrackedCredits({
   const byTitle = new Map<string, TrackedCredit>(
     tracked.map((c) => [
       c.title,
-      { id: c.id, title: c.title, amount: c.amount, cycle: c.cycle, usedAmount: c.usedAmount },
+      {
+        id: c.id,
+        title: c.title,
+        amount: c.amount,
+        cycle: c.cycle,
+        usedAmount: c.usedAmount,
+        periods: c.periods,
+      },
     ]),
   );
 
@@ -314,6 +347,9 @@ export function TrackedCredits({
               tracked={tc}
               suggestion={null}
               userCardId={userCardId}
+              onMarkUsed={markUsed}
+              onLogPartial={logPartial}
+              pending={pending.has(tc.id)}
             />
           ))}
         </div>
