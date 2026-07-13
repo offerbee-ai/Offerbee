@@ -124,8 +124,22 @@ export function PeriodGrid({
         );
       })}
 
-      {showPartial && (
-        <LogPartialButton onLog={onLogPartial} disabled={pending} />
+      {/* In the compact (ledger) layout the partial-entry slot is always
+          reserved — rendered invisible when the period is already used — so the
+          period cells keep the same horizontal position across every row.
+          The full (detail) layout just shows it when relevant. */}
+      {full ? (
+        showPartial && <LogPartialButton onLog={onLogPartial} disabled={pending} />
+      ) : (
+        <span
+          className={cn(!showPartial && "invisible")}
+          aria-hidden={!showPartial}
+        >
+          <LogPartialButton
+            onLog={showPartial ? onLogPartial : () => {}}
+            disabled={pending || !showPartial}
+          />
+        </span>
       )}
     </div>
   );
