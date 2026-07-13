@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Public+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E8E3D5; }
+  a { color: #E8680E; text-decoration: none; }
+  a:hover { color: #B4550B; }
+</style>
+</helmet>
+
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:44px 24px 64px;font-family:'Public Sans',Helvetica,Arial,sans-serif;">
+
+  <div style="width:600px;max-width:100%;display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;">
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;">Welcome email · 600px · Honey</span>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.05em;color:#9A927F;">Sent on signup</span>
+  </div>
+
+  <!-- ══════════ Email canvas ══════════ -->
+  <div style="width:600px;max-width:100%;background:#FBF8F0;border:1px solid #E8E1D2;border-radius:4px;overflow:hidden;box-shadow:0 20px 60px rgba(33,29,22,.14);">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 36px;border-bottom:1px solid #ECE5D6;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <svg width="28" height="28" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberEm" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeEm"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberEm)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeEm)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+        <span style="font-family:'Source Serif 4',Georgia,serif;font-size:20px;font-weight:600;letter-spacing:-.01em;color:#211D16;">OfferBee</span>
+      </div>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;">Every credit. Kept.</span>
+    </div>
+
+    <!-- Hero -->
+    <div style="padding:40px 36px 8px;">
+      <div style="font-family:'Source Serif 4',Georgia,serif;font-size:32px;font-weight:600;letter-spacing:-.02em;line-height:1.15;color:#211D16;">Welcome, Sam.<br>Your credits start counting now.</div>
+      <div style="font-size:15px;line-height:1.6;color:#6F6757;margin-top:14px;max-width:460px;">You're in. OfferBee tracks the statement credits on your premium cards — dining, travel, streaming, all of it — and nudges you before any of them expire.</div>
+    </div>
+
+    <!-- Stat band -->
+    <sc-if value="{{ showStatBand }}" hint-placeholder-val="{{ true }}">
+      <div style="margin:26px 36px 0;background:#FBEAD5;border-radius:14px;padding:20px 24px;display:flex;align-items:center;gap:20px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:34px;font-weight:600;letter-spacing:-.03em;color:#B4550B;white-space:nowrap;">$348</div>
+        <div style="font-size:13.5px;line-height:1.5;color:#6F6757;">is what the average premium cardholder lets expire every year. Yours won't be part of it.</div>
+      </div>
+    </sc-if>
+
+    <!-- Steps -->
+    <div style="padding:30px 36px 6px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;margin-bottom:14px;">Two minutes to your first save</div>
+      <div style="display:flex;flex-direction:column;gap:0;">
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-bottom:1px solid #ECE5D6;">
+          <div style="width:26px;height:26px;border-radius:50%;background:#FBEAD5;color:#B4550B;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#211D16;">Add your cards</div>
+            <div style="font-size:13px;line-height:1.5;color:#6F6757;margin-top:2px;">Pick from the catalog — no bank login, ever.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-bottom:1px solid #ECE5D6;">
+          <div style="width:26px;height:26px;border-radius:50%;background:#FBEAD5;color:#B4550B;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#211D16;">See every credit you're owed</div>
+            <div style="font-size:13px;line-height:1.5;color:#6F6757;margin-top:2px;">Monthly, quarterly and annual credits, laid out with deadlines.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:13px 0;">
+          <div style="width:26px;height:26px;border-radius:50%;background:#FBEAD5;color:#B4550B;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+          <div>
+            <div style="font-size:15px;font-weight:600;color:#211D16;">Get nudged before anything expires</div>
+            <div style="font-size:13px;line-height:1.5;color:#6F6757;margin-top:2px;">A quiet reminder when a credit is about to slip away.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div style="padding:22px 36px 38px;">
+      <a href="#" style="display:block;background:#E8680E;color:#FFFFFF;font-size:16px;font-weight:600;text-align:center;padding:15px;border-radius:12px;">Add your first card</a>
+      <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;margin-top:14px;">Track your way · Cancel anytime</div>
+    </div>
+
+    <!-- Footer -->
+    <div style="background:#F5F1E8;border-top:1px solid #ECE5D6;padding:24px 36px;display:flex;flex-direction:column;gap:8px;">
+      <div style="font-size:12px;line-height:1.6;color:#9A927F;">You're receiving this because you created an OfferBee account. OfferBee · offerbee.ai</div>
+      <div style="display:flex;gap:16px;font-size:12px;font-weight:600;">
+        <a href="#" style="color:#6F6757;">Unsubscribe</a>
+        <a href="#" style="color:#6F6757;">Notification settings</a>
+        <a href="#" style="color:#6F6757;">Help</a>
+      </div>
+    </div>
+  </div>
+
+  <div style="width:600px;max-width:100%;margin-top:16px;font-size:12.5px;line-height:1.6;color:#6F6757;">
+    Production version (table-based, inline styles, email-client-safe font fallbacks, <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">{{firstNameVar}}</span> variable) is in <span style="font-family:'IBM Plex Mono',monospace;font-size:11.5px;">welcome-email.html</span>.
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;$preview&quot;: { &quot;width&quot;: 760 },
+  &quot;showStatBand&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Content&quot; }
+}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      showStatBand: this.props.showStatBand ?? true,
+      firstNameVar: '{{firstName}}'
+    };
+  }
+}
+</script>
+</body>
+</html>
