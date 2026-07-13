@@ -71,6 +71,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-font",
     "expo-secure-store",
     ["expo-notifications", { color: "#E8680E" }],
+    // iOS deployment floor (Xcode 27 SDK rejects pods below 15.0; app targets 16.4).
+    ["expo-build-properties", { ios: { deploymentTarget: "16.4" } }],
+    // expo-build-properties misses pod resource-bundle sub-targets (12.4/13.4) — bump them too.
+    "./plugins/with-ios-pod-min-deployment-target",
+    // UIScene lifecycle adoption — required on the iOS 26+/27 SDK or UIKit traps at launch.
+    "./plugins/with-ios-scene-lifecycle",
+    // Local iOS dev-build fixes (Debug only): on-device Metro host/port + script sandbox.
+    "./plugins/with-ios-dev-build",
   ],
   experiments: {
     typedRoutes: true,
