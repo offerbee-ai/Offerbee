@@ -16,6 +16,7 @@ import {
   Text,
 } from "@/components/ui";
 import { InlineHeader } from "@/components/navigation/InlineHeader";
+import { goBack } from "@/features/nav/back";
 import { spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
 import { netStr, usd, type DerivedCredit } from "@/features/credits/derive";
@@ -111,7 +112,7 @@ export default function CardDetailScreen() {
           onPress: async () => {
             try {
               await removeCard({ userCardId: walletCard.userCardId });
-              router.back();
+              goBack("/cards");
             } catch (e) {
               console.error("removeCard failed", e);
             }
@@ -125,7 +126,7 @@ export default function CardDetailScreen() {
     <Screen>
       <InlineHeader
         backLabel="Cards"
-        onBack={() => router.back()}
+        onBack={() => goBack("/cards")}
         title={name}
         trailing={
           walletCard ? (

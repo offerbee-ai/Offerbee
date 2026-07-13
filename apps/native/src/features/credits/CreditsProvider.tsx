@@ -38,6 +38,7 @@ interface CreditsState {
   markUsed: (id: string) => void; // one-tap: fill remaining, or clear if used
   logPartial: (id: string, amount: number) => void;
   snooze: (id: string) => void;
+  untrack: (id: string) => void; // stop tracking this credit (removes it)
   pending: Set<string>; // ids with an in-flight mutation (disable buttons)
 }
 
@@ -49,6 +50,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
   const logUsageM = useMutation(api.benefits.logUsage);
   const clearPeriodM = useMutation(api.benefits.clearCurrentPeriod);
   const snoozeM = useMutation(api.benefits.snoozeBenefit);
+  const untrackM = useMutation(api.benefits.untrackBenefit);
 
   const [pending, setPending] = useState<Set<string>>(new Set());
 
@@ -140,6 +142,13 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
     [runPending, snoozeM],
   );
 
+  const untrack = useCallback(
+    (id: string) => {
+      void runPending(id, () => untrackM({ userBenefitId: id as Id<"userBenefits"> }));
+    },
+    [runPending, untrackM],
+  );
+
   const value = useMemo<CreditsState>(
     () => ({
       credits,
@@ -151,9 +160,10 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
       markUsed,
       logPartial,
       snooze,
+      untrack,
       pending,
     }),
-    [credits, cards, derived, isAuthenticated, data, now, markUsed, logPartial, snooze, pending],
+    [credits, cards, derived, isAuthenticated, data, now, markUsed, logPartial, snooze, untrack, pending],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

@@ -1,7 +1,7 @@
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
-import type { QueryCtx } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getUserId, requireUserId } from "./auth";
 import { periodEnd, periodKey } from "./benefitCycles";
 import { suggestCredits } from "./benefitParser";
@@ -348,5 +348,116 @@ export const snoozeBenefit = mutation({
     // Never snooze past the reset — the credit reappears fresh next period.
     const snoozedUntil = Math.min(until ?? now + SEVEN_DAYS_MS, resetAt);
     await ctx.db.patch(userBenefitId, { snoozedUntil });
+  },
+});
+
+// ── Auto-seed ────────────────────────────────────────────────────────────────
+// Default-track model: adding a card auto-tracks every credit the parser detects
+// from that card's benefits, so the wallet is populated without an opt-in step.
+// The user untracks anything they don't get. Seeding is once-only per userCard
+// (benefitsSeededAt) so an untracked credit is never resurrected on a later
+// detail refresh. Requires the card's detail to be cached; when it isn't yet,
+// saveCardDetail re-drives seeding for the card's owners once it arrives.
+
+// Seed one owned card's credits from its cached detail. No-op if already seeded
+// or the detail hasn't been fetched yet (left unstamped so a later save retries).
+async function seedForUserCard(
+  ctx: MutationCtx,
+  userCard: Doc<"userCards">,
+): Promise<void> {
+  if (userCard.benefitsSeededAt !== undefined) return;
+
+  const detail = await ctx.db
+    .query("cardDetails")
+    .withIndex("by_cardKey", (q) => q.eq("cardKey", userCard.cardKey))
+    .unique();
+  if (!detail) return; // not fetched yet — saveCardDetail will seed on arrival
+
+  const now = Date.now();
+
+  // Existing rows for this (user, card) — tracked OR archived — so a re-added
+  // card (whose archived benefits addCard restores) isn't duplicated.
+  const existing = await ctx.db
+    .query("userBenefits")
+    .withIndex("by_userId_and_cardKey", (q) =>
+      q.eq("userId", userCard.userId).eq("cardKey", userCard.cardKey),
+    )
+    .take(MAX_BENEFITS_PER_USER + 1);
+  const seenTitles = new Set(
+    existing.map((b) => b.benefitTitle).filter((t): t is string => Boolean(t)),
+  );
+
+  // Global per-user budget across all cards (archived rows don't count).
+  const allActive = (
+    await ctx.db
+      .query("userBenefits")
+      .withIndex("by_userId", (q) => q.eq("userId", userCard.userId))
+      .take(MAX_BENEFITS_PER_USER + 1)
+  ).filter((b) => b.archivedAt === undefined);
+  let budget = MAX_BENEFITS_PER_USER - allActive.length;
+
+  for (const s of suggestCredits(detail.benefit ?? [])) {
+    if (budget <= 0) break;
+    if (seenTitles.has(s.benefitTitle)) continue;
+    seenTitles.add(s.benefitTitle);
+    await ctx.db.insert("userBenefits", {
+      userId: userCard.userId,
+      userCardId: userCard._id,
+      cardKey: userCard.cardKey,
+      title: s.title,
+      amount: roundCents(s.amount),
+      cycle: s.cycle,
+      source: "suggested",
+      benefitTitle: s.benefitTitle,
+      createdAt: now,
+    });
+    budget -= 1;
+  }
+
+  // Stamp once detail exists (even if it yielded no credits) so we never rescan.
+  await ctx.db.patch(userCard._id, { benefitsSeededAt: now });
+}
+
+// Seed a single owned card — scheduled by addCard / completeOnboarding.
+export const seedCardBenefits = internalMutation({
+  args: { userCardId: v.id("userCards") },
+  handler: async (ctx, { userCardId }) => {
+    const userCard = await ctx.db.get(userCardId);
+    if (!userCard) return; // removed before the scheduler ran
+    await seedForUserCard(ctx, userCard);
+  },
+});
+
+// Seed every owner of a card whose credits haven't been seeded yet — scheduled
+// by saveCardDetail so lazily-fetched adds (and existing wallets predating this
+// feature) populate the moment the card's detail lands.
+export const seedOwnersForCard = internalMutation({
+  args: { cardKey: v.string() },
+  handler: async (ctx, { cardKey }) => {
+    const owners = await ctx.db
+      .query("userCards")
+      .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
+      .take(500);
+    for (const uc of owners) {
+      if (uc.benefitsSeededAt === undefined) await seedForUserCard(ctx, uc);
+    }
+  },
+});
+
+// One-shot backfill for wallets that predate auto-seeding. Run once per
+// deployment: `convex run benefits:seedAllUnseeded '{}'`.
+export const seedAllUnseeded = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const cards = await ctx.db.query("userCards").take(2000);
+    let seeded = 0;
+    for (const uc of cards) {
+      if (uc.benefitsSeededAt !== undefined) continue;
+      const before = uc.benefitsSeededAt;
+      await seedForUserCard(ctx, uc);
+      const after = await ctx.db.get(uc._id);
+      if (before === undefined && after?.benefitsSeededAt !== undefined) seeded += 1;
+    }
+    return { scanned: cards.length, seeded };
   },
 });

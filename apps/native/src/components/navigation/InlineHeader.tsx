@@ -33,9 +33,11 @@ export function InlineHeader({
         minHeight: 44,
       }}
     >
-      {/* Equal-flex left/right so the title is centered on screen, not in the
-          leftover space between a wide back label and a narrow trailing slot. */}
-      <View style={{ flex: 1, alignItems: "flex-start" }}>
+      {/* Sides grow (never shrink) so they keep their natural width — the back
+          label and trailing action stay fully visible, and equal grow keeps a
+          short title centered. A long title truncates in the middle instead of
+          collapsing the sides. */}
+      <View style={{ flexGrow: 1, flexShrink: 0, alignItems: "flex-start" }}>
         <Pressable
           accessibilityRole="button"
           onPress={onBack}
@@ -58,6 +60,7 @@ export function InlineHeader({
         numberOfLines={1}
         style={{
           flexShrink: 1,
+          minWidth: 0,
           textAlign: "center",
           paddingHorizontal: spacing.sm,
           fontFamily: fontFamilies.display,
@@ -68,7 +71,9 @@ export function InlineHeader({
         {title}
       </Text>
 
-      <View style={{ flex: 1, alignItems: "flex-end" }}>{trailing}</View>
+      <View style={{ flexGrow: 1, flexShrink: 0, alignItems: "flex-end" }}>
+        {trailing}
+      </View>
     </View>
   );
 }

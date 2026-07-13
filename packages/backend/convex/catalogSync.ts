@@ -129,6 +129,11 @@ export const saveCardDetail = internalMutation({
         detailHash: hash,
       });
       await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
+      // Detail just landed — auto-track credits for any owner still unseeded
+      // (covers lazy-fetch adds and wallets predating the auto-seed feature).
+      await ctx.scheduler.runAfter(0, internal.benefits.seedOwnersForCard, {
+        cardKey,
+      });
       return;
     }
 
@@ -144,5 +149,8 @@ export const saveCardDetail = internalMutation({
       detailHash: hash,
     });
     await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
+    await ctx.scheduler.runAfter(0, internal.benefits.seedOwnersForCard, {
+      cardKey,
+    });
   },
 });

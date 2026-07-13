@@ -1,5 +1,4 @@
 import { Pressable, View } from "react-native";
-import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
@@ -13,6 +12,7 @@ import {
   Skeleton,
   Text,
 } from "@/components/ui";
+import { goBack } from "@/features/nav/back";
 import { spacing, useTheme } from "@/theme";
 import { timeAgo } from "@/lib/dates";
 
@@ -48,7 +48,7 @@ export default function NotificationsScreen() {
           gap: spacing.md,
         }}
       >
-        <IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={() => router.back()} />
+        <IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={() => goBack("/")} />
         <Text variant="title" style={{ flex: 1 }}>
           Notifications
         </Text>
