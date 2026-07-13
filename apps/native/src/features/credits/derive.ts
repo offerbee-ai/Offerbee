@@ -7,6 +7,20 @@
 
 export type Cycle = "monthly" | "quarterly" | "semiannual" | "annual";
 
+export type PeriodStatus = "elapsed" | "current" | "upcoming";
+
+// One cell of a credit's per-period grid (this calendar year). Server-computed
+// in benefits.listMyCredits; annual → 1 cell (a checkbox), quarterly → 4,
+// semiannual → 2. Monthly credits have no grid (periods undefined). Mirrors the
+// web data.ts shape — keep the two in sync.
+export interface PeriodCell {
+  key: string; // periodKey, e.g. "2026-Q3"
+  label: string; // "Q1".."Q4" | "Jan–Jun"/"Jul–Dec" | year (annual)
+  usedAmount: number; // dollars logged in that period
+  used: boolean; // usedAmount >= amount
+  status: PeriodStatus;
+}
+
 export interface Credit {
   id: string;
   name: string;
@@ -21,7 +35,12 @@ export interface Credit {
   days: number; // whole days until reset (client-computed from resetAt)
   resetAt: number; // ms; period end
   snoozed: boolean; // snoozedUntil > now
+  periods?: PeriodCell[]; // per-period cells (non-monthly cycles only)
 }
+
+// Credits render as a per-period grid unless monthly (12 cells is too busy — it
+// keeps the single current-period control).
+export const hasGrid = (cycle: Cycle): boolean => cycle !== "monthly";
 
 export interface CardBase {
   id: string; // = cardKey
