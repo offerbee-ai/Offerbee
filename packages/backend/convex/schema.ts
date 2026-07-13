@@ -109,6 +109,9 @@ export default defineSchema({
     signupBonusStartDate: v.optional(v.number()), // min-spend window start
     signupBonusMet: v.optional(v.boolean()), // user marks bonus done => stop nudges
     notificationsEnabled: v.optional(v.boolean()), // per-card mute
+    // Once-only guard: set when this card's catalog credits have been auto-seeded
+    // into userBenefits. Prevents re-seeding a credit the user later untracked.
+    benefitsSeededAt: v.optional(v.number()),
   })
     .index("by_userId", ["userId"])
     .index("by_userId_and_cardKey", ["userId", "cardKey"])

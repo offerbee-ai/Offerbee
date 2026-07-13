@@ -1,5 +1,4 @@
 import { Alert, View } from "react-native";
-import { router } from "expo-router";
 import Constants from "expo-constants";
 import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useMutation, useQuery } from "convex/react";
@@ -21,6 +20,7 @@ import {
   Toggle,
 } from "@/components/ui";
 import { InlineHeader } from "@/components/navigation/InlineHeader";
+import { goBack } from "@/features/nav/back";
 import { spacing, useTheme } from "@/theme";
 import { appEnv } from "@/lib/env";
 
@@ -107,7 +107,7 @@ export default function SettingsScreen() {
 
   return (
     <Screen>
-      <InlineHeader backLabel="Review" onBack={() => router.back()} title="Settings" />
+      <InlineHeader backLabel="Review" onBack={() => goBack("/")} title="Settings" />
 
       {/* Profile */}
       <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.base }}>

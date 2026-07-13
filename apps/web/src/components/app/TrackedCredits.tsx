@@ -265,10 +265,11 @@ export function TrackedCredits({
   const data = useQuery(api.benefits.listMyCredits);
   const tracked = (data?.credits ?? []).filter((c) => c.cardKey === cardKey);
 
-  // Merge into ONE list: a suggestion that's already tracked (matched by title,
-  // which trackBenefit copies verbatim) collapses into its tracked row. Rows
-  // follow the card's natural suggestion order; manual / unmatched tracked
-  // credits (no suggestion) come after.
+  // Credits are auto-tracked when the card is added, so the primary list is
+  // simply what's tracked — ordered by the card's natural suggestion order,
+  // with manual / unmatched tracked credits after. A suggestion that is NOT
+  // currently tracked is one the user untracked (or a newly-detected credit);
+  // those are offered in a separate "Not tracking" group so they can be re-added.
   const byTitle = new Map<string, TrackedCredit>(
     tracked.map((c) => [
       c.title,
@@ -276,22 +277,24 @@ export function TrackedCredits({
     ]),
   );
 
-  type Row = {
-    key: string;
-    tracked: TrackedCredit | null;
-    suggestion: Suggestion | null;
-  };
-  const rows: Row[] = [];
-  const matched = new Set<string>();
+  const trackedRows: TrackedCredit[] = [];
+  const seen = new Set<string>();
   for (const s of suggestions ?? []) {
-    const tc = byTitle.get(s.title) ?? null;
-    if (tc) matched.add(tc.id);
-    rows.push({ key: `s:${s.benefitTitle}`, tracked: tc, suggestion: s });
+    const tc = byTitle.get(s.title);
+    if (tc && !seen.has(tc.id)) {
+      trackedRows.push(tc);
+      seen.add(tc.id);
+    }
   }
   for (const tc of byTitle.values()) {
-    if (matched.has(tc.id)) continue;
-    rows.push({ key: `t:${tc.id}`, tracked: tc, suggestion: null });
+    if (!seen.has(tc.id)) {
+      trackedRows.push(tc);
+      seen.add(tc.id);
+    }
   }
+  const untracked: Suggestion[] = (suggestions ?? []).filter(
+    (s) => !byTitle.has(s.title),
+  );
 
   return (
     <Card className="mt-6">
@@ -299,20 +302,36 @@ export function TrackedCredits({
 
       {suggestions === undefined ? (
         <p className="py-2 text-[13px] text-tertiary">Loading credits…</p>
-      ) : rows.length === 0 ? (
+      ) : trackedRows.length === 0 && untracked.length === 0 ? (
         <p className="py-2 text-[13px] text-tertiary">
           No credit-like benefits detected on this card. Add one manually below.
         </p>
       ) : (
         <div>
-          {rows.map((r) => (
+          {trackedRows.map((tc) => (
             <CreditRow
-              key={r.key}
-              tracked={r.tracked}
-              suggestion={r.suggestion}
+              key={`t:${tc.id}`}
+              tracked={tc}
+              suggestion={null}
               userCardId={userCardId}
             />
           ))}
+        </div>
+      )}
+
+      {untracked.length > 0 && (
+        <div className="mt-4">
+          <SectionLabel>Not tracking</SectionLabel>
+          <div>
+            {untracked.map((s) => (
+              <CreditRow
+                key={`s:${s.benefitTitle}`}
+                tracked={null}
+                suggestion={s}
+                userCardId={userCardId}
+              />
+            ))}
+          </div>
         </div>
       )}
 

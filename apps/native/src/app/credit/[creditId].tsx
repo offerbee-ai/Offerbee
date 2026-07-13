@@ -1,4 +1,4 @@
-import { Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
 
@@ -7,12 +7,14 @@ import {
   Card,
   CardArt,
   Icon,
+  IconButton,
   ProgressBar,
   Screen,
   SectionLabel,
   Text,
 } from "@/components/ui";
 import { InlineHeader } from "@/components/navigation/InlineHeader";
+import { goBack } from "@/features/nav/back";
 import { radius, spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
 import { usd, type Cycle } from "@/features/credits/derive";
@@ -79,15 +81,34 @@ function DetailRow({
 export default function CreditDetailScreen() {
   const { creditId, from } = useLocalSearchParams<{ creditId: string; from?: string }>();
   const { colors } = useTheme();
-  const { derived, markUsed, pending } = useCredits();
+  const { derived, markUsed, untrack, pending } = useCredits();
 
   const credit = derived.decorated.find((c) => c.id === creditId);
   const backLabel = from && from.length ? from : "Back";
 
+  const onUntrack = () => {
+    if (!credit) return;
+    Alert.alert(
+      "Stop tracking this credit?",
+      "It'll be removed from this card. Its usage history is deleted — re-add it any time from the card.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Stop tracking",
+          style: "destructive",
+          onPress: () => {
+            untrack(credit.id);
+            goBack(`/card/${credit.cardId}`);
+          },
+        },
+      ],
+    );
+  };
+
   if (!credit) {
     return (
       <Screen>
-        <InlineHeader backLabel={backLabel} onBack={() => router.back()} title="Credit" />
+        <InlineHeader backLabel={backLabel} onBack={() => goBack("/cards")} title="Credit" />
         <Card style={{ marginTop: spacing.base }}>
           <Text variant="bodyRegular" color="secondary">
             This credit is no longer available.
@@ -110,7 +131,18 @@ export default function CreditDetailScreen() {
 
   return (
     <Screen>
-      <InlineHeader backLabel={backLabel} onBack={() => router.back()} title={credit.name} />
+      <InlineHeader
+        backLabel={backLabel}
+        onBack={() => goBack(`/card/${credit.cardId}`)}
+        title={credit.name}
+        trailing={
+          <IconButton
+            icon="ellipsis"
+            accessibilityLabel="Credit options"
+            onPress={onUntrack}
+          />
+        }
+      />
 
       {/* Status card */}
       <Card size="lg" style={{ marginTop: spacing.xs, gap: spacing.base }}>

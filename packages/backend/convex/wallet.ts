@@ -85,6 +85,11 @@ export const addCard = mutation({
       .unique();
     if (detail) {
       await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
+      // Auto-track this card's credits now that detail is on hand. When it's
+      // not cached yet, saveCardDetail seeds once the lazy fetch below lands.
+      await ctx.scheduler.runAfter(0, internal.benefits.seedCardBenefits, {
+        userCardId,
+      });
     } else {
       await ctx.scheduler.runAfter(0, internal.rapidapi.fetchCardDetail, {
         cardKey,

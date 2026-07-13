@@ -108,7 +108,7 @@ export const completeOnboarding = mutation({
         .unique();
       if (owned) continue;
 
-      await ctx.db.insert("userCards", {
+      const userCardId = await ctx.db.insert("userCards", {
         userId,
         cardKey: card.cardKey,
         addedAt: now,
@@ -121,6 +121,11 @@ export const completeOnboarding = mutation({
       if (detail) {
         await ctx.scheduler.runAfter(0, internal.offers.rescanCard, {
           cardKey: card.cardKey,
+        });
+        // Auto-track the card's credits (see wallet.addCard); when detail isn't
+        // cached yet, saveCardDetail seeds after the lazy fetch resolves.
+        await ctx.scheduler.runAfter(0, internal.benefits.seedCardBenefits, {
+          userCardId,
         });
       } else {
         await ctx.scheduler.runAfter(0, internal.rapidapi.fetchCardDetail, {
