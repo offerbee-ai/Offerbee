@@ -33,6 +33,8 @@ export default defineSchema({
     onboardingCards: v.optional(v.array(v.string())), // curated onboardingCatalog ids
     spendingCategories: v.optional(v.array(v.string())), // feeds feed ranking
     reminderPrefs: v.optional(reminderPrefsValidator),
+    // Idempotency guard for the transactional welcome email (email.ts).
+    welcomeEmailSentAt: v.optional(v.number()),
   }).index("by_userId", ["userId"]),
 
   // ── Catalog cache: cards seen via live name search (name fallback for the
