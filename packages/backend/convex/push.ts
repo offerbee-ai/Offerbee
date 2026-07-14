@@ -1,13 +1,18 @@
 import { internalAction, internalMutation, internalQuery, mutation } from "./_generated/server";
 import { v } from "convex/values";
-import { internal } from "./_generated/api";
+import { internal, components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { platformValidator } from "./validators";
+import { PushNotifications } from "@convex-dev/expo-push-notifications";
 
 const EXPO_SEND_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts";
 const RECEIPT_MIN_AGE_MS = 15 * 60 * 1000; // Expo needs ~15m before receipts exist
 const RECEIPT_MAX_AGE_MS = 60 * 60 * 1000;
+
+// Recipient key = the push-token string itself (not our Convex userId) —
+// each device token is tracked as its own recipient in the component.
+const pushClient = new PushNotifications<string>(components.pushNotifications);
 
 // ── Registration (called by native now; usable by web push later) ───────────────
 
@@ -27,6 +32,7 @@ export const registerPushToken = mutation({
       .unique();
 
     const now = Date.now();
+    let id: Id<"pushTokens">;
     if (existing) {
       await ctx.db.patch(existing._id, {
         userId,
@@ -35,16 +41,19 @@ export const registerPushToken = mutation({
         lastSeenAt: now,
         isValid: true,
       });
-      return existing._id;
+      id = existing._id;
+    } else {
+      id = await ctx.db.insert("pushTokens", {
+        userId,
+        token,
+        deviceId,
+        platform,
+        lastSeenAt: now,
+        isValid: true,
+      });
     }
-    return await ctx.db.insert("pushTokens", {
-      userId,
-      token,
-      deviceId,
-      platform,
-      lastSeenAt: now,
-      isValid: true,
-    });
+    await pushClient.recordToken(ctx, { userId: token, pushToken: token });
+    return id;
   },
 });
 
@@ -59,6 +68,7 @@ export const unregisterPushToken = mutation({
       .unique();
     if (existing && existing.userId === userId) {
       await ctx.db.patch(existing._id, { isValid: false });
+      await pushClient.removeToken(ctx, { userId: token });
     }
   },
 });
@@ -146,7 +156,10 @@ export const invalidateToken = internalMutation({
       .query("pushTokens")
       .withIndex("by_token", (q) => q.eq("token", token))
       .unique();
-    if (existing) await ctx.db.patch(existing._id, { isValid: false });
+    if (existing) {
+      await ctx.db.patch(existing._id, { isValid: false });
+      await pushClient.removeToken(ctx, { userId: token });
+    }
   },
 });
 
