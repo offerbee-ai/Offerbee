@@ -1,21 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
+import {
+  DEFAULT_REMINDER_PREFS,
+  type ReminderPrefs,
+} from "@packages/backend/convex/onboardingCatalog";
 import { useApp, type Theme } from "../AppProvider";
 import { Segmented, ToggleSwitch, MonoLabel, Panel } from "../controls";
 import { PlaidConnect } from "../PlaidConnect";
 import { CYCLE_LABEL, usd, type Credit } from "../data";
 import { clerkImageUrl } from "@/lib/utils";
-
-// Local (sample) toggles that don't yet have a dedicated backend field. Persist
-// them so they feel real; the master switch below is the real backend flag.
-const LOCAL_PREF_KEY = "offerbee-notif-prefs";
-type LocalPrefs = { expiry: boolean; weekly: boolean; renewal: boolean };
-const DEFAULT_LOCAL: LocalPrefs = { expiry: true, weekly: true, renewal: false };
 
 function SettingsSection({
   label,
@@ -98,28 +96,11 @@ export function Settings() {
   const [override, setOverride] = useState<boolean | null>(null);
   const remindersOn = override ?? me?.notificationsEnabled ?? true;
 
-  const [local, setLocal] = useState<LocalPrefs>(DEFAULT_LOCAL);
-  // Load persisted local toggles after mount (default-first avoids an SSR
-  // hydration mismatch; there is no server value to read).
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(LOCAL_PREF_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (raw) setLocal({ ...DEFAULT_LOCAL, ...JSON.parse(raw) });
-    } catch {
-      /* ignore */
-    }
-  }, []);
-  const setLocalPref = (patch: Partial<LocalPrefs>) => {
-    setLocal((prev) => {
-      const next = { ...prev, ...patch };
-      try {
-        window.localStorage.setItem(LOCAL_PREF_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+  const prefs: ReminderPrefs = me?.reminderPrefs ?? DEFAULT_REMINDER_PREFS;
+  const setReminder = (key: keyof ReminderPrefs, value: boolean) => {
+    updatePrefs({ reminderPrefs: { ...prefs, [key]: value } }).catch((e) =>
+      console.error("updateNotificationPrefs failed", e),
+    );
   };
 
   const toggleReminders = (v: boolean) => {
@@ -222,28 +203,34 @@ export function Settings() {
       <SettingsSection label="Notifications">
         <Panel className="overflow-hidden">
           <ToggleRow
-            title="Smart reminders"
-            desc="Nudges timed to how you actually spend."
+            title="All reminders"
+            desc="Master switch for every notification below."
             checked={remindersOn}
             onChange={toggleReminders}
           />
           <ToggleRow
             title="Expiry alerts"
-            desc="Warn me before a credit resets."
-            checked={local.expiry}
-            onChange={(v) => setLocalPref({ expiry: v })}
+            desc="A nudge before each credit resets."
+            checked={prefs.expiry}
+            onChange={(v) => setReminder("expiry", v)}
           />
           <ToggleRow
             title="Weekly digest"
-            desc="A Monday summary of unused credits."
-            checked={local.weekly}
-            onChange={(v) => setLocalPref({ weekly: v })}
+            desc="Monday summary of what's available."
+            checked={prefs.digest}
+            onChange={(v) => setReminder("digest", v)}
           />
           <ToggleRow
             title="Renewal alerts"
-            desc="Heads-up before an annual fee posts."
-            checked={local.renewal}
-            onChange={(v) => setLocalPref({ renewal: v })}
+            desc="30 days before an annual fee posts."
+            checked={prefs.renewal}
+            onChange={(v) => setReminder("renewal", v)}
+          />
+          <ToggleRow
+            title="Smart reminders"
+            desc="Only when a credit is realistically usable."
+            checked={prefs.smart}
+            onChange={(v) => setReminder("smart", v)}
           />
         </Panel>
       </SettingsSection>
