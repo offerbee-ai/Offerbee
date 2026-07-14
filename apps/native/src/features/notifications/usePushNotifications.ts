@@ -6,7 +6,7 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import { useConvexAuth, useMutation } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
-import { registerAndroidChannels } from "@/lib/notifications";
+import { registerAndroidChannels, registerNotificationCategories } from "@/lib/notifications";
 
 // Remote push token registration. No-ops in Expo Go (remote push unsupported
 // since SDK 53) and on simulators — it activates automatically in dev/EAS builds
@@ -44,6 +44,9 @@ export function usePushNotifications() {
     let active = true;
 
     registerAndroidChannels().catch((e) => console.error("registerAndroidChannels failed", e));
+    registerNotificationCategories().catch((e) =>
+      console.error("registerNotificationCategories failed", e),
+    );
 
     (async () => {
       const token = await getPushToken();

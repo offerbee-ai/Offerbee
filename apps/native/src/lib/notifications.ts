@@ -56,6 +56,29 @@ export async function registerAndroidChannels(): Promise<void> {
   ]);
 }
 
+/**
+ * Registers the notification action categories used by credit reminders so
+ * the OS renders action buttons (e.g. Snooze, Log it) on the notification
+ * itself. Cross-platform — both iOS and Android support categories, unlike
+ * Android notification channels. Safe to call repeatedly; re-registering a
+ * category with the same identifier just replaces its actions.
+ *
+ * Identifiers are contractual: the backend sends `categoryId: "expiring"` /
+ * `"suggested"`, and the D4 response handler matches action identifiers
+ * exactly, so don't rename these without updating both sides.
+ */
+export async function registerNotificationCategories(): Promise<void> {
+  await Promise.all([
+    Notifications.setNotificationCategoryAsync("expiring", [
+      { identifier: "snooze", buttonTitle: "Snooze" },
+    ]),
+    Notifications.setNotificationCategoryAsync("suggested", [
+      { identifier: "log_it", buttonTitle: "Log it" },
+      { identifier: "not_mine", buttonTitle: "Not mine" },
+    ]),
+  ]);
+}
+
 /** Onboarding step 4: fire a realistic sample so the user sees what reminders look like. */
 export async function sendSampleNotification(): Promise<boolean> {
   const granted = await ensurePermission();
