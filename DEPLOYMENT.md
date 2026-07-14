@@ -59,6 +59,11 @@ Set (dashboard for the prod deployment, or `convex env set`):
 - `RAPIDAPI_KEY` — the Rewards Credit Card API key. Without it, card search and
   detail fetches no-op.
 - `EXPO_ACCESS_TOKEN` — optional, for higher Expo push limits.
+- `PLAID_CLIENT_ID` / `PLAID_SECRET` — Plaid API credentials (from the Plaid
+  dashboard). Without them, `plaid.*` link/exchange/sync no-op.
+- `PLAID_ENV` — `sandbox` (default) or `production`; selects the Plaid base URL.
+  Use `sandbox` for dev/staging; `production` requires Plaid's Transactions-product
+  approval. The Plaid webhook posts to `https://<deployment>.convex.site/plaid/webhook`.
 
 ### 4. Production Clerk instance
 - Use a **production** Clerk instance (not the `*.clerk.accounts.dev` dev one).

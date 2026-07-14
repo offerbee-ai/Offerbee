@@ -12,6 +12,7 @@ import {
   Panel,
 } from "../controls";
 import { PeriodGrid } from "../PeriodGrid";
+import { DetectedCredits } from "../DetectedCredits";
 import { EmptyState, Spinner } from "../ui";
 import type { DerivedCredit } from "../data";
 
@@ -110,6 +111,9 @@ export function Benefits() {
 
   return (
     <div className="flex flex-col gap-7">
+      {/* ── Detected (Plaid suggestions awaiting confirm) ── */}
+      <DetectedCredits />
+
       {/* ── Expiring soon (folded-in former Expiring view) ── */}
       {groups.length > 0 && (
         <section className="flex flex-col gap-4">

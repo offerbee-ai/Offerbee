@@ -182,8 +182,83 @@ export default defineSchema({
     amount: v.number(), // dollars (> 0)
     usedAt: v.number(),
     note: v.optional(v.string()),
+    // Plaid auto-logging: the source event + how it was created. Absent on rows
+    // that predate Plaid (treated as manual). transactionId enables idempotency
+    // (one usage per transaction) and reversal on refund/removal.
+    source: v.optional(v.union(v.literal("manual"), v.literal("auto"))),
+    transactionId: v.optional(v.string()), // Plaid transaction_id
   })
     // Prefix also serves per-benefit history + cascade delete.
     .index("by_userBenefitId_and_periodKey", ["userBenefitId", "periodKey"])
-    .index("by_userId", ["userId"]),
+    .index("by_userId", ["userId"])
+    .index("by_transactionId", ["transactionId"]), // auto-log dedup + reversal
+
+  // ── Plaid: linked financial institutions (one row per Plaid Item) ──────────
+  // accessToken is a long-lived secret — read only by internal functions, never
+  // returned to a client.
+  plaidItems: defineTable({
+    userId: v.string(), // Clerk subject (ownership)
+    itemId: v.string(), // Plaid item_id
+    accessToken: v.string(), // SECRET — server-only
+    institutionId: v.optional(v.string()),
+    institutionName: v.optional(v.string()),
+    cursor: v.optional(v.string()), // /transactions/sync delta cursor
+    status: v.union(
+      v.literal("active"),
+      v.literal("login_required"),
+      v.literal("error"),
+    ),
+    createdAt: v.number(),
+    lastSyncedAt: v.optional(v.number()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_itemId", ["itemId"]), // webhook resolves item_id → owner
+
+  // Accounts within a Plaid Item; userCardId links a real account to a wallet card.
+  plaidAccounts: defineTable({
+    userId: v.string(),
+    itemId: v.string(),
+    accountId: v.string(), // Plaid account_id
+    mask: v.optional(v.string()),
+    name: v.optional(v.string()),
+    officialName: v.optional(v.string()),
+    subtype: v.optional(v.string()),
+    userCardId: v.optional(v.id("userCards")), // linked wallet card (nullable)
+    createdAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_itemId", ["itemId"])
+    .index("by_accountId", ["accountId"]),
+
+  // Processed-transaction ledger: idempotency, the suggestion feed, and a
+  // per-card import list. One row per Plaid transaction_id.
+  plaidTransactions: defineTable({
+    userId: v.string(),
+    itemId: v.string(),
+    accountId: v.string(),
+    transactionId: v.string(),
+    merchantName: v.optional(v.string()),
+    name: v.optional(v.string()),
+    amount: v.number(), // dollars; positive = spend (outflow)
+    date: v.number(), // ms, from the transaction date
+    pfcPrimary: v.optional(v.string()), // personal_finance_category.primary
+    pfcDetailed: v.optional(v.string()), // personal_finance_category.detailed
+    pending: v.boolean(),
+    userCardId: v.optional(v.id("userCards")), // resolved from account link
+    matchedBenefitId: v.optional(v.id("userBenefits")),
+    matchStatus: v.union(
+      v.literal("auto"), // auto-logged (high confidence)
+      v.literal("suggested"), // awaiting confirm/dismiss (medium)
+      v.literal("confirmed"), // user confirmed a suggestion → logged
+      v.literal("dismissed"), // user dismissed
+      v.literal("skipped"), // matched a benefit but its period is already used up
+      v.literal("none"), // no benefit match
+    ),
+    createdAt: v.number(),
+  })
+    .index("by_transactionId", ["transactionId"]) // dedup
+    .index("by_userId_and_matchStatus", ["userId", "matchStatus"]) // suggestion feed
+    .index("by_userCardId", ["userCardId"]) // per-card import list
+    .index("by_accountId", ["accountId"]) // re-match on account→card link
+    .index("by_itemId", ["itemId"]),
 });

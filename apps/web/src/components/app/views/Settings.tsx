@@ -7,6 +7,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { useApp, type Theme } from "../AppProvider";
 import { Segmented, ToggleSwitch, MonoLabel, Panel } from "../controls";
+import { PlaidConnect } from "../PlaidConnect";
 import { CYCLE_LABEL, usd, type Credit } from "../data";
 import { clerkImageUrl } from "@/lib/utils";
 
@@ -191,6 +192,11 @@ export function Settings() {
           </button>
         </div>
       </div>
+
+      {/* Connected accounts (Plaid) */}
+      <SettingsSection label="Connected accounts">
+        <PlaidConnect />
+      </SettingsSection>
 
       {/* Appearance */}
       <SettingsSection label="Appearance">

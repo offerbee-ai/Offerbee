@@ -32,4 +32,13 @@ crons.interval(
   {},
 );
 
+// Baseline Plaid transaction sync (webhook is the low-latency trigger; this is
+// the safety net so Items stay current even without webhooks).
+crons.interval(
+  "sync plaid transactions",
+  { hours: 6 },
+  internal.plaid.syncAllItems,
+  { cursor: null },
+);
+
 export default crons;

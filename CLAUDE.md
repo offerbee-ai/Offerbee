@@ -22,7 +22,7 @@ pnpm --filter @packages/backend add <pkg>
 ## Commands
 
 - `pnpm dev` — run backend + web + native together via Turbo
-- `pnpm --filter native-app dev` — Expo only (press `i`/`a` for simulators, or scan QR with Expo Go)
+- `pnpm --filter native-app dev` — Expo only (press `i`/`a` for simulators, or scan QR with Expo Go). **Plaid needs a dev client**: the `react-native-plaid-link-sdk` native module does not run in Expo Go — build a custom dev client (`cd apps/native && npx expo run:ios`, or an EAS `development` build) and launch with `expo start --dev-client`. Non-Plaid screens still work in Expo Go.
 - `pnpm --filter web-app dev` — Next.js only
 - `pnpm --filter @packages/backend dev` — Convex dev server only
 - `pnpm build` / `pnpm typecheck` / `pnpm format` — across the workspace via Turbo

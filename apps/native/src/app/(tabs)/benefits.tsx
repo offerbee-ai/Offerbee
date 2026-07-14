@@ -19,6 +19,7 @@ import { spacing } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
 import { filterBenefits, usd, type Cycle } from "@/features/credits/derive";
 import { CreditRow } from "@/features/credits/components/CreditRow";
+import { DetectedSection } from "@/features/plaid/DetectedSection";
 
 type Segment = Extract<Cycle, "monthly" | "quarterly" | "annual">;
 
@@ -70,6 +71,8 @@ export default function BenefitsScreen() {
         </View>
       ) : (
         <>
+          <DetectedSection />
+
           <Card style={{ marginTop: spacing.base }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text variant="bodyRegular" color="secondary">
