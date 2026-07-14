@@ -6,8 +6,8 @@ import { useClerk, useUser } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
-  DEFAULT_REMINDER_PREFS,
-  type ReminderPrefs,
+  DEFAULT_NOTIFICATION_CATEGORIES,
+  type NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 import { useApp, type Theme } from "../AppProvider";
 import { Segmented, ToggleSwitch, MonoLabel, Panel } from "../controls";
@@ -96,9 +96,10 @@ export function Settings() {
   const [override, setOverride] = useState<boolean | null>(null);
   const remindersOn = override ?? me?.notificationsEnabled ?? true;
 
-  const prefs: ReminderPrefs = me?.reminderPrefs ?? DEFAULT_REMINDER_PREFS;
-  const setReminder = (key: keyof ReminderPrefs, value: boolean) => {
-    updatePrefs({ reminderPrefs: { ...prefs, [key]: value } }).catch((e) =>
+  const cats: NotificationCategories =
+    me?.notificationCategories ?? DEFAULT_NOTIFICATION_CATEGORIES;
+  const setCategory = (key: keyof NotificationCategories, value: boolean) => {
+    updatePrefs({ notificationCategories: { ...cats, [key]: value } }).catch((e) =>
       console.error("updateNotificationPrefs failed", e),
     );
   };
@@ -211,26 +212,26 @@ export function Settings() {
           <ToggleRow
             title="Expiry alerts"
             desc="A nudge before each credit resets."
-            checked={prefs.expiry}
-            onChange={(v) => setReminder("expiry", v)}
+            checked={cats.expiry}
+            onChange={(v) => setCategory("expiry", v)}
           />
           <ToggleRow
             title="Weekly digest"
             desc="Monday summary of what's available."
-            checked={prefs.digest}
-            onChange={(v) => setReminder("digest", v)}
+            checked={cats.digest}
+            onChange={(v) => setCategory("digest", v)}
           />
           <ToggleRow
             title="Renewal alerts"
-            desc="30 days before an annual fee posts."
-            checked={prefs.renewal}
-            onChange={(v) => setReminder("renewal", v)}
+            desc="Annual fees and signup deadlines."
+            checked={cats.renewal}
+            onChange={(v) => setCategory("renewal", v)}
           />
           <ToggleRow
-            title="Smart reminders"
-            desc="Only when a credit is realistically usable."
-            checked={prefs.smart}
-            onChange={(v) => setReminder("smart", v)}
+            title="Detected credits"
+            desc="When we spot a credit you can confirm."
+            checked={cats.transactions}
+            onChange={(v) => setCategory("transactions", v)}
           />
         </Panel>
       </SettingsSection>

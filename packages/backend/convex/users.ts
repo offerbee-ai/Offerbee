@@ -2,7 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserId, requireUserId } from "./auth";
-import { reminderPrefsValidator } from "./validators";
+import { notificationCategoriesValidator, reminderPrefsValidator } from "./validators";
 
 // Called by BOTH the web and native apps on login so the offer engine can
 // enumerate every user regardless of which app they signed up on.
@@ -88,6 +88,9 @@ export const updateNotificationPrefs = mutation({
     // Per-reminder toggles, shared with the onboarding wizard. Editable from
     // Settings after onboarding (updateOnboarding is locked once finished).
     reminderPrefs: v.optional(reminderPrefsValidator),
+    // Unified notification-preference categories (Notifications v2). Coexists
+    // with reminderPrefs until a later task migrates users off the old field.
+    notificationCategories: v.optional(notificationCategoriesValidator),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -105,6 +108,7 @@ export const updateNotificationPrefs = mutation({
         quietHoursStart: args.quietHoursStart,
         quietHoursEnd: args.quietHoursEnd,
         reminderPrefs: args.reminderPrefs,
+        notificationCategories: args.notificationCategories,
       });
     }
 
