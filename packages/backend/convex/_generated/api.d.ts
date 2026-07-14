@@ -17,6 +17,7 @@ import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as http from "../http.js";
+import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as offers from "../offers.js";
 import type * as onboarding from "../onboarding.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   email: typeof email;
   http: typeof http;
+  migrations: typeof migrations;
   notifications: typeof notifications;
   offers: typeof offers;
   onboarding: typeof onboarding;
