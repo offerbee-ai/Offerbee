@@ -23,9 +23,8 @@ function isFxCard(d: Doc<"cardDetails">): boolean {
 // offers.ts's financial detectors these are never persisted as notifications —
 // they're recomputed on every `listTips` call.
 function detectPerCard(item: Item): TipCandidate[] {
-  const { userCard: uc, detail: d } = item;
+  const { detail: d } = item;
   if (!d) return [];
-  if (uc.notificationsEnabled === false) return [];
   const out: TipCandidate[] = [];
   const name = d.cardName;
   const link = { route: "card", cardKey: d.cardKey };
@@ -95,7 +94,7 @@ function detectPerCard(item: Item): TipCandidate[] {
 function detectCrossCard(items: Item[]): TipCandidate[] {
   const withDetail = items.filter(
     (i): i is { userCard: Doc<"userCards">; detail: Doc<"cardDetails"> } =>
-      i.detail !== null && i.userCard.notificationsEnabled !== false,
+      i.detail !== null,
   );
   const out: TipCandidate[] = [];
 
