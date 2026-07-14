@@ -7,7 +7,6 @@ import type { Doc } from "./_generated/dataModel";
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIGNUP_MILESTONES = [1, 7, 14, 30]; // ascending
 const FEE_MILESTONES = [7, 30];
-const ELEVATED_MULTIPLIER = 2;
 
 type Item = { userCard: Doc<"userCards">; detail: Doc<"cardDetails"> | null };
 type Candidate = {
@@ -31,10 +30,6 @@ function addMonths(ts: number, n: number): number {
   const d = new Date(ts);
   d.setMonth(d.getMonth() + n);
   return d.getTime();
-}
-
-function isFxCard(d: Doc<"cardDetails">): boolean {
-  return Boolean(d.isFxFee && (d.fxFee ?? 0) > 0);
 }
 
 function detectPerCard(item: Item, now: number): Candidate[] {
@@ -100,134 +95,6 @@ function detectPerCard(item: Item, now: number): Candidate[] {
     }
   }
 
-  // Perks / entitlements (educational, one-time except the annual hotel night).
-  const year = new Date(now).getFullYear();
-  if (d.isLoungeAccess)
-    out.push({
-      type: "perk_lounge",
-      cardKey: d.cardKey,
-      dedupKey: `perk:${d.cardKey}:lounge`,
-      title: `${name} includes lounge access`,
-      body: `Your ${name} includes airport lounge access — don't forget to use it.`,
-      data: link,
-    });
-  if (d.isFreeCheckedBag)
-    out.push({
-      type: "perk_checked_bag",
-      cardKey: d.cardKey,
-      dedupKey: `perk:${d.cardKey}:checked_bag`,
-      title: `${name} includes a free checked bag`,
-      body: `Your ${name} gives you a free checked bag — use it on your next flight.`,
-      data: link,
-    });
-  if (d.isFreeHotelNight)
-    out.push({
-      type: "perk_free_hotel_night",
-      cardKey: d.cardKey,
-      dedupKey: `perk:${d.cardKey}:free_hotel_night:${year}`,
-      title: `Use your free hotel night`,
-      body: `Don't forget your free hotel night on ${name} this year.`,
-      data: link,
-    });
-  if (d.isTrustedTraveler)
-    out.push({
-      type: "perk_trusted_traveler",
-      cardKey: d.cardKey,
-      dedupKey: `perk:${d.cardKey}:trusted_traveler`,
-      title: `${name} reimburses Global Entry / TSA PreCheck`,
-      body: `Your ${name} reimburses Global Entry or TSA PreCheck — claim it if you haven't.`,
-      data: link,
-    });
-
-  // FX fee warning.
-  if (isFxCard(d))
-    out.push({
-      type: "fx_fee_warning",
-      cardKey: d.cardKey,
-      dedupKey: `fx_fee:${d.cardKey}`,
-      title: `${name} charges foreign transaction fees`,
-      body: `${name} charges ${d.fxFee}% on foreign purchases — avoid using it abroad.`,
-      data: link,
-    });
-
-  // Elevated spend categories (static — do not claim calendar rotation).
-  for (const cat of d.spendBonusCategory ?? []) {
-    if (!cat.earnMultiplier || cat.earnMultiplier < ELEVATED_MULTIPLIER) continue;
-    const catName =
-      cat.spendBonusCategoryName ?? cat.spendBonusCategoryType ?? "a category";
-    out.push({
-      type: "spend_bonus_category",
-      cardKey: d.cardKey,
-      dedupKey: `spend_bonus:${d.cardKey}:${catName}`,
-      title: `${name} earns ${cat.earnMultiplier}x on ${catName}`,
-      body: `Use ${name} for ${catName} to earn ${cat.earnMultiplier}x.`,
-      data: link,
-    });
-  }
-
-  return out;
-}
-
-function detectCrossCard(items: Item[]): Candidate[] {
-  const withDetail = items.filter(
-    (i): i is { userCard: Doc<"userCards">; detail: Doc<"cardDetails"> } =>
-      i.detail !== null && i.userCard.notificationsEnabled !== false,
-  );
-  const out: Candidate[] = [];
-
-  // No-FX-fee alternative for travel.
-  const fxCards = withDetail.filter((i) => isFxCard(i.detail));
-  const noFxCards = withDetail.filter((i) => !isFxCard(i.detail));
-  if (fxCards.length > 0 && noFxCards.length > 0) {
-    const best = [...noFxCards].sort(
-      (a, b) => (a.detail.annualFee ?? 0) - (b.detail.annualFee ?? 0),
-    )[0];
-    out.push({
-      type: "no_fx_alternative",
-      cardKey: best.detail.cardKey,
-      dedupKey: `fx_alt:${best.detail.cardKey}`,
-      title: `Use ${best.detail.cardName} abroad`,
-      body: `For travel, use ${best.detail.cardName} (no foreign transaction fee) instead of ${fxCards[0].detail.cardName}.`,
-      data: { route: "card", cardKey: best.detail.cardKey },
-    });
-  }
-
-  // Best card per shared spend category.
-  const byCategory = new Map<
-    string,
-    { display: string; cardKey: string; cardName: string; mult: number }[]
-  >();
-  for (const { detail } of withDetail) {
-    for (const cat of detail.spendBonusCategory ?? []) {
-      if (!cat.earnMultiplier) continue;
-      const display =
-        cat.spendBonusCategoryName ?? cat.spendBonusCategoryType ?? "";
-      const norm = display.trim().toLowerCase();
-      if (!norm) continue;
-      const list = byCategory.get(norm) ?? [];
-      list.push({
-        display,
-        cardKey: detail.cardKey,
-        cardName: detail.cardName,
-        mult: cat.earnMultiplier,
-      });
-      byCategory.set(norm, list);
-    }
-  }
-  for (const [norm, list] of byCategory) {
-    const distinctCards = new Set(list.map((l) => l.cardKey));
-    if (distinctCards.size < 2) continue;
-    const best = [...list].sort((a, b) => b.mult - a.mult)[0];
-    out.push({
-      type: "category_optimizer",
-      cardKey: best.cardKey,
-      dedupKey: `optimize:${norm}:${best.cardKey}`,
-      title: `Best card for ${best.display}`,
-      body: `Best card for ${best.display}: ${best.cardName} (${best.mult}x).`,
-      data: { route: "card", cardKey: best.cardKey },
-    });
-  }
-
   return out;
 }
 
@@ -236,10 +103,7 @@ function buildCandidates(
   items: Item[],
   now: number,
 ): Candidate[] {
-  let candidates = [
-    ...items.flatMap((i) => detectPerCard(i, now)),
-    ...detectCrossCard(items),
-  ];
+  let candidates = items.flatMap((i) => detectPerCard(i, now));
   const enabled = user.enabledOfferTypes;
   if (enabled && enabled.length > 0) {
     const allow = new Set(enabled);

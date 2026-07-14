@@ -30,6 +30,7 @@ import type * as rapidapi from "../rapidapi.js";
 import type * as reminderRules from "../reminderRules.js";
 import type * as reminders from "../reminders.js";
 import type * as review from "../review.js";
+import type * as tips from "../tips.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 import type * as validators from "../validators.js";
@@ -65,6 +66,7 @@ declare const fullApi: ApiFromModules<{
   reminderRules: typeof reminderRules;
   reminders: typeof reminders;
   review: typeof review;
+  tips: typeof tips;
   users: typeof users;
   utils: typeof utils;
   validators: typeof validators;
