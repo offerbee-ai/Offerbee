@@ -55,8 +55,32 @@ async function getPushToken(): Promise<string | null> {
       ?.projectId;
   if (!projectId) return null; // run `eas init` to enable push tokens
 
-  const token = await Notifications.getExpoPushTokenAsync({ projectId });
-  return token.data;
+  try {
+    const token = await Notifications.getExpoPushTokenAsync({ projectId });
+    return token.data;
+  } catch (e) {
+    console.error("getExpoPushTokenAsync failed", e);
+    return null;
+  }
+}
+
+// A notification action can fire the instant the app launches from a tap —
+// before Clerk/Convex auth has hydrated, so the mutation would reach the server
+// with no subject ("Authenticated user was required"). Retry briefly until the
+// auth token attaches (~a few hundred ms after launch).
+async function withAuthRetry(fn: () => Promise<unknown>): Promise<void> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await fn();
+      return;
+    } catch (e) {
+      if (attempt < 5 && String(e).includes("Authenticated user was required")) {
+        await new Promise((r) => setTimeout(r, 500));
+        continue;
+      }
+      throw e;
+    }
+  }
 }
 
 export function usePushNotifications() {
@@ -68,30 +92,40 @@ export function usePushNotifications() {
   const dismissSuggestion = useMutation(api.plaid.dismissSuggestion);
   const done = useRef(false);
 
+  // Convex's useMutation returns a fresh function identity every render, and
+  // useRouter can too. Depending on them would re-run the effect on each render,
+  // tearing down the async token fetch before it resolves (so registerToken
+  // never fires). Pin the latest values in a ref and depend only on auth so the
+  // effect runs once — the handlers always read current fns via the ref.
+  const fns = useRef({ registerToken, snoozeBenefit, confirmSuggestion, dismissSuggestion, router });
+  fns.current = { registerToken, snoozeBenefit, confirmSuggestion, dismissSuggestion, router };
+
   useEffect(() => {
     if (!isAuthenticated) return;
-    let active = true;
 
     registerAndroidChannels().catch((e) => console.error("registerAndroidChannels failed", e));
     registerNotificationCategories().catch((e) =>
       console.error("registerNotificationCategories failed", e),
     );
 
-    (async () => {
+    // No `active` cancel: registerPushToken is an idempotent upsert, and `done`
+    // guards against a duplicate register, so letting a resolved token register
+    // even after a re-render is harmless — and avoids dropping it in a race.
+    void (async () => {
       const token = await getPushToken();
-      if (!token || !active || done.current) return;
+      if (!token || done.current) return;
       done.current = true;
-      await registerToken({ token, platform: Platform.OS === "ios" ? "ios" : "android" }).catch(
-        (e) => console.error("registerPushToken failed", e),
-      );
+      await fns.current
+        .registerToken({ token, platform: Platform.OS === "ios" ? "ios" : "android" })
+        .catch((e) => console.error("registerPushToken failed", e));
     })();
 
     if (isExpoGo) return;
 
     const tokenSub = Notifications.addPushTokenListener((t) => {
-      registerToken({ token: t.data, platform: Platform.OS === "ios" ? "ios" : "android" }).catch(
-        () => {},
-      );
+      fns.current
+        .registerToken({ token: t.data, platform: Platform.OS === "ios" ? "ios" : "android" })
+        .catch(() => {});
     });
 
     // Shared handler for both the live listener and a cold-start launch
@@ -103,28 +137,32 @@ export function usePushNotifications() {
     async function handleResponse(response: Notifications.NotificationResponse) {
       const actionIdentifier = response.actionIdentifier;
       const data = (response.notification.request.content.data ?? {}) as NotificationData;
+      const f = fns.current;
 
       if (actionIdentifier === "snooze" && data.benefitId) {
+        const userBenefitId = data.benefitId as Id<"userBenefits">;
         try {
-          await snoozeBenefit({ userBenefitId: data.benefitId as Id<"userBenefits"> });
+          await withAuthRetry(() => f.snoozeBenefit({ userBenefitId }));
         } catch (e) {
           console.error("snoozeBenefit failed", e);
         }
       } else if (actionIdentifier === "log_it" && data.transactionId) {
+        const transactionId = data.transactionId;
         try {
-          await confirmSuggestion({ transactionId: data.transactionId });
+          await withAuthRetry(() => f.confirmSuggestion({ transactionId }));
         } catch (e) {
           console.error("confirmSuggestion failed", e);
         }
       } else if (actionIdentifier === "not_mine" && data.transactionId) {
+        const transactionId = data.transactionId;
         try {
-          await dismissSuggestion({ transactionId: data.transactionId });
+          await withAuthRetry(() => f.dismissSuggestion({ transactionId }));
         } catch (e) {
           console.error("dismissSuggestion failed", e);
         }
       }
 
-      router.push(routeFromData(data));
+      f.router.push(routeFromData(data));
     }
 
     const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
@@ -135,9 +173,9 @@ export function usePushNotifications() {
     });
 
     return () => {
-      active = false;
       tokenSub.remove();
       responseSub.remove();
     };
-  }, [isAuthenticated, registerToken, router, snoozeBenefit, confirmSuggestion, dismissSuggestion]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 }
