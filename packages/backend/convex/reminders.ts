@@ -163,3 +163,59 @@ export const scanDailyBatch = internalMutation({
     }
   },
 });
+
+// Stable within a calendar week (guards accidental double-runs the same day).
+function weekKey(now: number): string {
+  return new Date(now).toISOString().slice(0, 10); // YYYY-MM-DD of the run
+}
+
+async function buildDigest(ctx: MutationCtx, user: Doc<"users">, now: number) {
+  const prefs = prefsFor(user);
+  if (!prefs.digest) return;
+  let count = 0;
+  let totalRemaining = 0;
+  let soonestDays = Infinity;
+  for (const b of await activeBenefits(ctx, user.userId, now)) {
+    const pk = periodKey(b.cycle, now);
+    const used = await currentPeriodUsage(ctx, b._id, pk);
+    const remaining = Math.round((b.amount - used) * 100) / 100;
+    if (remaining <= 0) continue;
+    if (prefs.smart && !(await isUsable(ctx, b, pk))) continue;
+    count += 1;
+    totalRemaining = Math.round((totalRemaining + remaining) * 100) / 100;
+    const days = Math.ceil((periodEnd(b.cycle, now) - now) / DAY_MS);
+    if (days < soonestDays) soonestDays = days;
+  }
+  if (count === 0) return; // never send an empty digest
+  await insertIfNew(
+    ctx,
+    user.userId,
+    {
+      type: "credit_digest",
+      title: `${plural(count, "credit")} · ${fmtUsd(totalRemaining)} available this week`,
+      body: `Soonest resets in ${plural(soonestDays, "day")}. Tap to see them all.`,
+      data: { route: "benefits" },
+      dedupKey: `credit_digest:${weekKey(now)}`,
+    },
+    now,
+  );
+}
+
+// Weekly Monday sweep. Single UTC cron; flushPending's quiet-hours + timezone
+// prevent night delivery (per-tz scheduling is a documented v2 non-goal).
+export const scanDigestBatch = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const now = Date.now();
+    const page = await ctx.db.query("users").paginate({ numItems: PAGE, cursor });
+    for (const user of page.page) {
+      if (user.notificationsEnabled === false) continue;
+      await buildDigest(ctx, user, now);
+    }
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.reminders.scanDigestBatch, { cursor: page.continueCursor });
+    } else {
+      await ctx.scheduler.runAfter(0, internal.push.flushPending, {});
+    }
+  },
+});
