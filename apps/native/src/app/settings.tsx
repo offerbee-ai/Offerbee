@@ -20,6 +20,7 @@ import {
   Toggle,
 } from "@/components/ui";
 import { InlineHeader } from "@/components/navigation/InlineHeader";
+import { PlaidConnectSection } from "@/features/plaid/PlaidConnectSection";
 import { goBack } from "@/features/nav/back";
 import { spacing, useTheme } from "@/theme";
 import { appEnv } from "@/lib/env";
@@ -160,6 +161,9 @@ export default function SettingsScreen() {
           />
         ))}
       </Card>
+
+      {/* Connected accounts (Plaid) */}
+      <PlaidConnectSection />
 
       {/* Plan */}
       <SectionLabel>Plan</SectionLabel>
