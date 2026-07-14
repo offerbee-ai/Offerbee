@@ -27,6 +27,35 @@ async function ensurePermission(): Promise<boolean> {
   return requested.status === "granted";
 }
 
+/**
+ * Registers one Android notification channel per notification category so
+ * users can control each category independently in OS settings. iOS has no
+ * channel concept — the `channelId` on a notification payload is ignored
+ * there, so this is a no-op off Android. Safe to call repeatedly; Android
+ * upserts channels by id and only the name/description may change post-creation.
+ */
+export async function registerAndroidChannels(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  await Promise.all([
+    Notifications.setNotificationChannelAsync("expiry", {
+      name: "Credit expiry",
+      importance: Notifications.AndroidImportance.HIGH,
+    }),
+    Notifications.setNotificationChannelAsync("digest", {
+      name: "Weekly digest",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    }),
+    Notifications.setNotificationChannelAsync("renewal", {
+      name: "Renewal alerts",
+      importance: Notifications.AndroidImportance.HIGH,
+    }),
+    Notifications.setNotificationChannelAsync("transactions", {
+      name: "Detected credits",
+      importance: Notifications.AndroidImportance.DEFAULT,
+    }),
+  ]);
+}
+
 /** Onboarding step 4: fire a realistic sample so the user sees what reminders look like. */
 export async function sendSampleNotification(): Promise<boolean> {
   const granted = await ensurePermission();

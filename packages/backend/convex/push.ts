@@ -136,6 +136,17 @@ export const invalidateToken = internalMutation({
 // owns batching, retries, and receipt polling. We just gate on quiet-hours /
 // the master switch and mark our own `notifications` outbox rows.
 
+// Android notification channels (registered client-side in
+// apps/native/src/lib/notifications.ts) — one per category, keyed by
+// notification type so each push lands on the right channel.
+const CHANNEL_FOR_TYPE: Record<string, string> = {
+  credit_expiring: "expiry",
+  credit_digest: "digest",
+  credit_suggested: "transactions",
+  annual_fee_due: "renewal",
+  signup_deadline: "renewal",
+};
+
 export const flushPending = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -169,7 +180,13 @@ export const flushPending = internalAction({
         try {
           await pushClient.sendPushNotification(ctx, {
             userId: t.token,
-            notification: { title: n.title, body: n.body, data: n.data ?? {}, sound: "default" },
+            notification: {
+              title: n.title,
+              body: n.body,
+              data: n.data ?? {},
+              sound: "default",
+              channelId: CHANNEL_FOR_TYPE[n.type] ?? "default",
+            },
             allowUnregisteredTokens: true,
           });
           anyEnqueued = true;
