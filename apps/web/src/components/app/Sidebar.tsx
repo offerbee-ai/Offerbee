@@ -14,6 +14,7 @@ import {
   CardIcon,
   GearIcon,
   BellIcon,
+  LightbulbIcon,
   PlusIcon,
   FilterIcon,
   SunIcon,
@@ -136,10 +137,15 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <div className="my-2 border-t border-separator" />
 
         <NavRow
-          item={{ href: "/app/offers", label: "Offers", icon: <BellIcon size={19} /> }}
+          item={{ href: "/app/offers", label: "Alerts", icon: <BellIcon size={19} /> }}
           active={isActive({ href: "/app/offers", label: "", icon: null }, pathname)}
           onNavigate={onNavigate}
           badge={unread > 0 ? unread : undefined}
+        />
+        <NavRow
+          item={{ href: "/app/tips", label: "Tips & Offers", icon: <LightbulbIcon size={19} /> }}
+          active={isActive({ href: "/app/tips", label: "", icon: null }, pathname)}
+          onNavigate={onNavigate}
         />
         <NavRow
           item={{ href: "/app/add", label: "Add card", icon: <PlusIcon size={19} /> }}
