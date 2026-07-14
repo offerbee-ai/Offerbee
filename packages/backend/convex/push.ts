@@ -164,14 +164,25 @@ export const flushPending = internalAction({
         continue;
       }
       if (inQuietHours(c.user, now)) continue; // leave pending; a later run delivers
+      let anyEnqueued = false;
       for (const t of c.tokens) {
-        await pushClient.sendPushNotification(ctx, {
-          userId: t.token,
-          notification: { title: n.title, body: n.body, data: n.data ?? {}, sound: "default" },
-          allowUnregisteredTokens: true,
-        });
+        try {
+          await pushClient.sendPushNotification(ctx, {
+            userId: t.token,
+            notification: { title: n.title, body: n.body, data: n.data ?? {}, sound: "default" },
+            allowUnregisteredTokens: true,
+          });
+          anyEnqueued = true;
+        } catch (e) {
+          console.error("push: sendPushNotification failed for a token", e);
+        }
       }
-      await ctx.runMutation(internal.push.markSent, { id: n._id });
+      // Mark sent if at least one device was handed off (prevents re-sending to
+      // already-succeeded devices on retry). If EVERY token threw (e.g. transient
+      // component outage), leave it pending so a later run retries — no silent drop.
+      if (anyEnqueued) {
+        await ctx.runMutation(internal.push.markSent, { id: n._id });
+      }
     }
 
     if (pending.length === 100) {
