@@ -8,11 +8,16 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { getUserId, requireUserId } from "./auth";
 import { periodKey } from "./benefitCycles";
-import { matchBenefitToTransaction } from "./plaidMatch";
+import {
+  isCreditLabeled,
+  isStatementCreditFor,
+  matchBenefitToTransaction,
+} from "./plaidMatch";
+import { llmClassify } from "./plaidLlm";
 import { resolveCardKey } from "./plaidCardMap";
 import { missingEnvVariableUrl } from "./utils";
 
@@ -76,6 +81,9 @@ export const createLinkToken = action({
       country_codes: ["US"],
       user: { client_user_id: userId },
       products: ["transactions"],
+      // Request up to 24 months of history so the first sync covers year-to-date
+      // (default is 90 days). Applies to new/re-linked Items.
+      transactions: { days_requested: 730 },
     };
     if (site) body.webhook = `${site}/plaid/webhook`;
     const json = await plaidRequest<{ link_token: string }>(
@@ -266,17 +274,20 @@ export const linkAccountToCard = mutation({
 
     await ctx.db.patch(account._id, { userCardId: userCardId ?? undefined });
 
-    // Back-fill already-synced transactions for this account and re-run matching
-    // now that they know their card (initial sync may have run pre-link).
+    // Back-fill already-synced transactions for this account and re-classify now
+    // that they know their card (initial sync may have run pre-link). Refunds
+    // before purchases so purchase candidacy sees refund usage.
     const txns = await ctx.db
       .query("plaidTransactions")
       .withIndex("by_accountId", (q) => q.eq("accountId", accountId))
       .take(500);
-    for (const t of txns) {
+    for (const t of txns)
       await ctx.db.patch(t._id, { userCardId: userCardId ?? undefined });
-      const fresh = await ctx.db.get(t._id);
-      if (fresh) await rematchTransaction(ctx, fresh);
-    }
+    const fresh = (
+      await Promise.all(txns.map((t) => ctx.db.get(t._id)))
+    ).filter((d): d is Doc<"plaidTransactions"> => d !== null);
+    fresh.sort((a, b) => a.amount - b.amount);
+    for (const d of fresh) await classifyTransaction(ctx, d);
   },
 });
 
@@ -327,7 +338,7 @@ async function removeAutoUsage(ctx: MutationCtx, transactionId: string) {
 // re-matching a transaction doesn't count itself). Used to enforce the per-period
 // cap: once a credit is used up for a period, further transactions are skipped.
 async function periodUsageExcluding(
-  ctx: MutationCtx,
+  ctx: QueryCtx,
   userBenefitId: Id<"userBenefits">,
   pk: string,
   excludeTransactionId: string,
@@ -344,22 +355,71 @@ async function periodUsageExcluding(
   return Math.round(sum * 100) / 100;
 }
 
-// Match one stored transaction to the best benefit on its linked card and apply:
-// high → auto-log, medium → suggest, none → clear. Respects confirmed/dismissed.
-async function rematchTransaction(
+// Start of the current calendar year (UTC). Credits reset yearly and the grid
+// shows this year, so only current-year transactions are matched.
+const currentYearStart = () =>
+  Date.UTC(new Date(Date.now()).getUTCFullYear(), 0, 1);
+
+// Auto-log a benefit for a transaction, respecting the per-period cap.
+async function autoLogWithCap(
+  ctx: MutationCtx,
+  txn: Doc<"plaidTransactions">,
+  benefit: Doc<"userBenefits">,
+) {
+  const pk = periodKey(benefit.cycle, txn.date);
+  const other = await periodUsageExcluding(
+    ctx,
+    benefit._id,
+    pk,
+    txn.transactionId,
+  );
+  if (other >= benefit.amount) {
+    await removeAutoUsage(ctx, txn.transactionId);
+    await ctx.db.patch(txn._id, {
+      matchStatus: "skipped",
+      matchedBenefitId: benefit._id,
+    });
+    return;
+  }
+  await ensureAutoUsage(ctx, txn, benefit);
+  await ctx.db.patch(txn._id, {
+    matchStatus: "auto",
+    matchedBenefitId: benefit._id,
+  });
+}
+
+// Stage 1 — deterministic classification of one stored transaction:
+//   • clean credit-refund matched to a curated benefit → AUTO-LOG usage
+//   • credit-labeled refund that's ambiguous            → "candidate" (LLM resolves)
+//   • purchase plausibly related to a benefit           → "candidate" (LLM filters)
+//   • everything else                                   → "none"
+// Refunds are authoritative; purchases never auto-log here. Respects terminal
+// states (user confirm/dismiss + LLM-surfaced suggestions).
+async function classifyTransaction(
   ctx: MutationCtx,
   txn: Doc<"plaidTransactions">,
 ) {
-  if (txn.matchStatus === "confirmed" || txn.matchStatus === "dismissed") return;
+  if (
+    txn.matchStatus === "confirmed" ||
+    txn.matchStatus === "dismissed" ||
+    txn.matchStatus === "suggested"
+  )
+    return;
 
-  // Unlinked accounts can't be matched; a $0 transaction is a no-op. Negative
-  // transactions ARE considered — a statement-credit posting is a "used" signal.
-  if (!txn.userCardId || txn.amount === 0) {
-    if (txn.matchStatus !== "none")
-      await ctx.db.patch(txn._id, {
-        matchStatus: "none",
-        matchedBenefitId: undefined,
-      });
+  const set = async (
+    status: Doc<"plaidTransactions">["matchStatus"],
+    benefitId?: Id<"userBenefits">,
+  ) => {
+    await ctx.db.patch(txn._id, {
+      matchStatus: status,
+      matchedBenefitId: benefitId,
+    });
+  };
+
+  // Unlinked / $0 / prior-year → not matched (drop any prior auto usage).
+  if (!txn.userCardId || txn.amount === 0 || txn.date < currentYearStart()) {
+    await removeAutoUsage(ctx, txn.transactionId);
+    await set("none", undefined);
     return;
   }
 
@@ -374,10 +434,34 @@ async function rematchTransaction(
       .take(100)
   ).filter((b) => b.archivedAt === undefined);
 
-  let best: { benefit: Doc<"userBenefits">; confidence: "high" | "medium" } | null =
-    null;
-  for (const b of benefits) {
-    const m = matchBenefitToTransaction(
+  const txnName = `${txn.merchantName ?? ""} ${txn.name ?? ""}`;
+
+  // Refund (negative): only a credit-labeled posting cleanly matched to a
+  // curated benefit is authoritative usage. Ambiguous → candidate (LLM decides).
+  if (txn.amount < 0) {
+    if (!isCreditLabeled(txnName)) {
+      await removeAutoUsage(ctx, txn.transactionId);
+      await set("none", undefined);
+      return;
+    }
+    const matches = benefits.filter((b) =>
+      isStatementCreditFor(
+        { title: b.title, benefitTitle: b.benefitTitle },
+        txnName,
+      ),
+    );
+    if (matches.length === 1) {
+      await autoLogWithCap(ctx, txn, matches[0]);
+    } else {
+      await removeAutoUsage(ctx, txn.transactionId);
+      await set("candidate", undefined);
+    }
+    return;
+  }
+
+  // Purchase (positive): a plausible benefit relation makes it an LLM candidate.
+  const plausible = benefits.find((b) =>
+    matchBenefitToTransaction(
       { title: b.title, benefitTitle: b.benefitTitle },
       {
         merchantName: txn.merchantName,
@@ -385,53 +469,9 @@ async function rematchTransaction(
         pfcPrimary: txn.pfcPrimary,
         amount: txn.amount,
       },
-    );
-    if (!m) continue;
-    if (!best || (m.confidence === "high" && best.confidence !== "high"))
-      best = { benefit: b, confidence: m.confidence };
-    if (m.confidence === "high") break;
-  }
-
-  if (!best) {
-    await ctx.db.patch(txn._id, {
-      matchStatus: "none",
-      matchedBenefitId: undefined,
-    });
-    return;
-  }
-
-  // Per-period cap: if this benefit's credit is already used up for the
-  // transaction's period (by a prior auto-log, a confirmed suggestion, or a
-  // manual mark), filter this transaction out — no extra usage, no suggestion.
-  const pk = periodKey(best.benefit.cycle, txn.date);
-  const otherUsage = await periodUsageExcluding(
-    ctx,
-    best.benefit._id,
-    pk,
-    txn.transactionId,
+    ),
   );
-  if (otherUsage >= best.benefit.amount) {
-    await removeAutoUsage(ctx, txn.transactionId); // drop own auto row if any
-    await ctx.db.patch(txn._id, {
-      matchStatus: "skipped",
-      matchedBenefitId: best.benefit._id,
-    });
-    return;
-  }
-
-  if (best.confidence === "high") {
-    await ensureAutoUsage(ctx, txn, best.benefit);
-    await ctx.db.patch(txn._id, {
-      matchStatus: "auto",
-      matchedBenefitId: best.benefit._id,
-    });
-  } else {
-    // Don't overwrite an existing auto usage when demoting; only suggest.
-    await ctx.db.patch(txn._id, {
-      matchStatus: "suggested",
-      matchedBenefitId: best.benefit._id,
-    });
-  }
+  await set(plausible ? "candidate" : "none", plausible?._id);
 }
 
 // ── Transaction sync ──────────────────────────────────────────────────────────
@@ -518,6 +558,7 @@ export const applySync = internalMutation({
     removed: v.array(v.string()), // transaction_ids
   },
   handler: async (ctx, { itemId, userId, added, modified, removed }) => {
+    const ids: Id<"plaidTransactions">[] = [];
     for (const t of [...added, ...modified]) {
       const account = await ctx.db
         .query("plaidAccounts")
@@ -540,24 +581,31 @@ export const applySync = internalMutation({
           q.eq("transactionId", t.transactionId),
         )
         .unique();
-      let id: Id<"plaidTransactions">;
       if (existing) {
         await ctx.db.patch(existing._id, fields);
-        id = existing._id;
+        ids.push(existing._id);
       } else {
-        id = await ctx.db.insert("plaidTransactions", {
-          userId,
-          itemId,
-          accountId: t.accountId,
-          transactionId: t.transactionId,
-          ...fields,
-          matchStatus: "none",
-          createdAt: Date.now(),
-        });
+        ids.push(
+          await ctx.db.insert("plaidTransactions", {
+            userId,
+            itemId,
+            accountId: t.accountId,
+            transactionId: t.transactionId,
+            ...fields,
+            matchStatus: "none",
+            createdAt: Date.now(),
+          }),
+        );
       }
-      const fresh = await ctx.db.get(id);
-      if (fresh) await rematchTransaction(ctx, fresh);
     }
+
+    // Stage 1: classify refunds before purchases so purchase candidacy sees the
+    // refund usage established this batch.
+    const fresh = (await Promise.all(ids.map((id) => ctx.db.get(id)))).filter(
+      (d): d is Doc<"plaidTransactions"> => d !== null,
+    );
+    fresh.sort((a, b) => a.amount - b.amount);
+    for (const d of fresh) await classifyTransaction(ctx, d);
 
     for (const txnId of removed) {
       await removeAutoUsage(ctx, txnId);
@@ -601,6 +649,154 @@ export const syncItem = internalAction({
       cursor = resp.next_cursor;
       hasMore = resp.has_more;
       await ctx.runMutation(internal.plaid.saveCursor, { itemId, cursor });
+    }
+
+    // Stage 2: LLM-filter this item's candidate transactions, batched per card.
+    const cardIds = await ctx.runQuery(internal.plaid.getCandidateCardIds, {
+      itemId,
+    });
+    for (const userCardId of cardIds.slice(0, MAX_CARDS_PER_SYNC)) {
+      const data = await ctx.runQuery(internal.plaid.getCandidatesForCard, {
+        userCardId,
+        limit: LLM_CANDIDATE_CAP,
+      });
+      if (!data || data.candidates.length === 0) continue;
+      const mappings = await llmClassify(
+        data.cardName,
+        data.benefits,
+        data.candidates,
+      );
+      if (!mappings) continue; // LLM couldn't run — leave candidates pending
+      await ctx.runMutation(internal.plaid.applyLlmResults, {
+        mappings: mappings.map((m) => ({
+          transactionId: m.transactionId,
+          benefitId: (m.benefitId as Id<"userBenefits"> | null) ?? null,
+        })),
+      });
+    }
+  },
+});
+
+const LLM_CANDIDATE_CAP = 50; // max candidate txns sent to the LLM per card per run
+const MAX_CARDS_PER_SYNC = 10; // bound the LLM calls per sync
+
+// Distinct linked cards that have pending candidate transactions for this item.
+export const getCandidateCardIds = internalQuery({
+  args: { itemId: v.string() },
+  handler: async (ctx, { itemId }) => {
+    const txns = await ctx.db
+      .query("plaidTransactions")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .take(2000);
+    const ids = new Set<Id<"userCards">>();
+    for (const t of txns)
+      if (t.matchStatus === "candidate" && t.userCardId) ids.add(t.userCardId);
+    return Array.from(ids);
+  },
+});
+
+// A card's pending candidates (current year, capped) + its benefits with the
+// remaining allowance this period — the context for the LLM classification.
+export const getCandidatesForCard = internalQuery({
+  args: { userCardId: v.id("userCards"), limit: v.number() },
+  handler: async (ctx, { userCardId, limit }) => {
+    const card = await ctx.db.get(userCardId);
+    if (!card) return null;
+    const now = Date.now();
+    const yearStart = Date.UTC(new Date(now).getUTCFullYear(), 0, 1);
+
+    const candidates = (
+      await ctx.db
+        .query("plaidTransactions")
+        .withIndex("by_userCardId", (q) => q.eq("userCardId", userCardId))
+        .take(500)
+    )
+      .filter((t) => t.matchStatus === "candidate" && t.date >= yearStart)
+      .slice(0, limit)
+      .map((t) => ({
+        transactionId: t.transactionId,
+        merchantName: t.merchantName,
+        name: t.name,
+        amount: t.amount,
+        date: t.date,
+        pfcPrimary: t.pfcPrimary,
+      }));
+
+    const benefitDocs = (
+      await ctx.db
+        .query("userBenefits")
+        .withIndex("by_userId_and_cardKey", (q) =>
+          q.eq("userId", card.userId).eq("cardKey", card.cardKey),
+        )
+        .take(100)
+    ).filter((b) => b.archivedAt === undefined);
+    const benefits = await Promise.all(
+      benefitDocs.map(async (b) => {
+        const used = await periodUsageExcluding(
+          ctx,
+          b._id,
+          periodKey(b.cycle, now),
+          "",
+        );
+        return {
+          id: b._id as string,
+          title: b.title,
+          cycle: b.cycle,
+          amount: b.amount,
+          remaining: Math.max(0, Math.round((b.amount - used) * 100) / 100),
+        };
+      }),
+    );
+
+    return {
+      cardName: card.nickname ?? card.cardKey,
+      benefits,
+      candidates,
+    };
+  },
+});
+
+// Apply the LLM's mappings: refund candidate → auto-log (cap-checked); purchase
+// candidate → suggestion; unmapped → none. Only acts on still-pending candidates.
+export const applyLlmResults = internalMutation({
+  args: {
+    mappings: v.array(
+      v.object({
+        transactionId: v.string(),
+        benefitId: v.union(v.id("userBenefits"), v.null()),
+      }),
+    ),
+  },
+  handler: async (ctx, { mappings }) => {
+    for (const m of mappings) {
+      const txn = await ctx.db
+        .query("plaidTransactions")
+        .withIndex("by_transactionId", (q) =>
+          q.eq("transactionId", m.transactionId),
+        )
+        .unique();
+      if (!txn || txn.matchStatus !== "candidate") continue;
+
+      if (!m.benefitId) {
+        await ctx.db.patch(txn._id, {
+          matchStatus: "none",
+          matchedBenefitId: undefined,
+        });
+        continue;
+      }
+      const benefit = await ctx.db.get(m.benefitId);
+      if (!benefit || benefit.userId !== txn.userId) {
+        await ctx.db.patch(txn._id, { matchStatus: "none" });
+        continue;
+      }
+      if (txn.amount < 0) {
+        await autoLogWithCap(ctx, txn, benefit); // ambiguous refund resolved
+      } else {
+        await ctx.db.patch(txn._id, {
+          matchStatus: "suggested",
+          matchedBenefitId: benefit._id,
+        });
+      }
     }
   },
 });

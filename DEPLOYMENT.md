@@ -64,6 +64,10 @@ Set (dashboard for the prod deployment, or `convex env set`):
 - `PLAID_ENV` — `sandbox` (default) or `production`; selects the Plaid base URL.
   Use `sandbox` for dev/staging; `production` requires Plaid's Transactions-product
   approval. The Plaid webhook posts to `https://<deployment>.convex.site/plaid/webhook`.
+- `OPENROUTER_API_KEY` — powers `verify.*` (data cross-check) **and** the Plaid
+  step-2 LLM filtering of ambiguous transactions. Optional: without it, Plaid still
+  auto-logs statement-credit refunds; only the LLM suggestion pass is skipped.
+  `OPENROUTER_MODEL` optionally overrides the model (a cheaper model is fine here).
 
 ### 4. Production Clerk instance
 - Use a **production** Clerk instance (not the `*.clerk.accounts.dev` dev one).
