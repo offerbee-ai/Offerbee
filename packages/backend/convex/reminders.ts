@@ -102,7 +102,7 @@ async function detectExpiry(ctx: MutationCtx, user: Doc<"users">, now: number) {
         cardKey: b.cardKey,
         title: `${fmtUsd(cand.remaining)} left on ${b.title}`,
         body: `Resets in ${plural(cand.daysLeft, "day")} — use it before it's gone.`,
-        data: { route: "card", cardKey: b.cardKey },
+        data: { route: "card", cardKey: b.cardKey, benefitId: b._id },
         dedupKey: cand.dedupKey,
       },
       now,

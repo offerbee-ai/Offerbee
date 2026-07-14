@@ -147,6 +147,13 @@ const CHANNEL_FOR_TYPE: Record<string, string> = {
   signup_deadline: "renewal",
 };
 
+// Expo action-category id per type (registered natively). Types without actions
+// get no category (plain tap-to-open).
+const CATEGORY_FOR_TYPE: Record<string, string> = {
+  credit_expiring: "expiring",
+  credit_suggested: "suggested",
+};
+
 export const flushPending = internalAction({
   args: {},
   handler: async (ctx) => {
@@ -186,6 +193,7 @@ export const flushPending = internalAction({
               data: n.data ?? {},
               sound: "default",
               channelId: CHANNEL_FOR_TYPE[n.type] ?? "default",
+              categoryId: CATEGORY_FOR_TYPE[n.type],
             },
             allowUnregisteredTokens: true,
           });
