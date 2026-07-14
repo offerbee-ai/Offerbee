@@ -268,6 +268,9 @@ importers:
 
   packages/backend:
     dependencies:
+      '@convex-dev/expo-push-notifications':
+        specifier: ^0.3.1
+        version: 0.3.1(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@clerk/react@6.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6))(react@19.2.5)(typescript@6.0.3)(zod@4.3.6)
       convex:
         specifier: ^1.35.1
         version: 1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@clerk/react@6.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6)
@@ -1133,6 +1136,11 @@ packages:
 
   '@coinbase/wallet-sdk@4.3.0':
     resolution: {integrity: sha512-T3+SNmiCw4HzDm4we9wCHCxlP0pqCiwKe4sOwPH3YAK2KSKjxPRydKu6UQJrdONFVLG7ujXvbd/6ZqmvJb8rkw==}
+
+  '@convex-dev/expo-push-notifications@0.3.1':
+    resolution: {integrity: sha512-Ywq83gcEDoolutjslaGcD1OnFjjgor0zZa4HEnGUS4BSxpb3DbB6XjVeSMxbJ9k5TKII3uBOr5fWSVFC8tN5eg==}
+    peerDependencies:
+      convex: ^1.24.8
 
   '@egjs/hammerjs@2.0.17':
     resolution: {integrity: sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A==}
@@ -4038,6 +4046,28 @@ packages:
 
   convert-source-map@2.0.0:
     resolution: {integrity: sha512-Kvp459HrV2FEJ1CAsi1Ku+MY3kasH19TFykTz2xWmMeq6bk2NU3XXvfJ+Q61m0xktWwt+1HSYf3JZsTms3aRJg==}
+
+  convex-helpers@0.1.120:
+    resolution: {integrity: sha512-FPqtmN/10uoxmmhVq0ViNi08AnmHKT/eU1R8+ohmPZoHfg8noZEZCltApY/ASDdhq92o0kLZETggzBvMfHJDLQ==}
+    hasBin: true
+    peerDependencies:
+      '@standard-schema/spec': ^1.0.0
+      convex: ^1.32.0
+      hono: ^4.0.5
+      react: ^17.0.2 || ^18.0.0 || ^19.0.0
+      typescript: ^5.5 || ^6.0.0
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      '@standard-schema/spec':
+        optional: true
+      hono:
+        optional: true
+      react:
+        optional: true
+      typescript:
+        optional: true
+      zod:
+        optional: true
 
   convex@1.35.1:
     resolution: {integrity: sha512-g23KrTjBiXqRHzWIN0PVFagKjrmFxWUaOSiBsAWPTpXX2rXl0L1F4PR0YpAcMJEzMgfZR9AGymJvLTM+KA6lsQ==}
@@ -8944,6 +8974,17 @@ snapshots:
       eventemitter3: 5.0.4
       preact: 10.29.1
 
+  '@convex-dev/expo-push-notifications@0.3.1(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@clerk/react@6.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6))(react@19.2.5)(typescript@6.0.3)(zod@4.3.6)':
+    dependencies:
+      convex: 1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@clerk/react@6.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6)
+      convex-helpers: 0.1.120(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@clerk/react@6.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6))(react@19.2.5)(typescript@6.0.3)(zod@4.3.6)
+    transitivePeerDependencies:
+      - '@standard-schema/spec'
+      - hono
+      - react
+      - typescript
+      - zod
+
   '@egjs/hammerjs@2.0.17':
     dependencies:
       '@types/hammerjs': 2.0.46
@@ -12402,6 +12443,15 @@ snapshots:
   convert-source-map@1.9.0: {}
 
   convert-source-map@2.0.0: {}
+
+  convex-helpers@0.1.120(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@clerk/react@6.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6))(react@19.2.5)(typescript@6.0.3)(zod@4.3.6):
+    dependencies:
+      convex: 1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(@clerk/react@6.4.2(react-dom@19.2.5(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6)
+    optionalDependencies:
+      '@standard-schema/spec': 1.1.0
+      react: 19.2.5
+      typescript: 6.0.3
+      zod: 4.3.6
 
   convex@1.35.1(@clerk/clerk-react@5.61.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@clerk/react@6.4.2(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(bufferutil@4.1.0)(react@19.2.3)(utf-8-validate@6.0.6):
     dependencies:
