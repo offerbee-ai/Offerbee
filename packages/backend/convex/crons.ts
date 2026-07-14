@@ -41,4 +41,22 @@ crons.interval(
   { cursor: null },
 );
 
+// Daily credit reminders: unused-before-reset expiry alerts + Plaid
+// suggested-credit confirmation nudges.
+crons.interval(
+  "credit reminders daily",
+  { hours: 24 },
+  internal.reminders.scanDailyBatch,
+  { cursor: null },
+);
+
+// Weekly Monday digest of unused credits (14:00 UTC; quiet-hours defers delivery
+// to a sensible local time).
+crons.weekly(
+  "credit weekly digest",
+  { dayOfWeek: "monday", hourUTC: 14, minuteUTC: 0 },
+  internal.reminders.scanDigestBatch,
+  { cursor: null },
+);
+
 export default crons;
