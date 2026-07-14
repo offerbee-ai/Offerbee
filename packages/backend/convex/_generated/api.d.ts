@@ -25,6 +25,7 @@ import type * as plaid from "../plaid.js";
 import type * as plaidCardMap from "../plaidCardMap.js";
 import type * as plaidMatch from "../plaidMatch.js";
 import type * as push from "../push.js";
+import type * as pushQuietHours from "../pushQuietHours.js";
 import type * as rapidapi from "../rapidapi.js";
 import type * as reminderRules from "../reminderRules.js";
 import type * as reminders from "../reminders.js";
@@ -59,6 +60,7 @@ declare const fullApi: ApiFromModules<{
   plaidCardMap: typeof plaidCardMap;
   plaidMatch: typeof plaidMatch;
   push: typeof push;
+  pushQuietHours: typeof pushQuietHours;
   rapidapi: typeof rapidapi;
   reminderRules: typeof reminderRules;
   reminders: typeof reminders;

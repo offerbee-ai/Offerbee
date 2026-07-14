@@ -4,6 +4,7 @@ import { internal, components } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { platformValidator } from "./validators";
 import { PushNotifications } from "@convex-dev/expo-push-notifications";
+import { inQuietHours } from "./pushQuietHours";
 
 const EXPO_SEND_URL = "https://exp.host/--/api/v2/push/send";
 const EXPO_RECEIPTS_URL = "https://exp.host/--/api/v2/push/getReceipts";
@@ -164,24 +165,6 @@ export const invalidateToken = internalMutation({
 });
 
 // ── Delivery ────────────────────────────────────────────────────────────────────
-
-function inQuietHours(user: Doc<"users">, now: number): boolean {
-  const { quietHoursStart: start, quietHoursEnd: end, timeZone } = user;
-  if (start === undefined || end === undefined || start === end) return false;
-  let hour: number;
-  try {
-    hour = Number(
-      new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        hour12: false,
-        timeZone: timeZone ?? "UTC",
-      }).format(new Date(now)),
-    );
-  } catch {
-    return false; // unknown timezone — don't suppress delivery
-  }
-  return start < end ? hour >= start && hour < end : hour >= start || hour < end;
-}
 
 function expoHeaders(): Record<string, string> {
   const base: Record<string, string> = {
