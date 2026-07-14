@@ -77,12 +77,22 @@ function distinctiveTokens(title: string, benefitTitle?: string): string[] {
   );
 }
 
+// True when a transaction is labeled by the issuer as a credit posting
+// ("... Credit" / "... Reimbursement" / "Statement Credit") — i.e. a refund of a
+// benefit, not an ordinary merchant refund.
+export function isCreditLabeled(txnName: string): boolean {
+  return /\b(credit|reimbursement|statement)\b/i.test(txnName);
+}
+
 // A negative transaction that the issuer labels as a credit ("... Credit" /
 // "... Reimbursement") and whose name contains all of the benefit's distinctive
 // words is that credit being applied — the strongest "used" signal.
-function isStatementCreditFor(benefit: MatchBenefit, txnName: string): boolean {
+export function isStatementCreditFor(
+  benefit: MatchBenefit,
+  txnName: string,
+): boolean {
+  if (!isCreditLabeled(txnName)) return false;
   const n = txnName.toLowerCase();
-  if (!/\b(credit|reimbursement|statement)\b/.test(n)) return false;
   const tokens = distinctiveTokens(benefit.title, benefit.benefitTitle);
   return tokens.length > 0 && tokens.every((t) => n.includes(t));
 }

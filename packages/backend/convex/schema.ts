@@ -247,8 +247,9 @@ export default defineSchema({
     userCardId: v.optional(v.id("userCards")), // resolved from account link
     matchedBenefitId: v.optional(v.id("userBenefits")),
     matchStatus: v.union(
-      v.literal("auto"), // auto-logged (high confidence)
-      v.literal("suggested"), // awaiting confirm/dismiss (medium)
+      v.literal("auto"), // auto-logged (deterministic refund posting)
+      v.literal("candidate"), // pre-LLM: plausible purchase / ambiguous refund
+      v.literal("suggested"), // LLM-approved, awaiting confirm/dismiss
       v.literal("confirmed"), // user confirmed a suggestion → logged
       v.literal("dismissed"), // user dismissed
       v.literal("skipped"), // matched a benefit but its period is already used up
