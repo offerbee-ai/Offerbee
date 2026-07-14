@@ -86,3 +86,24 @@ export const DEFAULT_REMINDER_PREFS: ReminderPrefs = {
   renewal: false,
   smart: true,
 };
+
+// Unified notification-preference categories (Notifications v2). Replaces
+// the notificationsEnabled master switch + enabledOfferTypes + reminderPrefs
+// with a single per-category model: expiry (credit resets), digest (weekly
+// summary), renewal (annual fee + signup deadline), transactions (Plaid
+// detected credits).
+export interface NotificationCategories {
+  expiry: boolean;
+  digest: boolean;
+  renewal: boolean;
+  transactions: boolean;
+}
+
+// All on by default (everything opt-out). Producers fall back to this when a
+// user has no notificationCategories yet.
+export const DEFAULT_NOTIFICATION_CATEGORIES: NotificationCategories = {
+  expiry: true,
+  digest: true,
+  renewal: true,
+  transactions: true,
+};

@@ -17,6 +17,16 @@ export const reminderPrefsValidator = v.object({
   smart: v.boolean(),
 });
 
+// Unified notification-preference categories (Notifications v2). Additive
+// widen step: coexists with reminderPrefs/enabledOfferTypes until a later
+// task migrates users onto this and drops the old fields.
+export const notificationCategoriesValidator = v.object({
+  expiry: v.boolean(),
+  digest: v.boolean(),
+  renewal: v.boolean(),
+  transactions: v.boolean(),
+});
+
 export const deliveryStatusValidator = v.union(
   v.literal("pending"),
   v.literal("sent"),

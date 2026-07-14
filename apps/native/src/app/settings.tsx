@@ -4,8 +4,8 @@ import { useAuth, useUser } from "@clerk/clerk-expo";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
-  DEFAULT_REMINDER_PREFS,
-  type ReminderPrefs,
+  DEFAULT_NOTIFICATION_CATEGORIES,
+  type NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 
 import {
@@ -25,12 +25,12 @@ import { goBack } from "@/features/nav/back";
 import { spacing, useTheme } from "@/theme";
 import { appEnv } from "@/lib/env";
 
-const NOTIF: { key: keyof ReminderPrefs; title: string; desc: string }[] = [
+const NOTIF = [
   { key: "expiry", title: "Expiry alerts", desc: "A nudge before each credit resets" },
   { key: "digest", title: "Weekly digest", desc: "Monday summary of what's available" },
-  { key: "renewal", title: "Renewal alerts", desc: "30 days before an annual fee posts" },
-  { key: "smart", title: "Smart reminders", desc: "Only when a credit is realistically usable" },
-];
+  { key: "renewal", title: "Renewal alerts", desc: "Annual fees and signup deadlines" },
+  { key: "transactions", title: "Detected credits", desc: "When we spot a credit you can confirm" },
+] as const;
 
 function ToggleRow({
   title,
@@ -79,15 +79,15 @@ export default function SettingsScreen() {
 
   const me = useQuery(api.users.getMe);
   const updatePrefs = useMutation(api.users.updateNotificationPrefs);
-  const prefs = me?.reminderPrefs ?? DEFAULT_REMINDER_PREFS;
+  const cats = me?.notificationCategories ?? DEFAULT_NOTIFICATION_CATEGORIES;
 
   const name = user?.fullName ?? me?.name ?? "OfferBee member";
   const email = user?.primaryEmailAddress?.emailAddress ?? "";
   const initial = (name || email || "?").trim().charAt(0);
   const memberSince = user?.createdAt ? new Date(user.createdAt).getFullYear() : null;
 
-  const setReminder = (key: keyof ReminderPrefs, value: boolean) => {
-    updatePrefs({ reminderPrefs: { ...prefs, [key]: value } }).catch((e) =>
+  const setCategory = (key: keyof NotificationCategories, value: boolean) => {
+    updatePrefs({ notificationCategories: { ...cats, [key]: value } }).catch((e) =>
       console.error("updateNotificationPrefs failed", e),
     );
   };
@@ -155,8 +155,8 @@ export default function SettingsScreen() {
             key={n.key}
             title={n.title}
             desc={n.desc}
-            value={prefs[n.key]}
-            onToggle={(v) => setReminder(n.key, v)}
+            value={cats[n.key]}
+            onToggle={(v) => setCategory(n.key, v)}
             separator={i < NOTIF.length - 1}
           />
         ))}

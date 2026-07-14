@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { router } from "expo-router";
 import {
   ONBOARDING_CARDS_BY_ID,
-  type ReminderPrefs,
+  type NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 
 import { Card, NotificationPreview, Text, Toggle } from "@/components/ui";
@@ -12,16 +12,16 @@ import { usd } from "@/features/credits/derive";
 import { useOnboarding } from "@/features/onboarding/OnboardingProvider";
 import { StepChrome } from "@/features/onboarding/StepChrome";
 
-const REMINDER_OPTIONS: { key: keyof ReminderPrefs; label: string; detail: string }[] = [
+const REMINDER_OPTIONS: { key: keyof NotificationCategories; label: string; detail: string }[] = [
   { key: "expiry", label: "Expiry alerts", detail: "A nudge before each credit resets" },
   { key: "digest", label: "Weekly digest", detail: "Monday summary of what's available" },
-  { key: "renewal", label: "Renewal alerts", detail: "30 days before an annual fee posts" },
-  { key: "smart", label: "Smart reminders", detail: "Only when a credit is realistically usable" },
+  { key: "renewal", label: "Renewal alerts", detail: "Annual fees and signup deadlines" },
+  { key: "transactions", label: "Detected credits", detail: "When we spot a credit you can confirm" },
 ];
 
 export default function OnboardingReminders() {
   const { colors } = useTheme();
-  const { cards, reminders, setReminder, setStep } = useOnboarding();
+  const { cards, notificationCategories, setNotificationCategory, setStep } = useOnboarding();
 
   useEffect(() => setStep(3), [setStep]);
 
@@ -54,7 +54,7 @@ export default function OnboardingReminders() {
         What a nudge looks like
       </Text>
       <View style={{ marginTop: spacing.sm }}>
-        <NotificationPreview title={preview.title} body={preview.body} dimmed={!reminders.expiry} />
+        <NotificationPreview title={preview.title} body={preview.body} dimmed={!notificationCategories.expiry} />
       </View>
 
       <Card padded={false} style={{ marginTop: spacing.lg }}>
@@ -78,8 +78,8 @@ export default function OnboardingReminders() {
               </Text>
             </View>
             <Toggle
-              value={reminders[option.key]}
-              onValueChange={(v) => setReminder(option.key, v)}
+              value={notificationCategories[option.key]}
+              onValueChange={(v) => setNotificationCategory(option.key, v)}
               accessibilityLabel={option.label}
             />
           </View>

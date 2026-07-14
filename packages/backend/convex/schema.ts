@@ -6,6 +6,7 @@ import {
   cycleValidator,
   deliveryStatusValidator,
   fieldProvenanceValidator,
+  notificationCategoriesValidator,
   platformValidator,
   reminderPrefsValidator,
   reviewObservationValidator,
@@ -33,6 +34,10 @@ export default defineSchema({
     onboardingCards: v.optional(v.array(v.string())), // curated onboardingCatalog ids
     spendingCategories: v.optional(v.array(v.string())), // feeds feed ranking
     reminderPrefs: v.optional(reminderPrefsValidator),
+    // Unified notification-preference categories (Notifications v2). Additive
+    // widen: reminderPrefs + enabledOfferTypes stay in place until a later
+    // migration task consolidates onto this and a subsequent task drops them.
+    notificationCategories: v.optional(notificationCategoriesValidator),
     // Idempotency guard for the transactional welcome email (email.ts).
     welcomeEmailSentAt: v.optional(v.number()),
   }).index("by_userId", ["userId"]),

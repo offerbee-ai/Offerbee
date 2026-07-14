@@ -11,9 +11,9 @@ import {
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
-  DEFAULT_REMINDER_PREFS,
+  DEFAULT_NOTIFICATION_CATEGORIES,
   ONBOARDING_CARDS_BY_ID,
-  type ReminderPrefs,
+  type NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 
 // Mirrors the web wizard's persistence contract: every change saves (debounced)
@@ -25,12 +25,12 @@ const SAVE_DEBOUNCE_MS = 500;
 interface OnboardingState {
   cards: string[]; // curated catalog ids (NOT cardKeys)
   categories: string[];
-  reminders: ReminderPrefs;
+  notificationCategories: NotificationCategories;
   hydrated: boolean;
   creditsInPlay: number; // live counter for the glass action bar
   toggleCard: (id: string) => void;
   toggleCategory: (key: string) => void;
-  setReminder: (key: keyof ReminderPrefs, value: boolean) => void;
+  setNotificationCategory: (key: keyof NotificationCategories, value: boolean) => void;
   setStep: (step: number) => void;
   complete: () => Promise<void>;
   completing: boolean;
@@ -45,7 +45,9 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const [cards, setCards] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
-  const [reminders, setReminders] = useState<ReminderPrefs>(DEFAULT_REMINDER_PREFS);
+  const [notificationCategories, setNotificationCategories] = useState<NotificationCategories>(
+    DEFAULT_NOTIFICATION_CATEGORIES,
+  );
   const [hydrated, setHydrated] = useState(false);
   const [completing, setCompleting] = useState(false);
 
@@ -56,7 +58,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     hydratedRef.current = true;
     if (me?.onboardingCards) setCards(me.onboardingCards);
     if (me?.spendingCategories) setCategories(me.spendingCategories);
-    if (me?.reminderPrefs) setReminders(me.reminderPrefs);
+    if (me?.notificationCategories) setNotificationCategories(me.notificationCategories);
     setHydrated(true);
   }, [me]);
 
@@ -64,7 +66,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const pendingPatch = useRef<{
     cards?: string[];
     categories?: string[];
-    reminders?: ReminderPrefs;
+    notificationCategories?: NotificationCategories;
     step?: number;
   }>({});
 
@@ -105,11 +107,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [saveSoon],
   );
 
-  const setReminder = useCallback(
-    (key: keyof ReminderPrefs, value: boolean) => {
-      setReminders((prev) => {
+  const setNotificationCategory = useCallback(
+    (key: keyof NotificationCategories, value: boolean) => {
+      setNotificationCategories((prev) => {
         const next = { ...prev, [key]: value };
-        saveSoon({ reminders: next });
+        saveSoon({ notificationCategories: next });
         return next;
       });
     },
@@ -123,13 +125,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setCompleting(true);
     try {
       if (saveTimer.current) clearTimeout(saveTimer.current);
-      await completeOnboarding({ cards, categories, reminders });
+      await completeOnboarding({ cards, categories, notificationCategories });
       // The root Stack.Protected gate flips to (tabs) once getMe updates.
     } catch (e) {
       console.error("completeOnboarding failed", e);
       setCompleting(false);
     }
-  }, [completing, completeOnboarding, cards, categories, reminders]);
+  }, [completing, completeOnboarding, cards, categories, notificationCategories]);
 
   const creditsInPlay = useMemo(
     () =>
@@ -141,12 +143,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     () => ({
       cards,
       categories,
-      reminders,
+      notificationCategories,
       hydrated,
       creditsInPlay,
       toggleCard,
       toggleCategory,
-      setReminder,
+      setNotificationCategory,
       setStep,
       complete,
       completing,
@@ -154,12 +156,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     [
       cards,
       categories,
-      reminders,
+      notificationCategories,
       hydrated,
       creditsInPlay,
       toggleCard,
       toggleCategory,
-      setReminder,
+      setNotificationCategory,
       setStep,
       complete,
       completing,

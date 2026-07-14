@@ -39,7 +39,7 @@ export default function OffersPage() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="font-display text-[28px] font-semibold text-ink">
-          Offers
+          Alerts & Notifications
         </h1>
         <Button variant="secondary" onClick={() => markAllRead()}>
           Mark all read

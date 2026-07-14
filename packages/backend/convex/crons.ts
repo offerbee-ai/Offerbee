@@ -24,20 +24,31 @@ crons.interval(
   {},
 );
 
-// Delivery receipts (Expo needs >15m after send).
-crons.interval(
-  "check push receipts",
-  { minutes: 30 },
-  internal.push.checkReceipts,
-  {},
-);
-
 // Baseline Plaid transaction sync (webhook is the low-latency trigger; this is
 // the safety net so Items stay current even without webhooks).
 crons.interval(
   "sync plaid transactions",
   { hours: 6 },
   internal.plaid.syncAllItems,
+  { cursor: null },
+);
+
+// Daily credit reminders: unused-before-reset expiry alerts + Plaid
+// suggested-credit confirmation nudges.
+crons.interval(
+  "credit reminders daily",
+  { hours: 24 },
+  internal.reminders.scanDailyBatch,
+  { cursor: null },
+);
+
+// Weekly Monday digest of unused credits (Monday 14:00 UTC; quiet-hours defers
+// delivery to a sensible local time). crons.cron per the project's Convex
+// guidelines (interval/cron only).
+crons.cron(
+  "credit weekly digest",
+  "0 14 * * 1",
+  internal.reminders.scanDigestBatch,
   { cursor: null },
 );
 

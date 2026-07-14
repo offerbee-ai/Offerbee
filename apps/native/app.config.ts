@@ -35,6 +35,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: ENV.name,
   slug: "offerbee",
+  owner: "ronnie434",
   scheme: ENV.scheme,
   version: "1.0.0",
   orientation: "portrait",
@@ -86,6 +87,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   extra: {
     appEnv: APP_ENV,
-    // eas.projectId gets added here by `eas init` when we start building.
+    eas: { projectId: "e6bd622d-a032-4d5c-90b5-2ad4cea7e7a8" },
   },
 });
