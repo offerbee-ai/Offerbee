@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
-import { DEFAULT_REMINDER_PREFS } from "./onboardingCatalog";
+import { DEFAULT_NOTIFICATION_CATEGORIES } from "./onboardingCatalog";
 import { periodEnd, periodKey } from "./benefitCycles";
 import { DAY_MS, expiryCandidate } from "./reminderRules";
 
@@ -14,8 +14,8 @@ const BENEFITS_PER_USER = 200;
 const fmtUsd = (n: number) => `$${n % 1 === 0 ? n.toFixed(0) : n.toFixed(2)}`;
 const plural = (n: number, s: string) => `${n} ${s}${n === 1 ? "" : "s"}`;
 
-function prefsFor(user: Doc<"users">) {
-  return user.reminderPrefs ?? DEFAULT_REMINDER_PREFS;
+function categoriesFor(user: Doc<"users">) {
+  return user.notificationCategories ?? DEFAULT_NOTIFICATION_CATEGORIES;
 }
 
 // Current-period usage for one benefit (manual + Plaid auto rows). Mirrors
@@ -86,14 +86,14 @@ async function activeBenefits(ctx: MutationCtx, userId: string, now: number): Pr
 }
 
 async function detectExpiry(ctx: MutationCtx, user: Doc<"users">, now: number) {
-  const prefs = prefsFor(user);
-  if (!prefs.expiry) return;
+  const cats = categoriesFor(user);
+  if (!cats.expiry) return;
   for (const b of await activeBenefits(ctx, user.userId, now)) {
     const pk = periodKey(b.cycle, now);
     const used = await currentPeriodUsage(ctx, b._id, pk);
     const cand = expiryCandidate({ benefitId: b._id, cycle: b.cycle, amount: b.amount, usedAmount: used, now });
     if (!cand) continue;
-    if (prefs.smart && !(await isUsable(ctx, b, pk))) continue;
+    if (!(await isUsable(ctx, b, pk))) continue;
     await insertIfNew(
       ctx,
       user.userId,
@@ -111,10 +111,10 @@ async function detectExpiry(ctx: MutationCtx, user: Doc<"users">, now: number) {
 }
 
 // Plaid medium-confidence matches awaiting confirm in the Detected feed. Gated on
-// `smart`; deduped by transactionId so a pending suggestion is nudged at most once.
+// the `transactions` category; deduped by transactionId so a pending suggestion is
+// nudged at most once.
 async function detectSuggested(ctx: MutationCtx, user: Doc<"users">, now: number) {
-  const prefs = prefsFor(user);
-  if (!prefs.smart) return;
+  if (!categoriesFor(user).transactions) return;
   const suggested = await ctx.db
     .query("plaidTransactions")
     .withIndex("by_userId_and_matchStatus", (q) => q.eq("userId", user.userId).eq("matchStatus", "suggested"))
@@ -170,8 +170,7 @@ function weekKey(now: number): string {
 }
 
 async function buildDigest(ctx: MutationCtx, user: Doc<"users">, now: number) {
-  const prefs = prefsFor(user);
-  if (!prefs.digest) return;
+  if (!categoriesFor(user).digest) return;
   let count = 0;
   let totalRemaining = 0;
   let soonestDays = Infinity;
@@ -180,7 +179,7 @@ async function buildDigest(ctx: MutationCtx, user: Doc<"users">, now: number) {
     const used = await currentPeriodUsage(ctx, b._id, pk);
     const remaining = Math.round((b.amount - used) * 100) / 100;
     if (remaining <= 0) continue;
-    if (prefs.smart && !(await isUsable(ctx, b, pk))) continue;
+    if (!(await isUsable(ctx, b, pk))) continue;
     count += 1;
     totalRemaining = Math.round((totalRemaining + remaining) * 100) / 100;
     const days = Math.ceil((periodEnd(b.cycle, now) - now) / DAY_MS);

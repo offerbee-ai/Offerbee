@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { MutationCtx } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
+import { DEFAULT_NOTIFICATION_CATEGORIES } from "./onboardingCatalog";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const SIGNUP_MILESTONES = [1, 7, 14, 30]; // ascending
@@ -103,20 +104,10 @@ function buildCandidates(
   items: Item[],
   now: number,
 ): Candidate[] {
-  let candidates = items.flatMap((i) => detectPerCard(i, now));
-  const enabled = user.enabledOfferTypes;
-  if (enabled && enabled.length > 0) {
-    const allow = new Set(enabled);
-    candidates = candidates.filter((c) => allow.has(c.type));
-  }
+  const cats = user.notificationCategories ?? DEFAULT_NOTIFICATION_CATEGORIES;
+  if (!cats.renewal) return [];
 
-  // Renewal toggle gates the annual-fee alert. Undefined => ON here (legacy users
-  // keep the alert); explicit false (set via onboarding/settings) silences it.
-  if (user.reminderPrefs?.renewal === false) {
-    candidates = candidates.filter((c) => c.type !== "annual_fee_due");
-  }
-
-  return candidates;
+  return items.flatMap((i) => detectPerCard(i, now));
 }
 
 async function loadItems(
