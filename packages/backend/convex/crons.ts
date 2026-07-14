@@ -24,14 +24,6 @@ crons.interval(
   {},
 );
 
-// Delivery receipts (Expo needs >15m after send).
-crons.interval(
-  "check push receipts",
-  { minutes: 30 },
-  internal.push.checkReceipts,
-  {},
-);
-
 // Baseline Plaid transaction sync (webhook is the low-latency trigger; this is
 // the safety net so Items stay current even without webhooks).
 crons.interval(
