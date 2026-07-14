@@ -11,7 +11,8 @@ import { DaysTile } from "@/features/credits/components/DaysTile";
 
 export default function OnboardingReview() {
   const { colors } = useTheme();
-  const { cards, reminders, creditsInPlay, complete, completing, setStep } = useOnboarding();
+  const { cards, notificationCategories, creditsInPlay, complete, completing, setStep } =
+    useOnboarding();
 
   useEffect(() => setStep(4), [setStep]);
 
@@ -30,7 +31,7 @@ export default function OnboardingReview() {
     [selected],
   );
   const slippingSum = slipping.reduce((sum, c) => sum + c.next.amt, 0);
-  const remindersOn = Object.values(reminders).filter(Boolean).length;
+  const remindersOn = Object.values(notificationCategories).filter(Boolean).length;
 
   const summary = [
     { figure: `${selected.length}`, label: "cards added", accent: false },

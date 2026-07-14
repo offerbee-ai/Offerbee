@@ -2,7 +2,7 @@ import { mutation } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireUserId } from "./auth";
-import { reminderPrefsValidator } from "./validators";
+import { notificationCategoriesValidator } from "./validators";
 import {
   ONBOARDING_CARDS_BY_ID,
   ONBOARDING_CATEGORY_KEYS,
@@ -24,9 +24,9 @@ export const updateOnboarding = mutation({
     step: v.optional(v.number()),
     cards: v.optional(v.array(v.string())),
     categories: v.optional(v.array(v.string())),
-    reminders: v.optional(reminderPrefsValidator),
+    notificationCategories: v.optional(notificationCategoriesValidator),
   },
-  handler: async (ctx, { step, cards, categories, reminders }) => {
+  handler: async (ctx, { step, cards, categories, notificationCategories }) => {
     const userId = await requireUserId(ctx);
 
     const patch: Record<string, unknown> = {};
@@ -34,7 +34,8 @@ export const updateOnboarding = mutation({
     if (cards !== undefined) patch.onboardingCards = validCardIds(cards);
     if (categories !== undefined)
       patch.spendingCategories = validCategories(categories);
-    if (reminders !== undefined) patch.reminderPrefs = reminders;
+    if (notificationCategories !== undefined)
+      patch.notificationCategories = notificationCategories;
 
     const existing = await ctx.db
       .query("users")
@@ -57,16 +58,17 @@ export const updateOnboarding = mutation({
 });
 
 // Atomic finish: commit the selected curated cards to the real wallet, save
-// categories + reminder prefs, and stamp completion so the wizard never shows
-// again. Card ids are validated against the curated catalog server-side —
-// clients never supply card names, so they can't poison the shared cardCatalog.
+// categories + notification categories, and stamp completion so the wizard
+// never shows again. Card ids are validated against the curated catalog
+// server-side — clients never supply card names, so they can't poison the
+// shared cardCatalog.
 export const completeOnboarding = mutation({
   args: {
     cards: v.array(v.string()),
     categories: v.array(v.string()),
-    reminders: reminderPrefsValidator,
+    notificationCategories: notificationCategoriesValidator,
   },
-  handler: async (ctx, { cards, categories, reminders }) => {
+  handler: async (ctx, { cards, categories, notificationCategories }) => {
     const userId = await requireUserId(ctx);
 
     const existing = await ctx.db
@@ -139,7 +141,7 @@ export const completeOnboarding = mutation({
       onboardingCompletedAt: now,
       onboardingCards: selected.map((c) => c.id),
       spendingCategories: validCategories(categories),
-      reminderPrefs: reminders,
+      notificationCategories,
     };
 
     if (existing) {

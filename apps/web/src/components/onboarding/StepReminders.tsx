@@ -2,17 +2,17 @@
 
 import type {
   OnboardingCard,
-  ReminderPrefs,
+  NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 import { BeeLogo } from "@/components/landing/BrandMark";
 import { ToggleSwitch } from "@/components/app/controls";
 import { deriveNotifPreview } from "./derive";
 
-const TOGGLES: { key: keyof ReminderPrefs; label: string; desc: string }[] = [
-  { key: "expiry", label: "Expiry alerts", desc: "Ping me before a credit resets" },
-  { key: "digest", label: "Weekly digest", desc: "A Monday plan of what to use" },
-  { key: "renewal", label: "Renewal alerts", desc: "Warn me before an annual fee posts" },
-  { key: "smart", label: "Smart reminders", desc: "Timed to how you actually spend" },
+const TOGGLES: { key: keyof NotificationCategories; label: string; desc: string }[] = [
+  { key: "expiry", label: "Expiry alerts", desc: "A nudge before each credit resets" },
+  { key: "digest", label: "Weekly digest", desc: "Monday summary of what's available" },
+  { key: "renewal", label: "Renewal alerts", desc: "Annual fees and signup deadlines" },
+  { key: "transactions", label: "Detected credits", desc: "When we spot a credit you can confirm" },
 ];
 
 /** Step 4 — notification preferences with a live sample nudge. */
@@ -22,8 +22,8 @@ export function StepReminders({
   onToggle,
 }: {
   cards: OnboardingCard[];
-  prefs: ReminderPrefs;
-  onToggle: (key: keyof ReminderPrefs, value: boolean) => void;
+  prefs: NotificationCategories;
+  onToggle: (key: keyof NotificationCategories, value: boolean) => void;
 }) {
   const preview = deriveNotifPreview(cards);
 

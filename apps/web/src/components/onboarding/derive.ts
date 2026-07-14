@@ -8,8 +8,8 @@
 import {
   ONBOARDING_CARDS,
   ONBOARDING_CATEGORIES,
+  type NotificationCategories,
   type OnboardingCard,
-  type ReminderPrefs,
 } from "@packages/backend/convex/onboardingCatalog";
 import { usd } from "@/components/app/data";
 
@@ -91,8 +91,8 @@ export function categoryFeedback(selected: ReadonlySet<string>): string {
   return `Nice — ${matched} matching credits move to the top of your feed.`;
 }
 
-export function remindersOnCount(prefs: ReminderPrefs): number {
-  return [prefs.expiry, prefs.digest, prefs.renewal, prefs.smart].filter(
+export function remindersOnCount(prefs: NotificationCategories): number {
+  return [prefs.expiry, prefs.digest, prefs.renewal, prefs.transactions].filter(
     Boolean,
   ).length;
 }

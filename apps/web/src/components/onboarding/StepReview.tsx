@@ -2,7 +2,7 @@
 
 import type {
   OnboardingCard,
-  ReminderPrefs,
+  NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 import { usd } from "@/components/app/data";
 import { DaysTile } from "@/components/app/controls";
@@ -14,7 +14,7 @@ export function StepReview({
   prefs,
 }: {
   cards: OnboardingCard[];
-  prefs: ReminderPrefs;
+  prefs: NotificationCategories;
 }) {
   const reveal = deriveReveal(cards);
 

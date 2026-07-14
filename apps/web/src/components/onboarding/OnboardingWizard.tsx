@@ -6,8 +6,8 @@ import { useAuth, useUser } from "@clerk/nextjs";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
-  DEFAULT_REMINDER_PREFS,
-  type ReminderPrefs,
+  DEFAULT_NOTIFICATION_CATEGORIES,
+  type NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 import { usd } from "@/components/app/data";
 import { cn } from "@/lib/utils";
@@ -45,7 +45,7 @@ export function OnboardingWizard() {
   const [step, setStep] = useState(0);
   const [cards, setCards] = useState<ReadonlySet<string>>(new Set());
   const [cats, setCats] = useState<ReadonlySet<string>>(new Set());
-  const [prefs, setPrefs] = useState<ReminderPrefs>(DEFAULT_REMINDER_PREFS);
+  const [prefs, setPrefs] = useState<NotificationCategories>(DEFAULT_NOTIFICATION_CATEGORIES);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -81,7 +81,7 @@ export function OnboardingWizard() {
     if (me) {
       if (me.onboardingCards) setCards(new Set(me.onboardingCards));
       if (me.spendingCategories) setCats(new Set(me.spendingCategories));
-      if (me.reminderPrefs) setPrefs(me.reminderPrefs);
+      if (me.notificationCategories) setPrefs(me.notificationCategories);
     }
     setStep(Math.min(4, Math.max(1, me?.onboardingStep ?? 1)));
   }, [isAuthenticated, me, completed]);
@@ -96,7 +96,7 @@ export function OnboardingWizard() {
     setStep(0);
     setCards(new Set());
     setCats(new Set());
-    setPrefs(DEFAULT_REMINDER_PREFS);
+    setPrefs(DEFAULT_NOTIFICATION_CATEGORIES);
   }, [clerkLoaded, isSignedIn]);
 
   const payload = useMemo(
@@ -104,7 +104,7 @@ export function OnboardingWizard() {
       step: Math.max(1, step),
       cards: [...cards],
       categories: [...cats],
-      reminders: prefs,
+      notificationCategories: prefs,
     }),
     [step, cards, cats, prefs],
   );
@@ -163,7 +163,7 @@ export function OnboardingWizard() {
     });
   }, []);
 
-  const setPref = useCallback((key: keyof ReminderPrefs, value: boolean) => {
+  const setPref = useCallback((key: keyof NotificationCategories, value: boolean) => {
     setPrefs((prev) => ({ ...prev, [key]: value }));
   }, []);
 
@@ -185,7 +185,7 @@ export function OnboardingWizard() {
       await completeOnboarding({
         cards: [...cards],
         categories: [...cats],
-        reminders: prefs,
+        notificationCategories: prefs,
       });
       router.replace("/app");
     } catch (e) {
