@@ -50,11 +50,12 @@ crons.interval(
   { cursor: null },
 );
 
-// Weekly Monday digest of unused credits (14:00 UTC; quiet-hours defers delivery
-// to a sensible local time).
-crons.weekly(
+// Weekly Monday digest of unused credits (Monday 14:00 UTC; quiet-hours defers
+// delivery to a sensible local time). crons.cron per the project's Convex
+// guidelines (interval/cron only).
+crons.cron(
   "credit weekly digest",
-  { dayOfWeek: "monday", hourUTC: 14, minuteUTC: 0 },
+  "0 14 * * 1",
   internal.reminders.scanDigestBatch,
   { cursor: null },
 );
