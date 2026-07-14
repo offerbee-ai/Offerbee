@@ -245,6 +245,13 @@ function buildCandidates(
     const allow = new Set(enabled);
     candidates = candidates.filter((c) => allow.has(c.type));
   }
+
+  // Renewal toggle gates the annual-fee alert. Undefined => ON here (legacy users
+  // keep the alert); explicit false (set via onboarding/settings) silences it.
+  if (user.reminderPrefs?.renewal === false) {
+    candidates = candidates.filter((c) => c.type !== "annual_fee_due");
+  }
+
   return candidates;
 }
 
