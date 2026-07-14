@@ -126,6 +126,8 @@ async function detectSuggested(ctx: MutationCtx, user: Doc<"users">, now: number
     if (!t.matchedBenefitId) continue;
     const benefit = await ctx.db.get(t.matchedBenefitId);
     if (!benefit || benefit.archivedAt) continue;
+    const card = await ctx.db.get(benefit.userCardId);
+    if (card && card.notificationsEnabled === false) continue;
     const merchant = t.merchantName ?? t.name ?? "a recent charge";
     await insertIfNew(
       ctx,
