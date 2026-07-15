@@ -1064,9 +1064,16 @@ export const listConnections = query({
       .query("userCards")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .take(200);
-    const cardName = new Map<Id<"userCards">, string>(
-      cards.map((c) => [c._id, c.nickname ?? c.cardKey]),
-    );
+    // Display name: proper catalog name ("Chase Sapphire Preferred®") over the
+    // raw cardKey; a user nickname wins over both.
+    const cardName = new Map<Id<"userCards">, string>();
+    for (const c of cards) {
+      const detail = await ctx.db
+        .query("cardDetails")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", c.cardKey))
+        .unique();
+      cardName.set(c._id, c.nickname ?? detail?.cardName ?? c.cardKey);
+    }
 
     return await Promise.all(
       items.map(async (item) => {
@@ -1079,6 +1086,7 @@ export const listConnections = query({
           institutionName: item.institutionName ?? "Bank",
           status: item.status,
           lastSyncedAt: item.lastSyncedAt ?? null,
+          connectedAt: item._creationTime,
           accounts: accounts.map((a) => ({
             accountId: a.accountId,
             mask: a.mask ?? null,

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E8E3D5; }
+  a { color: #E8680E; text-decoration: none; }
+  a:hover { color: #B4550B; }
+</style>
+</helmet>
+
+<section style="padding:48px 56px 96px;font-family:'Public Sans',Helvetica,Arial,sans-serif;color:#211D16;">
+  <div style="margin-bottom:28px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.07em;color:#6F6757;text-transform:uppercase;">Settings · Connected accounts</div>
+    <div style="font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-.01em;margin-top:6px;">Link bank accounts to wallet cards — all states, web + mobile</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;">
+
+    <!-- ═══════ 1a Web · Empty state ═══════ -->
+    <div id="1a" style="width:640px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1a</span><span style="font-size:13px;color:#6F6757;">Web · Empty state — nothing connected</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:12px;padding:28px 32px 36px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;margin-bottom:12px;">Connected accounts</div>
+        <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:18px;padding:48px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <div style="width:48px;height:48px;border-radius:50%;background:#FBEAD5;display:flex;align-items:center;justify-content:center;color:#E8680E;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"></path><path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"></path></svg>
+          </div>
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:21px;font-weight:600;letter-spacing:-.01em;margin-top:16px;">Nothing connected yet</div>
+          <div style="font-size:14px;line-height:1.55;color:#6F6757;margin-top:8px;max-width:380px;">Connect a card account and OfferBee will auto-track its statement credits from your transactions — no more marking them by hand.</div>
+          <div style="display:inline-flex;align-items:center;gap:7px;background:#E8680E;color:#FFFFFF;font-size:14px;font-weight:600;padding:11px 20px;border-radius:11px;cursor:pointer;margin-top:22px;" style-hover="background:#D45E0B;">
+            <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+            Connect a card
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;margin-top:16px;">Read-only access · Disconnect anytime</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ 1b Web · Connected, linked + unlinked ═══════ -->
+    <div id="1b" style="width:640px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1b</span><span style="font-size:13px;color:#6F6757;">Web · Connected — linked rows + one needing attention</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:12px;padding:28px 32px 36px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;margin-bottom:12px;">Connected accounts</div>
+        <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:18px;">
+          <!-- institution header -->
+          <div style="display:flex;align-items:center;gap:14px;padding:18px 24px;border-bottom:1px solid #ECE5D6;">
+            <div style="width:40px;height:40px;border-radius:10px;background:#0E4C96;color:#FFFFFF;font-family:'Source Serif 4',Georgia,serif;font-size:19px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">C</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:16px;font-weight:600;">Chase</div>
+              <div style="font-size:12.5px;color:#6F6757;margin-top:1px;">4 accounts · connected Jul 2 · <span style="color:#9A927F;">1 not linked</span></div>
+            </div>
+            <div style="color:#C0503F;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;" style-hover="text-decoration:underline;">Disconnect</div>
+          </div>
+          <!-- rows -->
+          <div style="display:flex;align-items:center;gap:16px;padding:13px 24px;border-bottom:1px solid #ECE5D6;">
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Credit card</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#9A927F;">····0704</span></div>
+            <div style="width:280px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #E0B48A;background:#FDF6EC;border-radius:10px;padding:9px 12px;cursor:pointer;">
+              <span style="font-size:13.5px;font-weight:500;color:#B4693A;">Not linked — choose a card</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#B4693A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;padding:13px 24px;border-bottom:1px solid #ECE5D6;">
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Credit card</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#9A927F;">····1508</span></div>
+            <div style="width:280px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #E8E1D2;background:#FFFEFB;border-radius:10px;padding:9px 12px;cursor:pointer;" style-hover="border-color:#D9CFB8;">
+              <span style="font-size:13.5px;font-weight:500;color:#211D16;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Chase Sapphire Preferred®</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;padding:13px 24px;border-bottom:1px solid #ECE5D6;">
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Credit card</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#9A927F;">····7059</span></div>
+            <div style="width:280px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #E8E1D2;background:#FFFEFB;border-radius:10px;padding:9px 12px;cursor:pointer;" style-hover="border-color:#D9CFB8;">
+              <span style="font-size:13.5px;font-weight:500;color:#211D16;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Chase Freedom Flex®</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;padding:13px 24px;">
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Credit card</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#9A927F;">····7578</span></div>
+            <div style="width:280px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #E8E1D2;background:#FFFEFB;border-radius:10px;padding:9px 12px;cursor:pointer;" style-hover="border-color:#D9CFB8;">
+              <span style="font-size:13.5px;font-weight:500;color:#211D16;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Chase Freedom Unlimited®</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+            </div>
+          </div>
+          <!-- footer -->
+          <div style="border-top:1px solid #ECE5D6;padding:16px 24px 18px;">
+            <div style="display:inline-flex;align-items:center;gap:7px;background:#E8680E;color:#FFFFFF;font-size:14px;font-weight:600;padding:10px 18px;border-radius:11px;cursor:pointer;" style-hover="background:#D45E0B;">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+              Connect a card
+            </div>
+            <div style="font-size:12.5px;color:#6F6757;margin-top:10px;">Link a card so OfferBee can auto-track its statement credits from your transactions.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ 1c Web · Dropdown open ═══════ -->
+    <div id="1c" style="width:640px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1c</span><span style="font-size:13px;color:#6F6757;">Web · Link selector open — grouped dropdown, styled (not native)</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:12px;padding:28px 32px 36px;">
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;margin-bottom:12px;">Connected accounts</div>
+        <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:18px;">
+          <div style="display:flex;align-items:center;gap:14px;padding:18px 24px;border-bottom:1px solid #ECE5D6;">
+            <div style="width:40px;height:40px;border-radius:10px;background:#0E4C96;color:#FFFFFF;font-family:'Source Serif 4',Georgia,serif;font-size:19px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">C</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:16px;font-weight:600;">Chase</div>
+              <div style="font-size:12.5px;color:#6F6757;margin-top:1px;">4 accounts · connected Jul 2</div>
+            </div>
+            <div style="color:#C0503F;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;">Disconnect</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;padding:13px 24px;border-bottom:1px solid #ECE5D6;">
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Credit card</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#9A927F;">····0704</span></div>
+            <div style="width:280px;flex-shrink:0;position:relative;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #E8680E;background:#FFFEFB;border-radius:10px;padding:9px 12px;cursor:pointer;box-shadow:0 0 0 3px #FBEAD5;">
+                <span style="font-size:13.5px;font-weight:500;color:#9A927F;">Not linked</span>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+              </div>
+              <!-- popover -->
+              <div style="position:absolute;top:calc(100% + 6px);right:0;width:300px;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:14px;box-shadow:0 16px 48px rgba(33,29,22,.18);padding:6px;z-index:10;">
+                <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;background:#F5F1E8;">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M3 8.5 6.5 12 13 4.5"></path></svg>
+                  <span style="font-size:13.5px;font-weight:600;color:#211D16;">Not linked</span>
+                </div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:12px 10px 5px;">Your wallet</div>
+                <div style="display:flex;align-items:center;gap:9px;padding:9px 10px 9px 33px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;color:#211D16;" style-hover="background:#F5F1E8;">Chase Sapphire Preferred®</div>
+                <div style="display:flex;align-items:center;gap:9px;padding:9px 10px 9px 33px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;color:#211D16;" style-hover="background:#F5F1E8;">Chase Freedom Unlimited®</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 10px 9px 33px;border-radius:9px;font-size:13.5px;font-weight:500;color:#9A927F;cursor:default;">Chase Freedom Flex®<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;">Linked to ····7059</span></div>
+                <div style="height:1px;background:#ECE5D6;margin:6px 4px;"></div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:6px 10px 5px;">Add new — Chase</div>
+                <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;" style-hover="background:#F5F1E8;">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#E8680E" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+                  <div>
+                    <div style="font-size:13.5px;font-weight:600;color:#211D16;">Sapphire Reserve®</div>
+                    <div style="font-size:12px;color:#6F6757;margin-top:1px;">Adds this card to your wallet</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;padding:13px 24px;border-bottom:1px solid #ECE5D6;">
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Credit card</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#9A927F;">····1508</span></div>
+            <div style="width:280px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #E8E1D2;background:#FFFEFB;border-radius:10px;padding:9px 12px;opacity:.55;">
+              <span style="font-size:13.5px;font-weight:500;color:#211D16;">Chase Sapphire Preferred®</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;padding:13px 24px;">
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Credit card</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:500;color:#9A927F;">····7059</span></div>
+            <div style="width:280px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #E8E1D2;background:#FFFEFB;border-radius:10px;padding:9px 12px;opacity:.55;">
+              <span style="font-size:13.5px;font-weight:500;color:#211D16;">Chase Freedom Flex®</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+            </div>
+          </div>
+          <div style="border-top:1px solid #ECE5D6;padding:16px 24px 18px;">
+            <div style="display:inline-flex;align-items:center;gap:7px;background:#E8680E;color:#FFFFFF;font-size:14px;font-weight:600;padding:10px 18px;border-radius:11px;cursor:pointer;">
+              <svg width="13" height="13" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+              Connect a card
+            </div>
+            <div style="font-size:12.5px;color:#6F6757;margin-top:10px;">Link a card so OfferBee can auto-track its statement credits from your transactions.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ 1d Mobile · Empty ═══════ -->
+    <div id="1d" style="width:390px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1d</span><span style="font-size:13px;color:#6F6757;">Mobile · Empty state</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:34px;box-shadow:0 18px 50px rgba(33,29,22,.14);overflow:hidden;">
+        <div style="padding:24px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:3px;color:#E8680E;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Review</span></div>
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;">Settings</div>
+          <div style="width:74px;"></div>
+        </div>
+        <div style="padding:12px 16px 28px;display:flex;flex-direction:column;gap:20px;">
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;padding:0 6px 8px;">Connected accounts</div>
+            <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;padding:32px 24px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+              <div style="width:44px;height:44px;border-radius:50%;background:#FBEAD5;display:flex;align-items:center;justify-content:center;color:#E8680E;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"></path><path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"></path></svg>
+              </div>
+              <div style="font-family:'Source Serif 4',Georgia,serif;font-size:18px;font-weight:600;margin-top:13px;">Nothing connected yet</div>
+              <div style="font-size:13px;line-height:1.55;color:#6F6757;margin-top:6px;">Connect a card account and OfferBee will auto-track its statement credits for you.</div>
+              <div style="align-self:stretch;background:#E8680E;color:#FFFFFF;font-size:14.5px;font-weight:600;text-align:center;padding:13px;border-radius:12px;cursor:pointer;margin-top:18px;">+ Connect a card</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;margin-top:13px;">Read-only access · Disconnect anytime</div>
+            </div>
+          </div>
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;padding:0 6px 8px;">Plan</div>
+            <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px;">
+              <div style="flex:1;"><div style="font-size:15px;font-weight:600;">OfferBee Pro</div><div style="font-size:12.5px;color:#6F6757;margin-top:1px;">$4/mo · unlimited cards · renews Aug 12</div></div>
+              <div style="background:#FBEAD5;color:#E8680E;font-size:12px;font-weight:600;padding:7px 12px;border-radius:9px;">Manage</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ 1e Mobile · Connected ═══════ -->
+    <div id="1e" style="width:390px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1e</span><span style="font-size:13px;color:#6F6757;">Mobile · Connected — tap a row to change its link</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:34px;box-shadow:0 18px 50px rgba(33,29,22,.14);overflow:hidden;">
+        <div style="padding:24px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:3px;color:#E8680E;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Review</span></div>
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;">Settings</div>
+          <div style="width:74px;"></div>
+        </div>
+        <div style="padding:12px 16px 28px;display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;padding:0 6px 8px;">Connected accounts</div>
+            <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+              <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #ECE5D6;">
+                <div style="width:34px;height:34px;border-radius:9px;background:#0E4C96;color:#FFFFFF;font-family:'Source Serif 4',Georgia,serif;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">C</div>
+                <div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:600;">Chase</div><div style="font-size:12px;color:#6F6757;">4 accounts · connected Jul 2</div></div>
+                <div style="color:#C0503F;font-size:12.5px;font-weight:600;cursor:pointer;flex-shrink:0;">Disconnect</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:13px 14px 13px 16px;border-bottom:1px solid #ECE5D6;cursor:pointer;">
+                <div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;">Credit card</div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9A927F;margin-top:1px;">····0704</div></div>
+                <span style="font-size:13px;font-weight:500;color:#B4693A;background:#F6E9DF;padding:5px 10px;border-radius:8px;">Not linked</span>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:13px 14px 13px 16px;border-bottom:1px solid #ECE5D6;cursor:pointer;">
+                <div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;">Credit card</div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9A927F;margin-top:1px;">····1508</div></div>
+                <span style="font-size:13px;font-weight:500;color:#211D16;text-align:right;">Sapphire Preferred®</span>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:13px 14px 13px 16px;border-bottom:1px solid #ECE5D6;cursor:pointer;">
+                <div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;">Credit card</div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9A927F;margin-top:1px;">····7059</div></div>
+                <span style="font-size:13px;font-weight:500;color:#211D16;text-align:right;">Freedom Flex®</span>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;padding:13px 14px 13px 16px;cursor:pointer;">
+                <div style="flex:1;min-width:0;"><div style="font-size:14.5px;font-weight:600;">Credit card</div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9A927F;margin-top:1px;">····7578</div></div>
+                <span style="font-size:13px;font-weight:500;color:#211D16;text-align:right;">Freedom Unlimited®</span>
+                <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#9A927F" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10"></path></svg>
+              </div>
+            </div>
+          </div>
+          <div style="background:#E8680E;color:#FFFFFF;font-size:14.5px;font-weight:600;text-align:center;padding:13px;border-radius:12px;cursor:pointer;">+ Connect a card</div>
+          <div style="text-align:center;font-size:12px;color:#6F6757;padding:0 12px;">Link a card so OfferBee can auto-track its statement credits from your transactions.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════ 1f Mobile · Link picker sheet ═══════ -->
+    <div id="1f" style="width:390px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1f</span><span style="font-size:13px;color:#6F6757;">Mobile · Link picker — bottom sheet (replaces web dropdown)</span></div>
+      <div style="position:relative;height:730px;background:#FBF8F0;border:1px solid #E8E1D2;border-radius:34px;box-shadow:0 18px 50px rgba(33,29,22,.14);overflow:hidden;">
+        <!-- dimmed settings behind -->
+        <div style="padding:24px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+          <div style="display:flex;align-items:center;gap:3px;color:#E8680E;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Review</span></div>
+          <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;">Settings</div>
+          <div style="width:74px;"></div>
+        </div>
+        <div style="padding:12px 16px;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;padding:0 6px 8px;">Connected accounts</div>
+          <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid #ECE5D6;">
+              <div style="width:34px;height:34px;border-radius:9px;background:#0E4C96;color:#FFFFFF;font-family:'Source Serif 4',Georgia,serif;font-size:16px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">C</div>
+              <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Chase</div><div style="font-size:12px;color:#6F6757;">4 accounts</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;">
+              <div style="flex:1;"><div style="font-size:14.5px;font-weight:600;">Credit card</div><div style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9A927F;margin-top:1px;">····0704</div></div>
+              <span style="font-size:13px;font-weight:500;color:#B4693A;background:#F6E9DF;padding:5px 10px;border-radius:8px;">Not linked</span>
+            </div>
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,.42);"></div>
+        <!-- sheet -->
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#FBF8F0;border-radius:22px 22px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.25);padding-bottom:22px;">
+          <div style="display:flex;justify-content:center;padding:10px 0 4px;"><div style="width:36px;height:4px;border-radius:2px;background:#D8D2C2;"></div></div>
+          <div style="text-align:center;padding:4px 20px 12px;">
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;">Link credit card ····0704</div>
+            <div style="font-size:12.5px;color:#6F6757;margin-top:2px;">Chase · transactions will auto-track this card's credits</div>
+          </div>
+          <div style="margin:0 16px;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid #ECE5D6;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#E8680E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M3 8.5 6.5 12 13 4.5"></path></svg>
+              <span style="font-size:14.5px;font-weight:600;">Not linked</span>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:12px 16px 6px;">Your wallet</div>
+            <div style="padding:12px 16px 12px 41px;border-bottom:1px solid #ECE5D6;font-size:14.5px;font-weight:500;cursor:pointer;">Chase Sapphire Preferred®</div>
+            <div style="padding:12px 16px 12px 41px;border-bottom:1px solid #ECE5D6;font-size:14.5px;font-weight:500;cursor:pointer;">Chase Freedom Unlimited®</div>
+            <div style="padding:12px 16px 12px 41px;border-bottom:1px solid #ECE5D6;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14.5px;font-weight:500;color:#9A927F;">Chase Freedom Flex®<span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;">Linked ····7059</span></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:12px 16px 6px;">Add new — Chase</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="#E8680E" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+              <div><div style="font-size:14.5px;font-weight:600;">Sapphire Reserve®</div><div style="font-size:12px;color:#6F6757;margin-top:1px;">Adds this card to your wallet</div></div>
+            </div>
+          </div>
+          <div style="margin:12px 16px 0;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:14px;text-align:center;padding:13px;font-size:15px;font-weight:600;color:#E8680E;cursor:pointer;">Cancel</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+</body>
+</html>
