@@ -24,6 +24,7 @@ import type * as onboarding from "../onboarding.js";
 import type * as onboardingCatalog from "../onboardingCatalog.js";
 import type * as plaid from "../plaid.js";
 import type * as plaidCardMap from "../plaidCardMap.js";
+import type * as plaidDetect from "../plaidDetect.js";
 import type * as plaidLlm from "../plaidLlm.js";
 import type * as plaidMatch from "../plaidMatch.js";
 import type * as push from "../push.js";
@@ -62,6 +63,7 @@ declare const fullApi: ApiFromModules<{
   onboardingCatalog: typeof onboardingCatalog;
   plaid: typeof plaid;
   plaidCardMap: typeof plaidCardMap;
+  plaidDetect: typeof plaidDetect;
   plaidLlm: typeof plaidLlm;
   plaidMatch: typeof plaidMatch;
   push: typeof push;
