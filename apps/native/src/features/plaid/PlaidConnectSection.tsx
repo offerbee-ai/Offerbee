@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -9,7 +9,7 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 
-import { Button, Card, Icon, SectionLabel, Text } from "@/components/ui";
+import { Button, Card, Icon, SearchField, SectionLabel, Text } from "@/components/ui";
 import { fontFamilies, radius, spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
 
@@ -49,6 +49,8 @@ type SheetTarget = {
   currentCardId: string | null;
 };
 
+type CatalogResult = { cardKey: string; cardName: string; cardIssuer: string };
+
 export function PlaidConnectSection() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -73,6 +75,68 @@ export function PlaidConnectSection() {
     if (fromQueue) setQueue((q) => q.slice(1));
     else setSheet(null);
   };
+
+  // Search-any-card: instant local-catalog hits + a debounced live API search
+  // (the add-card screen's hybrid pattern), so cards outside the popular list
+  // are linkable here without a detour through the wallet.
+  const [term, setTerm] = useState("");
+  const [apiResults, setApiResults] = useState<CatalogResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const searchCards = useAction(api.rapidapi.searchCards);
+  const reqId = useRef(0);
+
+  const trimmed = term.trim();
+  const searchActive = trimmed.length >= 2;
+  const localResults = useQuery(
+    api.catalog.searchCatalogLocal,
+    searchActive ? { term: trimmed } : "skip",
+  );
+
+  // The sheet stays mounted across opens — clear the search per target account.
+  const targetAccountId = target?.accountId ?? null;
+  useEffect(() => {
+    setTerm("");
+  }, [targetAccountId]);
+
+  useEffect(() => {
+    if (trimmed.length < 2) {
+      setApiResults([]);
+      setSearched(false);
+      setSearching(false);
+      return;
+    }
+    const id = ++reqId.current;
+    setApiResults([]);
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await searchCards({ term: trimmed });
+        if (id === reqId.current) {
+          setApiResults(r);
+          setSearched(true);
+        }
+      } catch {
+        if (id === reqId.current) setSearched(true);
+      } finally {
+        if (id === reqId.current) setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [trimmed, searchCards]);
+
+  // Owned cards are pickable in the wallet section above — drop them from
+  // search results instead of offering a second "add" path to the same card.
+  const ownedKeys = useMemo(
+    () => new Set(walletCards.map((c) => c.cardKey)),
+    [walletCards],
+  );
+  const searchResults = useMemo(() => {
+    const map = new Map<string, CatalogResult>();
+    for (const r of localResults ?? []) map.set(r.cardKey, r);
+    for (const r of apiResults) map.set(r.cardKey, r);
+    return Array.from(map.values()).filter((r) => !ownedKeys.has(r.cardKey));
+  }, [localResults, apiResults, ownedKeys]);
 
   if (configured === false) {
     return (
@@ -593,48 +657,118 @@ export function PlaidConnectSection() {
                     </>
                   )}
 
-                  {/* Add new — {institution} */}
-                  {catalogGroupsFor(target.institutionName).map((g) => {
-                    const notOwned = g.cards.filter((c) => !c.owned);
-                    if (notOwned.length === 0) return null;
-                    return (
-                      <View key={g.issuer}>
-                        {monoLabel(`Add new — ${g.issuer}`)}
-                        {notOwned.map((c, i) => (
-                          <Pressable
-                            key={c.cardKey}
-                            disabled={picking}
-                            onPress={() =>
-                              void addAndLink(target.accountId, c.cardKey)
-                            }
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              gap: 10,
-                              paddingHorizontal: spacing.base,
-                              paddingVertical: 12,
-                              borderBottomWidth: i === notOwned.length - 1 ? 0 : 1,
-                              borderBottomColor: colors.separator,
-                            }}
-                          >
-                            <Icon name="plus" size={15} color="accent" />
-                            <View style={{ flexShrink: 1 }}>
-                              <Text variant="body" style={{ fontSize: 14.5 }}>
-                                {c.cardName}
-                              </Text>
-                              <Text
-                                variant="caption"
-                                color="secondary"
-                                style={{ marginTop: 1 }}
-                              >
-                                Adds this card to your wallet
-                              </Text>
-                            </View>
-                          </Pressable>
-                        ))}
-                      </View>
-                    );
-                  })}
+                  {/* Add new: search the full catalog, or browse the issuer's
+                      popular cards while the input is empty. */}
+                  <View
+                    style={{
+                      paddingHorizontal: spacing.sm,
+                      paddingTop: spacing.md,
+                    }}
+                  >
+                    <SearchField
+                      value={term}
+                      onChangeText={setTerm}
+                      placeholder="Search any card…"
+                    />
+                  </View>
+
+                  {searchActive ? (
+                    <View>
+                      {monoLabel("Add new — search")}
+                      {searchResults.map((c, i) => (
+                        <Pressable
+                          key={c.cardKey}
+                          disabled={picking}
+                          onPress={() =>
+                            void addAndLink(target.accountId, c.cardKey)
+                          }
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            gap: 10,
+                            paddingHorizontal: spacing.base,
+                            paddingVertical: 12,
+                            borderBottomWidth:
+                              i === searchResults.length - 1 ? 0 : 1,
+                            borderBottomColor: colors.separator,
+                          }}
+                        >
+                          <Icon name="plus" size={15} color="accent" />
+                          <View style={{ flexShrink: 1 }}>
+                            <Text variant="body" style={{ fontSize: 14.5 }}>
+                              {c.cardName}
+                            </Text>
+                            <Text
+                              variant="caption"
+                              color="secondary"
+                              numberOfLines={1}
+                              style={{ marginTop: 1 }}
+                            >
+                              {c.cardIssuer} · adds this card to your wallet
+                            </Text>
+                          </View>
+                        </Pressable>
+                      ))}
+                      {searchResults.length === 0 && (
+                        <Text
+                          variant="subtext"
+                          color="secondary"
+                          style={{
+                            paddingHorizontal: spacing.base,
+                            paddingVertical: 12,
+                          }}
+                        >
+                          {searching || localResults === undefined
+                            ? "Searching…"
+                            : searched
+                              ? "No matches — try a different card name."
+                              : "Searching…"}
+                        </Text>
+                      )}
+                    </View>
+                  ) : (
+                    catalogGroupsFor(target.institutionName).map((g) => {
+                      const notOwned = g.cards.filter((c) => !c.owned);
+                      if (notOwned.length === 0) return null;
+                      return (
+                        <View key={g.issuer}>
+                          {monoLabel(`Add new — ${g.issuer}`)}
+                          {notOwned.map((c, i) => (
+                            <Pressable
+                              key={c.cardKey}
+                              disabled={picking}
+                              onPress={() =>
+                                void addAndLink(target.accountId, c.cardKey)
+                              }
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 10,
+                                paddingHorizontal: spacing.base,
+                                paddingVertical: 12,
+                                borderBottomWidth: i === notOwned.length - 1 ? 0 : 1,
+                                borderBottomColor: colors.separator,
+                              }}
+                            >
+                              <Icon name="plus" size={15} color="accent" />
+                              <View style={{ flexShrink: 1 }}>
+                                <Text variant="body" style={{ fontSize: 14.5 }}>
+                                  {c.cardName}
+                                </Text>
+                                <Text
+                                  variant="caption"
+                                  color="secondary"
+                                  style={{ marginTop: 1 }}
+                                >
+                                  Adds this card to your wallet
+                                </Text>
+                              </View>
+                            </Pressable>
+                          ))}
+                        </View>
+                      );
+                    })
+                  )}
                 </View>
               </ScrollView>
 
