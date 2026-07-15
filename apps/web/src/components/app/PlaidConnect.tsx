@@ -353,7 +353,17 @@ export function PlaidConnect() {
   const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const { startConnect, busy } = usePlaidCardLink({
-    onDetected: setReviewResult,
+    onDetected: (result) => {
+      // Depository-only connect: nothing to review — explain why instead of
+      // opening an empty "0 cards found" dialog with a dead CTA.
+      if (result.accounts.length === 0) {
+        setError(
+          "No credit cards found at that bank — accounts other than credit cards aren't tracked.",
+        );
+        return;
+      }
+      setReviewResult(result);
+    },
     onFail: (reason, message) => {
       if (reason === "error") setError(message ?? "Failed to connect");
     },
@@ -446,9 +456,15 @@ export function PlaidConnect() {
   // the old per-account prompts). DetectedCardsReview owns confirm/skip; keyed
   // by itemId so a second connect in the same session seeds fresh row state.
   const reviewModal = reviewResult && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4">
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex justify-center overflow-y-auto p-4"
+    >
       <div className="absolute inset-0 bg-black/40" />
-      <div className="relative w-full max-w-[560px]">
+      {/* my-auto (not items-center) centers when short but lets a review
+          taller than the viewport scroll from the top instead of clipping. */}
+      <div className="relative my-auto w-full max-w-[560px]">
         <DetectedCardsReview
           key={reviewResult.itemId}
           result={reviewResult}
