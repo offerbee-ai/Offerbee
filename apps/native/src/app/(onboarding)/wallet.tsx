@@ -6,18 +6,35 @@ import * as Haptics from "expo-haptics";
 import { api } from "@packages/backend/convex/_generated/api";
 import { ONBOARDING_CARDS } from "@packages/backend/convex/onboardingCatalog";
 
-import { Card, CardArt, Icon, PillButton, SearchField, Text } from "@/components/ui";
+import {
+  Card,
+  CardArt,
+  Icon,
+  PillButton,
+  SearchField,
+  Text,
+} from "@/components/ui";
 import { radius, spacing, useTheme } from "@/theme";
+import { useCredits } from "@/features/credits/CreditsProvider";
 import { usd } from "@/features/credits/derive";
 import { useOnboarding } from "@/features/onboarding/OnboardingProvider";
 import { StepChrome } from "@/features/onboarding/StepChrome";
 
+// Set when the Plaid gate (connect.tsx) fell back here — the switch is never
+// silent (design rule #1). Fixed copy per variant, no raw error text.
+const NOTICE_COPY: Record<string, string> = {
+  "1": "Couldn't connect — pick your cards manually instead.",
+  "2": "No credit cards found at that bank — pick your cards manually instead.",
+};
+
 export default function OnboardingWallet() {
   const { colors } = useTheme();
-  // Set when the Plaid gate (connect.tsx) fell back here after a failed or
-  // empty connect — the switch is never silent (design rule #1). Fixed copy.
   const { notice } = useLocalSearchParams<{ notice?: string }>();
   const { cards, toggleCard, setStep } = useOnboarding();
+  // Plaid-confirmed cards live in userCards (walletCards), not the curated
+  // onboarding selection — a Plaid-path user landing here must not be stuck
+  // behind a disabled Continue.
+  const { walletCards } = useCredits();
   const art = useQuery(api.catalog.onboardingCardArt);
   const win = useWindowDimensions();
   const [query, setQuery] = useState("");
@@ -31,7 +48,8 @@ export default function OnboardingWallet() {
   const results = useMemo(() => {
     if (!q) return [];
     return ONBOARDING_CARDS.filter(
-      (c) => c.name.toLowerCase().includes(q) || c.issuer.toLowerCase().includes(q),
+      (c) =>
+        c.name.toLowerCase().includes(q) || c.issuer.toLowerCase().includes(q),
     );
   }, [q]);
 
@@ -40,7 +58,7 @@ export default function OnboardingWallet() {
       step={1}
       title="Which cards are in your wallet?"
       subtitle="No bank logins — just pick the cards you hold. You can add more later."
-      continueDisabled={cards.length === 0}
+      continueDisabled={cards.length === 0 && walletCards.length === 0}
       onContinue={() => router.replace("/(onboarding)/spending")}
     >
       {notice ? (
@@ -60,7 +78,7 @@ export default function OnboardingWallet() {
         >
           <Icon name="alert" size={16} color="#F5B14D" />
           <Text variant="subtext" color={colors.background} style={{ flex: 1 }}>
-            Couldn&apos;t connect — pick your cards manually instead.
+            {NOTICE_COPY[notice] ?? NOTICE_COPY["1"]}
           </Text>
         </View>
       ) : null}
@@ -128,10 +146,19 @@ export default function OnboardingWallet() {
                   </View>
                 ) : null}
               </View>
-              <Text variant="body" numberOfLines={1} style={{ fontSize: 14, marginTop: spacing.sm }}>
+              <Text
+                variant="body"
+                numberOfLines={1}
+                style={{ fontSize: 14, marginTop: spacing.sm }}
+              >
                 {card.name}
               </Text>
-              <Text variant="subtext" color="tertiary" numberOfLines={1} style={{ marginTop: 1 }}>
+              <Text
+                variant="subtext"
+                color="tertiary"
+                numberOfLines={1}
+                style={{ marginTop: 1 }}
+              >
                 {usd(fee)}/yr · {usd(card.credits)} value
               </Text>
             </Pressable>
@@ -141,7 +168,11 @@ export default function OnboardingWallet() {
 
       {/* Search the full catalog */}
       <View style={{ marginTop: spacing.lg, gap: spacing.md }}>
-        <SearchField placeholder="Search 65+ cards" value={query} onChangeText={setQuery} />
+        <SearchField
+          placeholder="Search 65+ cards"
+          value={query}
+          onChangeText={setQuery}
+        />
         {q ? (
           results.length > 0 ? (
             <Card padded={false}>
@@ -171,7 +202,12 @@ export default function OnboardingWallet() {
                       <Text variant="body" numberOfLines={1}>
                         {card.name}
                       </Text>
-                      <Text variant="subtext" color="tertiary" numberOfLines={1} style={{ marginTop: 1 }}>
+                      <Text
+                        variant="subtext"
+                        color="tertiary"
+                        numberOfLines={1}
+                        style={{ marginTop: 1 }}
+                      >
                         {card.issuer}
                       </Text>
                     </View>
@@ -189,7 +225,11 @@ export default function OnboardingWallet() {
             </Card>
           ) : (
             <Card>
-              <Text variant="bodyRegular" color="secondary" style={{ textAlign: "center" }}>
+              <Text
+                variant="bodyRegular"
+                color="secondary"
+                style={{ textAlign: "center" }}
+              >
                 No cards match — try an issuer name.
               </Text>
             </Card>

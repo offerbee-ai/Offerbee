@@ -22,13 +22,14 @@ import { StepChrome } from "@/features/onboarding/StepChrome";
 // Plaid failure. Expo Go / unconfigured deployments never see the gate —
 // they're routed straight to the manual picker since Connect can't work there.
 
-// The manual fallback, optionally carrying the fixed "couldn't connect"
-// banner (design state 1c) — wallet.tsx keeps the one notice string.
-const toManual = (notice = false) =>
+// The manual fallback, optionally carrying a fixed fallback banner (design
+// state 1c): "1" = couldn't connect, "2" = no credit cards found. Copy lives
+// in wallet.tsx.
+const toManual = (notice?: "1" | "2") =>
   notice
     ? router.replace({
         pathname: "/(onboarding)/wallet",
-        params: { notice: "1" },
+        params: { notice },
       })
     : router.replace("/(onboarding)/wallet");
 
@@ -45,9 +46,9 @@ export default function OnboardingConnect() {
   const { startConnect, busy } = usePlaidCardLink({
     onDetected: (r) => {
       if (r.accounts.length === 0) {
-        // Nothing trackable detected — fall back to manual with the notice
-        // so the switch is never silent (design rule #1).
-        toManual(true);
+        // Nothing trackable detected — fall back to manual with the
+        // empty-detection notice so the switch is never silent (rule #1).
+        toManual("2");
         return;
       }
       setResult(r);
@@ -57,7 +58,7 @@ export default function OnboardingConnect() {
         // Raw Plaid/backend messages aren't user-appropriate — log them for
         // debugging and fall back to manual with the fixed copy (state 1c).
         if (message) console.error("Plaid connect failed:", message);
-        toManual(true);
+        toManual("1");
       }
       // "exit": user closed Link on purpose — stay on the gate.
     },
@@ -76,7 +77,14 @@ export default function OnboardingConnect() {
   // a plain replace is enough.
   if (result) {
     return (
-      <Screen fixed style={{ paddingTop: insets.top + spacing.lg }}>
+      <Screen
+        fixed
+        style={{
+          paddingTop: insets.top + spacing.lg,
+          // "Skip for now" must clear the home indicator.
+          paddingBottom: Math.max(insets.bottom, spacing.xl),
+        }}
+      >
         <DetectedCardsReview
           result={result}
           onDone={() => router.replace("/(onboarding)/spending")}
@@ -88,16 +96,14 @@ export default function OnboardingConnect() {
   // Effect above is redirecting; render nothing in the meantime.
   if (skipGate) return null;
 
-  // StepChrome always renders its Continue bar, so Continue doubles as the
-  // skip action ("Add manually" → manual picker, no notice) — it must never
-  // advance past step 1 from the gate.
+  // Action bar hidden on this step (design 1a) — the card's skip link is the
+  // only manual affordance; the gate never advances past step 1 by itself.
   return (
     <StepChrome
       step={1}
       title="Connect your bank"
       subtitle="We'll find your cards and track their credits automatically."
-      continueLabel="Add manually"
-      onContinue={() => toManual()}
+      hideBar
     >
       {configured === undefined ? (
         <Skeleton height={320} borderRadius={radius.cardLg} />
