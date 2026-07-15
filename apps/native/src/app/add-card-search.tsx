@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 
@@ -9,6 +9,7 @@ import {
   CardArt,
   Chip,
   EmptyState,
+  Icon,
   IconButton,
   ListRow,
   PillButton,
@@ -18,13 +19,17 @@ import {
   Skeleton,
   Text,
 } from "@/components/ui";
-import { spacing } from "@/theme";
+import { radius, spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
 import { usd } from "@/features/credits/derive";
 
 type SearchResult = { cardKey: string; cardName: string; cardIssuer: string };
 
 export default function AddCardScreen() {
+  const { colors } = useTheme();
+  // Set when the chooser fell back here after a Plaid connect failure —
+  // the switch is never silent (design rule #1). Fixed copy, no error text.
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const [term, setTerm] = useState("");
   const [issuerFilter, setIssuerFilter] = useState<string | null>(null);
   const [apiResults, setApiResults] = useState<SearchResult[]>([]);
@@ -131,6 +136,28 @@ export default function AddCardScreen() {
       </View>
 
       <SearchField placeholder="Search premium cards" value={term} onChangeText={setTerm} autoFocus />
+
+      {notice ? (
+        // Ink toast — same treatment as the onboarding wallet fallback
+        // (design state 1c). Icon color is content, not a theme token.
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+            backgroundColor: colors.ink,
+            borderRadius: radius.card,
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.base,
+            marginTop: spacing.md,
+          }}
+        >
+          <Icon name="alert" size={16} color="#F5B14D" />
+          <Text variant="subtext" color={colors.background} style={{ flex: 1 }}>
+            Couldn&apos;t connect — search for your cards instead.
+          </Text>
+        </View>
+      ) : null}
 
       {searching ? (
         <>

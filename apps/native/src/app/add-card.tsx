@@ -15,7 +15,7 @@ import { DetectedCardsReview } from "@/features/plaid/DetectedCardsReview";
 
 // Add-card chooser (Design/design_handoff_card_add, state 2b) — the entry
 // point for "+ Add card" everywhere. Plaid connect is the recommended path;
-// manual catalog search (add-card-search.tsx, unchanged) is the fallback.
+// manual catalog search (add-card-search.tsx) is the fallback.
 // Expo Go and unconfigured deployments never see the chooser — they're
 // routed straight to manual search since Connect can't work there.
 
@@ -36,9 +36,14 @@ export default function AddCardScreen() {
       setResult(r);
     },
     onFail: (reason) => {
-      // A real error never dead-ends here — fall back to manual search.
-      // A plain user cancel ("exit") just stays on the chooser.
-      if (reason === "error") router.replace("/add-card-search");
+      // A real error never dead-ends here — fall back to manual search, with
+      // a notice so the switch is never silent (design rule #1). A plain
+      // user cancel ("exit") just stays on the chooser.
+      if (reason === "error")
+        router.replace({
+          pathname: "/add-card-search",
+          params: { notice: "1" },
+        });
     },
   });
 
