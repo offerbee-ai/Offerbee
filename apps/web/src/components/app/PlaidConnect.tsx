@@ -124,7 +124,7 @@ export function LinkOptions({
   catalogGroups: CatalogGroup[];
   picking: boolean;
   onSetLink: (userCardId: Id<"userCards"> | null) => void;
-  onAddLink: (cardKey: string) => void;
+  onAddLink: (cardKey: string, cardName?: string) => void;
   showNotLinked?: boolean;
 }) {
   // Search-any-card: instant local-catalog hits + a debounced live API search
@@ -263,7 +263,7 @@ export function LinkOptions({
               key={c.cardKey}
               type="button"
               disabled={picking}
-              onClick={() => onAddLink(c.cardKey)}
+              onClick={() => onAddLink(c.cardKey, c.cardName)}
               className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
             >
               <span className="text-accent">
@@ -304,7 +304,7 @@ export function LinkOptions({
                   key={c.cardKey}
                   type="button"
                   disabled={picking}
-                  onClick={() => onAddLink(c.cardKey)}
+                  onClick={() => onAddLink(c.cardKey, c.cardName)}
                   className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
                 >
                   <span className="text-accent">

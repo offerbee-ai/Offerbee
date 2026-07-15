@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { usePlaidLink } from "react-plaid-link";
+import {
+  usePlaidLink,
+  type PlaidLinkError,
+  type PlaidLinkOnSuccessMetadata,
+} from "react-plaid-link";
 import { useAction } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 
@@ -38,14 +42,12 @@ export function usePlaidCardLink({
   const openedFor = useRef<string | null>(null);
 
   const onSuccess = useCallback(
-    async (publicToken: string, metadata: any) => {
+    async (publicToken: string, metadata: PlaidLinkOnSuccessMetadata) => {
       try {
-        const institutionName = metadata?.institution?.name as
-          | string
-          | undefined;
+        const institutionName = metadata.institution?.name;
         const result = await exchange({
           publicToken,
-          institutionId: metadata?.institution?.institution_id,
+          institutionId: metadata.institution?.institution_id,
           institutionName,
         });
         onDetected(result);
@@ -60,14 +62,30 @@ export function usePlaidCardLink({
     [exchange, onDetected, onFail],
   );
 
-  const onExit = useCallback(() => {
-    setBusy(false);
-    setLinkToken(null);
-    openedFor.current = null;
-    onFail?.("exit");
-  }, [onFail]);
+  // Link closed — an exit with a PlaidLinkError is a failure, not a user
+  // cancel, so surface the message instead of swallowing it.
+  const onExit = useCallback(
+    (err: null | PlaidLinkError) => {
+      setBusy(false);
+      setLinkToken(null);
+      openedFor.current = null;
+      if (err) {
+        onFail?.(
+          "error",
+          err.display_message || err.error_message || undefined,
+        );
+      } else {
+        onFail?.("exit");
+      }
+    },
+    [onFail],
+  );
 
-  const { open, ready } = usePlaidLink({ token: linkToken, onSuccess, onExit });
+  const { open, ready, error } = usePlaidLink({
+    token: linkToken,
+    onSuccess,
+    onExit,
+  });
 
   // usePlaidLink needs the token up front, so fetch it, then auto-open once ready.
   useEffect(() => {
@@ -77,7 +95,22 @@ export function usePlaidCardLink({
     }
   }, [linkToken, ready, open]);
 
+  // Script-load failure: `ready` never turns true and onExit never fires, so
+  // without this `busy` would be stuck. Resetting linkToken keeps the effect
+  // from firing twice for the same failure.
+  useEffect(() => {
+    if (error && linkToken) {
+      /* eslint-disable react-hooks/set-state-in-effect -- reset Link state when the Plaid script fails to load (external-system error, no callback fires) */
+      setBusy(false);
+      setLinkToken(null);
+      /* eslint-enable react-hooks/set-state-in-effect */
+      openedFor.current = null;
+      onFail?.("error", error.message || "Failed to load Plaid");
+    }
+  }, [error, linkToken, onFail]);
+
   const startConnect = useCallback(async () => {
+    if (busy) return;
     setBusy(true);
     try {
       const { linkToken } = await createLinkToken({});
@@ -89,7 +122,7 @@ export function usePlaidCardLink({
         e instanceof Error ? e.message : "Failed to start Plaid",
       );
     }
-  }, [createLinkToken, onFail]);
+  }, [busy, createLinkToken, onFail]);
 
   return { startConnect, busy };
 }

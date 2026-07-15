@@ -47,7 +47,9 @@ const CheckGlyph = () => (
   </svg>
 );
 
-type RowState = { checked: boolean; cardKey: string | null };
+// `cardName` is set when the user picks explicitly (popover carries the name
+// with the key), so display never has to fall back to the raw cardKey slug.
+type RowState = { checked: boolean; cardKey: string | null; cardName?: string };
 
 function initialRows(
   accounts: DetectResult["accounts"],
@@ -58,6 +60,25 @@ function initialRows(
       checked: a.resolvedCardKey !== null,
       cardKey: a.resolvedCardKey,
     };
+  }
+  return rows;
+}
+
+// One card ↔ one account: checking a row claims its cardKey — any other
+// checked row holding the same key is unchecked (last pick wins, no dead
+// ends). Every path that checks a row (pick, add, toggle) goes through here.
+function claimCardKey(
+  prev: Record<string, RowState>,
+  accountId: string,
+  next: RowState,
+): Record<string, RowState> {
+  const rows = { ...prev, [accountId]: next };
+  if (next.checked && next.cardKey) {
+    for (const [id, r] of Object.entries(rows)) {
+      if (id !== accountId && r.checked && r.cardKey === next.cardKey) {
+        rows[id] = { ...r, checked: false };
+      }
+    }
   }
   return rows;
 }
@@ -128,8 +149,14 @@ export function DetectedCardsReview({
     return map;
   }, [popular, cards]);
 
-  const setRowCardKey = (accountId: string, cardKey: string) => {
-    setRows((prev) => ({ ...prev, [accountId]: { checked: true, cardKey } }));
+  const setRowCardKey = (
+    accountId: string,
+    cardKey: string,
+    cardName?: string,
+  ) => {
+    setRows((prev) =>
+      claimCardKey(prev, accountId, { checked: true, cardKey, cardName }),
+    );
     setOpenFor(null);
   };
 
@@ -137,7 +164,7 @@ export function DetectedCardsReview({
     setRows((prev) => {
       const row = prev[accountId];
       if (!row?.cardKey) return prev; // disabled until the row has a cardKey
-      return { ...prev, [accountId]: { ...row, checked: !row.checked } };
+      return claimCardKey(prev, accountId, { ...row, checked: !row.checked });
     });
   };
 
@@ -162,15 +189,13 @@ export function DetectedCardsReview({
 
   // The grouped popover used to resolve an ambiguous row — identical to the
   // one PlaidConnect's account rows open, minus "Not linked" (every row here
-  // needs a card).
+  // needs a card). The outside-click ref goes on the wrapper around trigger +
+  // popover (PlaidConnect's pattern) so clicking the open trigger closes it.
   const picker = (
     accountId: string,
     currentCardId: WalletCard["userCardId"] | null,
   ) => (
-    <div
-      ref={popoverRef}
-      className="absolute right-0 top-[calc(100%+6px)] z-20 max-h-[min(420px,60vh)] w-[300px] overflow-y-auto rounded-[14px] border border-border bg-surface p-[6px] shadow-[0_16px_48px_rgba(33,29,22,.18)]"
-    >
+    <div className="absolute right-0 top-[calc(100%+6px)] z-20 max-h-[min(420px,60vh)] w-[300px] overflow-y-auto rounded-[14px] border border-border bg-surface p-[6px] shadow-[0_16px_48px_rgba(33,29,22,.18)]">
       <LinkOptions
         currentCardId={currentCardId}
         cards={cards}
@@ -179,9 +204,11 @@ export function DetectedCardsReview({
         picking={false}
         onSetLink={(userCardId) => {
           const card = cards.find((c) => c.userCardId === userCardId);
-          if (card) setRowCardKey(accountId, card.cardKey);
+          if (card) setRowCardKey(accountId, card.cardKey, card.name);
         }}
-        onAddLink={(cardKey) => setRowCardKey(accountId, cardKey)}
+        onAddLink={(cardKey, cardName) =>
+          setRowCardKey(accountId, cardKey, cardName)
+        }
         showNotLinked={false}
       />
     </div>
@@ -233,7 +260,7 @@ export function DetectedCardsReview({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2">
                     <span className="truncate text-[14.5px] font-semibold text-warning">
-                      {acct.officialName ?? acct.name ?? "Card"}
+                      {acct.name ?? acct.officialName ?? "Credit card"}
                     </span>
                     {acct.mask && (
                       <span className="font-mono text-[12.5px] text-warning">
@@ -245,23 +272,32 @@ export function DetectedCardsReview({
                     {institutionName} didn&apos;t say which card this is.
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setOpenFor(isOpen ? null : acct.accountId)}
-                  className="shrink-0 text-[13px] font-semibold text-warning hover:underline"
+                <div
+                  className="relative shrink-0"
+                  ref={isOpen ? popoverRef : undefined}
                 >
-                  Choose which card →
-                </button>
-                {isOpen && picker(acct.accountId, null)}
+                  <button
+                    type="button"
+                    onClick={() => setOpenFor(isOpen ? null : acct.accountId)}
+                    className="text-[13px] font-semibold text-warning hover:underline"
+                  >
+                    Choose which card →
+                  </button>
+                  {isOpen && picker(acct.accountId, null)}
+                </div>
               </div>
             );
           }
 
           // Resolved — either matched automatically or picked via the popover.
+          // Never show the raw cardKey slug: user-picked name, then catalog
+          // name, then the bank-reported name while the catalog loads.
           const displayName =
-            (row.cardKey && nameForCardKey.get(row.cardKey)) ||
-            row.cardKey ||
-            (acct.officialName ?? acct.name ?? "Card");
+            row.cardName ??
+            (row.cardKey ? nameForCardKey.get(row.cardKey) : undefined) ??
+            acct.name ??
+            acct.officialName ??
+            "Credit card";
           const currentUserCardId =
             (row.cardKey &&
               cards.find((c) => c.cardKey === row.cardKey)?.userCardId) ||
@@ -304,7 +340,10 @@ export function DetectedCardsReview({
                 </div>
               </div>
               {ambiguous ? (
-                <div className="relative shrink-0">
+                <div
+                  className="relative shrink-0"
+                  ref={isOpen ? popoverRef : undefined}
+                >
                   <button
                     type="button"
                     onClick={() => setOpenFor(isOpen ? null : acct.accountId)}

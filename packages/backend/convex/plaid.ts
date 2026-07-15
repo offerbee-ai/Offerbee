@@ -326,6 +326,14 @@ export const confirmDetectedCards = action({
   },
   handler: async (ctx, { itemId, selections }) => {
     await requireUserId(ctx);
+    // One card ↔ one account: reject duplicate cardKeys or accountIds before
+    // any writes (the client prevents this, but don't trust it).
+    const keys = selections.map((s) => s.cardKey);
+    if (new Set(keys).size !== keys.length)
+      throw new Error("Each card can only be linked to one account");
+    const accountIds = selections.map((s) => s.accountId);
+    if (new Set(accountIds).size !== accountIds.length)
+      throw new Error("Each account can only be linked to one card");
     // Validate every key up front so a bad selection can't leave the batch
     // half-applied (each add+link is idempotent, but partial application with
     // an opaque error would silently drop the trailing selections).
