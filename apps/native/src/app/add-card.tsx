@@ -56,8 +56,12 @@ export default function AddCardScreen() {
   const done = () => (router.canGoBack() ? router.back() : router.replace("/cards"));
 
   if (result) {
+    // Fixed (non-scrolling) Screen: DetectedCardsReview owns its scroll
+    // region via its internal ScrollView (same as its bottom-sheet usage in
+    // PlaidConnectSection) — nesting it in a scrolling Screen would collapse
+    // that list and push the "Add N cards" CTA below it.
     return (
-      <Screen>
+      <Screen fixed>
         <View
           style={{
             paddingTop: spacing.lg,
@@ -73,8 +77,10 @@ export default function AddCardScreen() {
     );
   }
 
-  // Effect above will redirect; render nothing in the meantime so the
-  // chooser never flashes on Expo Go / unconfigured deployments.
+  // Effect above will redirect; render nothing in the meantime. Expo Go
+  // (isPlaidAvailable is known synchronously) never shows the chooser; an
+  // unconfigured deployment may show the loading skeleton for a moment
+  // before `configured` resolves to false and this kicks in.
   if (skipChooser) return null;
 
   return (
