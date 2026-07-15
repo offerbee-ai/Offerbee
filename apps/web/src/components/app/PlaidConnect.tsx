@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
@@ -32,11 +32,12 @@ const isCreditAccount = (subtype: string | null | undefined) =>
 const connectedOn = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-type WalletCard = { userCardId: Id<"userCards">; name: string };
+type WalletCard = { userCardId: Id<"userCards">; name: string; cardKey: string };
 type CatalogGroup = {
   issuer: string;
   cards: { cardKey: string; cardName: string; owned: boolean }[];
 };
+type CatalogResult = { cardKey: string; cardName: string; cardIssuer: string };
 
 const PlusIcon = ({ size = 13 }: { size?: number }) => (
   <svg
@@ -122,6 +123,64 @@ function LinkOptions({
   onAddLink: (cardKey: string) => void;
   showNotLinked?: boolean;
 }) {
+  // Search-any-card: instant local-catalog hits + a debounced live API search
+  // (the add-card page's hybrid pattern), so cards outside the popular list are
+  // linkable here without a detour through the wallet.
+  const [term, setTerm] = useState("");
+  const [apiResults, setApiResults] = useState<CatalogResult[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searched, setSearched] = useState(false);
+  const searchCards = useAction(api.rapidapi.searchCards);
+  const reqId = useRef(0);
+
+  const trimmed = term.trim();
+  const searchActive = trimmed.length >= 2;
+  const localResults = useQuery(
+    api.catalog.searchCatalogLocal,
+    searchActive ? { term: trimmed } : "skip",
+  );
+
+  useEffect(() => {
+    if (trimmed.length < 2) {
+      /* eslint-disable react-hooks/set-state-in-effect -- reset debounced search state when the query is cleared */
+      setApiResults([]);
+      setSearched(false);
+      setSearching(false);
+      /* eslint-enable react-hooks/set-state-in-effect */
+      return;
+    }
+    const id = ++reqId.current;
+    setApiResults([]);
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const r = await searchCards({ term: trimmed });
+        if (id === reqId.current) {
+          setApiResults(r);
+          setSearched(true);
+        }
+      } catch {
+        if (id === reqId.current) setSearched(true);
+      } finally {
+        if (id === reqId.current) setSearching(false);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [trimmed, searchCards]);
+
+  // Owned cards are pickable in the wallet section above — drop them from
+  // search results instead of offering a second "add" path to the same card.
+  const ownedKeys = useMemo(
+    () => new Set(cards.map((c) => c.cardKey)),
+    [cards],
+  );
+  const results = useMemo(() => {
+    const map = new Map<string, CatalogResult>();
+    for (const r of localResults ?? []) map.set(r.cardKey, r);
+    for (const r of apiResults) map.set(r.cardKey, r);
+    return Array.from(map.values()).filter((r) => !ownedKeys.has(r.cardKey));
+  }, [localResults, apiResults, ownedKeys]);
+
   return (
     <>
       {showNotLinked && (
@@ -177,39 +236,90 @@ function LinkOptions({
         </>
       )}
 
-      {catalogGroups.map((g) => {
-        const notOwned = g.cards.filter((c) => !c.owned);
-        if (notOwned.length === 0) return null;
-        return (
-          <div key={g.issuer}>
-            <div className="mx-1 my-[6px] h-px bg-separator" />
-            <div className="px-[10px] pb-[5px] pt-[6px] font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-tertiary">
-              Add new — {g.issuer}
-            </div>
-            {notOwned.map((c) => (
-              <button
-                key={c.cardKey}
-                type="button"
-                disabled={picking}
-                onClick={() => onAddLink(c.cardKey)}
-                className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
-              >
-                <span className="text-accent">
-                  <PlusIcon size={14} />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate text-[13.5px] font-semibold text-ink">
-                    {c.cardName}
-                  </span>
-                  <span className="mt-px block text-[12px] text-secondary">
-                    Adds this card to your wallet
-                  </span>
-                </span>
-              </button>
-            ))}
+      {/* Add new: search the full catalog, or browse the issuer's popular
+          cards while the input is empty. */}
+      <div className="mx-1 my-[6px] h-px bg-separator" />
+      <div className="px-1 pb-[2px] pt-[6px]">
+        <input
+          type="search"
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
+          placeholder="Search any card…"
+          className="w-full rounded-[9px] border border-border bg-surface px-[10px] py-[7px] text-[13px] text-ink outline-none placeholder:text-tertiary focus:border-accent"
+        />
+      </div>
+
+      {searchActive ? (
+        <>
+          <div className="px-[10px] pb-[5px] pt-[6px] font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-tertiary">
+            Add new — search
           </div>
-        );
-      })}
+          {results.map((c) => (
+            <button
+              key={c.cardKey}
+              type="button"
+              disabled={picking}
+              onClick={() => onAddLink(c.cardKey)}
+              className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
+            >
+              <span className="text-accent">
+                <PlusIcon size={14} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-[13.5px] font-semibold text-ink">
+                  {c.cardName}
+                </span>
+                <span className="mt-px block truncate text-[12px] text-secondary">
+                  {c.cardIssuer} · adds this card to your wallet
+                </span>
+              </span>
+            </button>
+          ))}
+          {results.length === 0 && (
+            <div className="px-[10px] py-[9px] text-[13px] text-secondary">
+              {searching || localResults === undefined
+                ? "Searching…"
+                : searched
+                  ? "No matches — try a different card name."
+                  : "Searching…"}
+            </div>
+          )}
+        </>
+      ) : (
+        catalogGroups.map((g, i) => {
+          const notOwned = g.cards.filter((c) => !c.owned);
+          if (notOwned.length === 0) return null;
+          return (
+            <div key={g.issuer}>
+              {i > 0 && <div className="mx-1 my-[6px] h-px bg-separator" />}
+              <div className="px-[10px] pb-[5px] pt-[6px] font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-tertiary">
+                Add new — {g.issuer}
+              </div>
+              {notOwned.map((c) => (
+                <button
+                  key={c.cardKey}
+                  type="button"
+                  disabled={picking}
+                  onClick={() => onAddLink(c.cardKey)}
+                  className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
+                >
+                  <span className="text-accent">
+                    <PlusIcon size={14} />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13.5px] font-semibold text-ink">
+                      {c.cardName}
+                    </span>
+                    <span className="mt-px block text-[12px] text-secondary">
+                      Adds this card to your wallet
+                    </span>
+                  </span>
+                </button>
+              ))}
+            </div>
+          );
+        })
+      )}
     </>
   );
 }
@@ -534,7 +644,7 @@ export function PlaidConnect() {
               return (
                 <div
                   key={acct.accountId}
-                  className="flex items-center gap-4 border-b border-separator px-6 py-[13px] last:border-b-0"
+                  className="flex flex-col gap-2 border-b border-separator px-6 py-[13px] last:border-b-0 sm:flex-row sm:items-center sm:gap-4"
                 >
                   <div
                     className={`flex min-w-0 flex-1 items-baseline gap-2 transition-opacity ${dimmed ? "opacity-55" : ""}`}
@@ -551,7 +661,7 @@ export function PlaidConnect() {
 
                   {/* Link selector + popover */}
                   <div
-                    className={`relative w-[280px] shrink-0 transition-opacity ${dimmed ? "opacity-55" : ""}`}
+                    className={`relative w-full shrink-0 transition-opacity sm:w-[280px] ${dimmed ? "opacity-55" : ""}`}
                     ref={isOpen ? popoverRef : undefined}
                   >
                     <button
@@ -589,7 +699,7 @@ export function PlaidConnect() {
                     </button>
 
                     {isOpen && (
-                      <div className="absolute right-0 top-[calc(100%+6px)] z-20 w-[300px] rounded-[14px] border border-border bg-surface p-[6px] shadow-[0_16px_48px_rgba(33,29,22,.18)]">
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-20 max-h-[min(420px,60vh)] w-full overflow-y-auto rounded-[14px] border border-border bg-surface p-[6px] shadow-[0_16px_48px_rgba(33,29,22,.18)] sm:w-[300px]">
                         <LinkOptions
                           currentCardId={acct.userCardId}
                           cards={cards}

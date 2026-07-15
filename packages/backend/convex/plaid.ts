@@ -314,8 +314,14 @@ export const linkAccountToCatalogCard = action({
     ctx,
     { accountId, cardKey },
   ): Promise<{ userCardId: Id<"userCards"> }> => {
-    if (!POPULAR_CARD_KEYS.includes(cardKey))
-      throw new Error("Unknown card");
+    // Popular keys pass outright; anything else must already be in cardCatalog
+    // (searchCards upserts every result it returns, so search picks qualify).
+    if (!POPULAR_CARD_KEYS.includes(cardKey)) {
+      const known: boolean = await ctx.runQuery(internal.catalog.hasCard, {
+        cardKey,
+      });
+      if (!known) throw new Error("Unknown card");
+    }
     // Ownership of the account (and auth) is enforced inside each mutation.
     const userCardId: Id<"userCards"> = await ctx.runMutation(
       api.wallet.addCard,
