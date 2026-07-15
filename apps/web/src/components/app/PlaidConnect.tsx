@@ -32,6 +32,16 @@ const isCreditAccount = (subtype: string | null | undefined) =>
 const connectedOn = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+// Compact relative timestamp for the "Updated …" status line.
+function timeAgo(ts: number): string {
+  const mins = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 type WalletCard = { userCardId: Id<"userCards">; name: string; cardKey: string };
 type CatalogGroup = {
   issuer: string;
@@ -338,10 +348,13 @@ export function PlaidConnect() {
   const wallet = useQuery(api.benefits.listMyCredits);
   const popular = useQuery(api.catalog.popularCards);
   const createLinkToken = useAction(api.plaid.createLinkToken);
+  const createUpdateLinkToken = useAction(api.plaid.createUpdateLinkToken);
   const exchange = useAction(api.plaid.exchangePublicToken);
+  const reactivate = useMutation(api.plaid.reactivateItem);
   const linkAccount = useMutation(api.plaid.linkAccountToCard);
   const linkCatalogCard = useAction(api.plaid.linkAccountToCatalogCard);
   const removeConnection = useAction(api.plaid.removeConnection);
+  const refresh = useAction(api.plaid.refreshConnection);
 
   const cards = wallet?.cards ?? [];
   const [linkToken, setLinkToken] = useState<string | null>(null);
@@ -357,8 +370,27 @@ export function PlaidConnect() {
     name: string;
     linkedCount: number;
   } | null>(null);
+  // Set while re-authenticating an existing item (Link update mode); null = a
+  // fresh connect. onSuccess branches on this.
+  const [reauthItemId, setReauthItemId] = useState<string | null>(null);
+  // Per-connection manual refresh + cooldown. `now` re-renders once when the
+  // earliest cooldown expires so the button re-enables without a reload.
+  const [refreshingItem, setRefreshingItem] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const openedFor = useRef<string | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const cooldowns = (connections ?? [])
+      .map((c) => c.nextRefreshAt)
+      .filter((t): t is number => t != null && t > now);
+    if (cooldowns.length === 0) return;
+    const t = setTimeout(
+      () => setNow(Date.now()),
+      Math.min(...cooldowns) - now + 1000,
+    );
+    return () => clearTimeout(t);
+  }, [connections, now]);
 
   // Close the popover on outside click.
   useEffect(() => {
@@ -375,40 +407,47 @@ export function PlaidConnect() {
       setBusy(true);
       setError(null);
       try {
-        const institutionName = metadata?.institution?.name as
-          | string
-          | undefined;
-        const res = await exchange({
-          publicToken,
-          institutionId: metadata?.institution?.institution_id,
-          institutionName,
-        });
-        // Banks like Chase report a rewards-program name instead of the card
-        // product, so auto-linking can fail — prompt per unresolved account.
-        setPickQueue(
-          res.accounts
-            .filter((a) => !a.linked && isCreditAccount(a.subtype))
-            .map((a) => ({
-              accountId: a.accountId,
-              mask: a.mask,
-              institutionName,
-            })),
-        );
+        if (reauthItemId) {
+          // Update mode: no public-token exchange — just mark the item healthy.
+          await reactivate({ itemId: reauthItemId });
+        } else {
+          const institutionName = metadata?.institution?.name as
+            | string
+            | undefined;
+          const res = await exchange({
+            publicToken,
+            institutionId: metadata?.institution?.institution_id,
+            institutionName,
+          });
+          // Banks like Chase report a rewards-program name instead of the card
+          // product, so auto-linking can fail — prompt per unresolved account.
+          setPickQueue(
+            res.accounts
+              .filter((a) => !a.linked && isCreditAccount(a.subtype))
+              .map((a) => ({
+                accountId: a.accountId,
+                mask: a.mask,
+                institutionName,
+              })),
+          );
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to link account");
       } finally {
         setBusy(false);
         setLinkToken(null);
+        setReauthItemId(null);
         openedFor.current = null;
       }
     },
-    [exchange],
+    [exchange, reactivate, reauthItemId],
   );
 
   // User closed Link without finishing — reset so the button leaves "Connecting…".
   const onExit = useCallback(() => {
     setBusy(false);
     setLinkToken(null);
+    setReauthItemId(null);
     openedFor.current = null;
   }, []);
 
@@ -431,6 +470,33 @@ export function PlaidConnect() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start Plaid");
       setBusy(false);
+    }
+  };
+
+  // Re-authenticate an existing connection (Plaid Link update mode).
+  const startReauth = async (itemId: string) => {
+    setBusy(true);
+    setError(null);
+    setReauthItemId(itemId);
+    try {
+      const { linkToken } = await createUpdateLinkToken({ itemId });
+      setLinkToken(linkToken);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start reconnect");
+      setBusy(false);
+      setReauthItemId(null);
+    }
+  };
+
+  const doRefresh = async (itemId: string) => {
+    setRefreshingItem(itemId);
+    setError(null);
+    try {
+      await refresh({ itemId });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Refresh failed");
+    } finally {
+      setRefreshingItem(null);
     }
   };
 
@@ -607,11 +673,17 @@ export function PlaidConnect() {
                   {conn.institutionName}
                 </div>
                 <div className="mt-px text-[12.5px] text-secondary">
-                  {conn.status === "login_required"
-                    ? "Reconnect needed"
-                    : conn.status === "error"
-                      ? "Connection error"
-                      : `${creditAccounts.length} account${creditAccounts.length === 1 ? "" : "s"} · connected ${connectedOn(conn.connectedAt)}`}
+                  {conn.status === "login_required" ? (
+                    <span className="text-alert">Reconnect needed</span>
+                  ) : conn.status === "error" ? (
+                    <span className="text-alert">Connection error</span>
+                  ) : (
+                    `${creditAccounts.length} account${creditAccounts.length === 1 ? "" : "s"} · connected ${connectedOn(conn.connectedAt)}${
+                      conn.lastSyncedAt
+                        ? ` · updated ${timeAgo(conn.lastSyncedAt)}`
+                        : ""
+                    }`
+                  )}
                   {conn.status === "active" && notLinked > 0 && (
                     <>
                       {" · "}
@@ -622,6 +694,33 @@ export function PlaidConnect() {
                   )}
                 </div>
               </div>
+              {conn.status === "active" ? (
+                <button
+                  type="button"
+                  onClick={() => void doRefresh(conn.itemId)}
+                  disabled={
+                    refreshingItem === conn.itemId ||
+                    (conn.nextRefreshAt != null && conn.nextRefreshAt > now)
+                  }
+                  title={
+                    conn.nextRefreshAt != null && conn.nextRefreshAt > now
+                      ? `Next refresh available at ${new Date(conn.nextRefreshAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                      : "Check for new transactions now"
+                  }
+                  className="shrink-0 rounded-[9px] border border-border px-3 py-[7px] text-[12.5px] font-semibold text-ink transition-colors hover:border-accent disabled:opacity-45"
+                >
+                  {refreshingItem === conn.itemId ? "Refreshing…" : "Refresh"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void startReauth(conn.itemId)}
+                  disabled={busy}
+                  className="shrink-0 rounded-[9px] bg-accent px-3 py-[7px] text-[12.5px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-50"
+                >
+                  Reconnect
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() =>

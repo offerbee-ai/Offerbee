@@ -41,6 +41,17 @@ const isCreditAccount = (subtype: string | null | undefined) =>
 const connectedOn = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
+// Compact relative timestamp for the "updated …" status line. (Duplicated from
+// web PlaidConnect — same convention as the credits derive logic.)
+function timeAgo(ts: number): string {
+  const mins = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 // The account the link sheet is targeting.
 type SheetTarget = {
   accountId: string;
@@ -59,11 +70,30 @@ export function PlaidConnectSection() {
   const popular = useQuery(api.catalog.popularCards);
   const { walletCards } = useCredits();
   const createLinkToken = useAction(api.plaid.createLinkToken);
+  const createUpdateLinkToken = useAction(api.plaid.createUpdateLinkToken);
   const exchange = useAction(api.plaid.exchangePublicToken);
+  const reactivate = useMutation(api.plaid.reactivateItem);
   const linkAccount = useMutation(api.plaid.linkAccountToCard);
   const linkCatalogCard = useAction(api.plaid.linkAccountToCatalogCard);
   const removeConnection = useAction(api.plaid.removeConnection);
+  const refresh = useAction(api.plaid.refreshConnection);
   const [busy, setBusy] = useState(false);
+  // Per-connection manual refresh + cooldown. `now` re-renders once when the
+  // earliest cooldown expires so the button re-enables without a remount.
+  const [refreshingItem, setRefreshingItem] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const cooldowns = (connections ?? [])
+      .map((c) => c.nextRefreshAt)
+      .filter((t): t is number => t != null && t > now);
+    if (cooldowns.length === 0) return;
+    const t = setTimeout(
+      () => setNow(Date.now()),
+      Math.min(...cooldowns) - now + 1000,
+    );
+    return () => clearTimeout(t);
+  }, [connections, now]);
   const [picking, setPicking] = useState(false);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
   // Post-connect prompts for accounts the backend couldn't auto-resolve.
@@ -192,6 +222,42 @@ export function PlaidConnectSection() {
       );
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Re-authenticate an existing connection (Plaid Link update mode).
+  const onReauth = async (itemId: string) => {
+    setBusy(true);
+    try {
+      const { linkToken } = await createUpdateLinkToken({ itemId });
+      const session = await createPlaidLinkSession({
+        token: linkToken,
+        onSuccess: async () => {
+          try {
+            await reactivate({ itemId });
+          } catch (e) {
+            Alert.alert("Couldn't reconnect", String(e));
+          }
+        },
+        onExit: () => {},
+        onEvent: () => {},
+      });
+      await session.open();
+    } catch (e) {
+      Alert.alert("Reconnect unavailable", String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onRefresh = async (itemId: string) => {
+    setRefreshingItem(itemId);
+    try {
+      await refresh({ itemId });
+    } catch (e) {
+      Alert.alert("Refresh failed", String(e));
+    } finally {
+      setRefreshingItem(null);
     }
   };
 
@@ -380,14 +446,66 @@ export function PlaidConnectSection() {
               </View>
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text variant="body">{conn.institutionName}</Text>
-                <Text variant="caption" color="secondary" style={{ marginTop: 1 }}>
+                <Text
+                  variant="caption"
+                  color={conn.status === "active" ? "secondary" : "alert"}
+                  style={{ marginTop: 1 }}
+                >
                   {conn.status === "login_required"
                     ? "Reconnect needed"
                     : conn.status === "error"
                       ? "Connection error"
-                      : `${creditAccounts.length} account${creditAccounts.length === 1 ? "" : "s"} · connected ${connectedOn(conn.connectedAt)}`}
+                      : `${creditAccounts.length} account${creditAccounts.length === 1 ? "" : "s"} · connected ${connectedOn(conn.connectedAt)}${
+                          conn.lastSyncedAt
+                            ? ` · updated ${timeAgo(conn.lastSyncedAt)}`
+                            : ""
+                        }`}
                 </Text>
               </View>
+              {conn.status === "active" ? (
+                (() => {
+                  const cooling =
+                    conn.nextRefreshAt != null && conn.nextRefreshAt > now;
+                  const disabled = refreshingItem === conn.itemId || cooling;
+                  return (
+                    <Pressable
+                      onPress={() => void onRefresh(conn.itemId)}
+                      disabled={disabled}
+                      hitSlop={8}
+                    >
+                      <Text
+                        style={{
+                          fontFamily: fontFamilies.textSemiBold,
+                          fontSize: 12.5,
+                          color: colors.accent,
+                          opacity: disabled ? 0.45 : 1,
+                        }}
+                      >
+                        {refreshingItem === conn.itemId
+                          ? "Refreshing…"
+                          : "Refresh"}
+                      </Text>
+                    </Pressable>
+                  );
+                })()
+              ) : (
+                <Pressable
+                  onPress={() => void onReauth(conn.itemId)}
+                  disabled={busy}
+                  hitSlop={8}
+                >
+                  <Text
+                    style={{
+                      fontFamily: fontFamilies.textSemiBold,
+                      fontSize: 12.5,
+                      color: colors.accent,
+                      opacity: busy ? 0.5 : 1,
+                    }}
+                  >
+                    Reconnect
+                  </Text>
+                </Pressable>
+              )}
               <Pressable
                 onPress={() =>
                   onDisconnect(conn.itemId, conn.institutionName, linkedCount)

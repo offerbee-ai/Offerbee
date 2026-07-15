@@ -215,6 +215,7 @@ export default defineSchema({
     ),
     createdAt: v.number(),
     lastSyncedAt: v.optional(v.number()),
+    lastManualRefreshAt: v.optional(v.number()), // user-requested /transactions/refresh (cooldown)
   })
     .index("by_userId", ["userId"])
     .index("by_itemId", ["itemId"]), // webhook resolves item_id → owner
