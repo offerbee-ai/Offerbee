@@ -325,6 +325,7 @@ export const confirmDetectedCards = action({
     ),
   },
   handler: async (ctx, { itemId, selections }) => {
+    await requireUserId(ctx);
     // Validate every key up front so a bad selection can't leave the batch
     // half-applied (each add+link is idempotent, but partial application with
     // an opaque error would silently drop the trailing selections).
