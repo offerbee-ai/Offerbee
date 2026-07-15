@@ -184,7 +184,9 @@ export function LinkPickerSheet({
               </Text>
             </View>
 
-            <ScrollView style={{ flexGrow: 0 }}>
+            {/* keyboardShouldPersistTaps: the first tap on a search result
+                should select it, not just dismiss the keyboard. */}
+            <ScrollView style={{ flexGrow: 0 }} keyboardShouldPersistTaps="handled">
               <View
                 style={{
                   marginHorizontal: spacing.base,

@@ -8,7 +8,11 @@ import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { Button, Card, Icon, SectionLabel, Text } from "@/components/ui";
 import { fontFamilies, spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
-import { usePlaidCardLink, type DetectResult } from "./usePlaidCardLink";
+import {
+  isPlaidAvailable,
+  usePlaidCardLink,
+  type DetectResult,
+} from "./usePlaidCardLink";
 import { LinkPickerSheet, type SheetTarget } from "./LinkPickerSheet";
 import { DetectedCardsReview } from "./DetectedCardsReview";
 
@@ -168,14 +172,18 @@ export function PlaidConnectSection() {
       />
 
       {/* ── 3c · Detected-cards review ────────────────────────────────────── */}
+      {/* Non-dismissable (matches web): the DetectResult is ephemeral, so a
+          backdrop mis-tap or Android back would discard in-progress picks
+          irrecoverably. "Skip for now" inside the review is the single
+          explicit escape. */}
       <Modal
         visible={reviewResult !== null}
         transparent
         animationType="slide"
-        onRequestClose={() => setReviewResult(null)}
+        onRequestClose={() => {}}
       >
         <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          <Pressable
+          <View
             style={{
               position: "absolute",
               top: 0,
@@ -184,7 +192,6 @@ export function PlaidConnectSection() {
               bottom: 0,
               backgroundColor: "rgba(0,0,0,0.42)",
             }}
-            onPress={() => setReviewResult(null)}
           />
           {reviewResult && (
             <View
@@ -257,10 +264,19 @@ export function PlaidConnectSection() {
           <Button
             label={busy ? "Connecting…" : "+ Connect a card"}
             haptic={false}
-            disabled={busy}
+            disabled={busy || !isPlaidAvailable}
             onPress={startConnect}
             style={{ alignSelf: "stretch", marginTop: 18 }}
           />
+          {!isPlaidAvailable && (
+            <Text
+              variant="caption"
+              color="secondary"
+              style={{ textAlign: "center", marginTop: 8 }}
+            >
+              Connecting a bank needs a development build (not Expo Go).
+            </Text>
+          )}
           <Text
             style={{
               fontFamily: fontFamilies.monoMedium,
@@ -429,7 +445,7 @@ export function PlaidConnectSection() {
       <Button
         label={busy ? "Connecting…" : "+ Connect a card"}
         haptic={false}
-        disabled={busy}
+        disabled={busy || !isPlaidAvailable}
         onPress={startConnect}
       />
       <Text
@@ -437,8 +453,9 @@ export function PlaidConnectSection() {
         color="secondary"
         style={{ textAlign: "center", marginTop: spacing.sm, paddingHorizontal: 12 }}
       >
-        Link a card so OfferBee can auto-track its statement credits from your
-        transactions.
+        {isPlaidAvailable
+          ? "Link a card so OfferBee can auto-track its statement credits from your transactions."
+          : "Connecting a bank needs a development build (not Expo Go)."}
       </Text>
 
       {modals}

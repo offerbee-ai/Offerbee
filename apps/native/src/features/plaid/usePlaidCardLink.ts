@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import {
   createPlaidLinkSession,
@@ -39,9 +39,13 @@ export function usePlaidCardLink({
   const createLinkToken = useAction(api.plaid.createLinkToken);
   const exchange = useAction(api.plaid.exchangePublicToken);
   const [busy, setBusy] = useState(false);
+  // Two fast taps can both pass the `busy` state check before the rerender
+  // lands — the ref guards synchronously; the state stays for UI.
+  const busyRef = useRef(false);
 
   const startConnect = async () => {
-    if (busy) return;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const { linkToken } = await createLinkToken({});
@@ -60,12 +64,14 @@ export function usePlaidCardLink({
           } catch (e) {
             onFail?.("error", e instanceof Error ? e.message : String(e));
           } finally {
+            busyRef.current = false;
             setBusy(false);
           }
         },
         // An exit carrying a LinkError is a failure, not a user cancel —
         // mirror the web hook: error → "error", plain cancel → "exit".
         onExit: (exit: LinkExit) => {
+          busyRef.current = false;
           setBusy(false);
           onFail?.(
             exit.error ? "error" : "exit",
@@ -78,6 +84,7 @@ export function usePlaidCardLink({
       });
       await session.open();
     } catch (e) {
+      busyRef.current = false;
       setBusy(false);
       onFail?.("error", e instanceof Error ? e.message : String(e));
     }
