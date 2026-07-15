@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, useWindowDimensions, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useQuery } from "convex/react";
 import * as Haptics from "expo-haptics";
 import { api } from "@packages/backend/convex/_generated/api";
@@ -14,6 +14,9 @@ import { StepChrome } from "@/features/onboarding/StepChrome";
 
 export default function OnboardingWallet() {
   const { colors } = useTheme();
+  // Set when the Plaid gate (connect.tsx) fell back here after a failed or
+  // empty connect — the switch is never silent (design rule #1). Fixed copy.
+  const { notice } = useLocalSearchParams<{ notice?: string }>();
   const { cards, toggleCard, setStep } = useOnboarding();
   const art = useQuery(api.catalog.onboardingCardArt);
   const win = useWindowDimensions();
@@ -40,6 +43,28 @@ export default function OnboardingWallet() {
       continueDisabled={cards.length === 0}
       onContinue={() => router.replace("/(onboarding)/spending")}
     >
+      {notice ? (
+        // Ink toast — same treatment as add-card-search.tsx's fallback
+        // banner (design state 1c). Icon color is content, not a theme token.
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+            backgroundColor: colors.ink,
+            borderRadius: radius.card,
+            paddingVertical: spacing.md,
+            paddingHorizontal: spacing.base,
+            marginBottom: spacing.base,
+          }}
+        >
+          <Icon name="alert" size={16} color="#F5B14D" />
+          <Text variant="subtext" color={colors.background} style={{ flex: 1 }}>
+            Couldn&apos;t connect — pick your cards manually instead.
+          </Text>
+        </View>
+      ) : null}
+
       {/* 2-column grid of popular cards */}
       <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md }}>
         {popular.map((card) => {
