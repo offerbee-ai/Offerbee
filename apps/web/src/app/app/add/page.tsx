@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { DetectedCardsReview } from "@/components/app/DetectedCardsReview";
+import { Spinner } from "@/components/app/ui";
 import {
   usePlaidCardLink,
   type DetectResult,
@@ -44,6 +45,15 @@ export default function AddCardChooserPage() {
       />
     );
 
+  // Gate on the config check: rendering the chooser before it resolves would
+  // offer a clickable Connect that's doomed if Plaid turns out unconfigured.
+  if (configured === undefined)
+    return (
+      <div className="flex justify-center py-24">
+        <Spinner />
+      </div>
+    );
+
   if (configured === false) return null;
 
   return (
@@ -59,7 +69,7 @@ export default function AddCardChooserPage() {
         type="button"
         onClick={() => void startConnect()}
         disabled={busy}
-        className="relative rounded-[16px] border-[1.5px] border-accent bg-surface p-5 text-left ring-[3px] ring-accent-soft transition-opacity disabled:opacity-60"
+        className="relative rounded-card border-[1.5px] border-accent bg-surface p-5 text-left ring-[3px] ring-accent-soft transition-opacity disabled:opacity-60"
       >
         <span className="absolute right-4 top-4 rounded-[7px] bg-accent-soft px-2 py-[3px] font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-accent">
           Recommended
@@ -74,7 +84,7 @@ export default function AddCardChooserPage() {
 
       <Link
         href="/app/add/search"
-        className="rounded-[16px] border border-border bg-surface p-5 transition-colors hover:border-tertiary"
+        className="rounded-card border border-border bg-surface p-5 transition-colors hover:border-tertiary"
       >
         <span className="block text-[16px] font-semibold text-ink">
           Search manually

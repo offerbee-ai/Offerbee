@@ -20,8 +20,8 @@ function CardArt({
 }) {
   if (imageUrl)
     // Plain <img>: the card-image host path rotates (see wallet page).
-    // eslint-disable-next-line @next/next/no-img-element
     return (
+      // eslint-disable-next-line @next/next/no-img-element
       <img
         src={imageUrl}
         alt=""
