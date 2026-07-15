@@ -51,15 +51,22 @@ const CheckGlyph = () => (
 // with the key), so display never has to fall back to the raw cardKey slug.
 type RowState = { checked: boolean; cardKey: string | null; cardName?: string };
 
+// Seed obeys the claim rule too: when two accounts resolve to the same card
+// (e.g. primary + authorized-user copies of one product), only the first
+// seeds checked — duplicates keep their cardKey unchecked so the user can
+// flip which account is linked.
 function initialRows(
   accounts: DetectResult["accounts"],
 ): Record<string, RowState> {
   const rows: Record<string, RowState> = {};
+  const seen = new Set<string>();
   for (const a of accounts) {
+    const key = a.resolvedCardKey;
     rows[a.accountId] = {
-      checked: a.resolvedCardKey !== null,
-      cardKey: a.resolvedCardKey,
+      checked: key !== null && !seen.has(key),
+      cardKey: key,
     };
+    if (key !== null) seen.add(key);
   }
   return rows;
 }
