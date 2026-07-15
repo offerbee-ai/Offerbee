@@ -1,4 +1,4 @@
-import { query } from "./_generated/server";
+import { internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getUserId } from "./auth";
 import { ONBOARDING_CARD_KEYS } from "./onboardingCatalog";
@@ -27,6 +27,20 @@ export const searchCatalogLocal = query({
       cardName: r.cardName,
       cardIssuer: r.cardIssuer,
     }));
+  },
+});
+
+// Whether a cardKey is known to the catalog — searchCards upserts every result
+// it returns, so any key a user picked from search resolves here. Used by
+// plaid.linkAccountToCatalogCard to validate non-popular keys.
+export const hasCard = internalQuery({
+  args: { cardKey: v.string() },
+  handler: async (ctx, { cardKey }) => {
+    const row = await ctx.db
+      .query("cardCatalog")
+      .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
+      .first();
+    return row !== null;
   },
 });
 

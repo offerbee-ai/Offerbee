@@ -16,6 +16,8 @@ const GLYPHS = {
   close: "x",
   chevronRight: "chevron-right",
   chevronLeft: "chevron-left",
+  chevronDown: "chevron-down",
+  link: "link",
   ellipsis: "more-horizontal",
   bell: "bell",
   settings: "settings",
