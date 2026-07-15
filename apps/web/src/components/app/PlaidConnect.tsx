@@ -7,17 +7,221 @@ import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { Panel } from "./controls";
 
-// An account Plaid couldn't auto-resolve to a catalog card (e.g. Chase names
-// every UR card "Ultimate Rewards®") — queued for the post-connect picker.
+// "Connected accounts" — Plaid Link connect + per-account → wallet-card linking
+// (Design/design_handoff_connected_accounts, states 1a–1c). Links let
+// transaction sync auto-log the card's credits.
+
+// Institution brand colors are CONTENT, not theme tokens — never remapped.
+const INSTITUTION_COLORS: [RegExp, string][] = [
+  [/chase/i, "#0E4C96"],
+  [/american express|amex/i, "#016FD0"],
+  [/bank of america/i, "#E31837"],
+  [/citi/i, "#056DAE"],
+  [/capital one/i, "#004977"],
+  [/wells fargo/i, "#D71E28"],
+  [/discover/i, "#FF6000"],
+  [/u\.?s\.? bank/i, "#0C2074"],
+];
+const institutionColor = (name: string) =>
+  INSTITUTION_COLORS.find(([re]) => re.test(name))?.[1] ?? "#6F6757";
+
+// Only credit-card accounts are shown (checking/savings filtered out).
+const isCreditAccount = (subtype: string | null | undefined) =>
+  !subtype || /credit/i.test(subtype);
+
+const connectedOn = (ms: number) =>
+  new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+type WalletCard = { userCardId: Id<"userCards">; name: string };
+type CatalogGroup = {
+  issuer: string;
+  cards: { cardKey: string; cardName: string; owned: boolean }[];
+};
+
+const PlusIcon = ({ size = 13 }: { size?: number }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 14 14"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    className="shrink-0"
+  >
+    <path d="M7 1.5v11M1.5 7h11" />
+  </svg>
+);
+
+const ChevronsIcon = ({ className }: { className?: string }) => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={`shrink-0 ${className ?? ""}`}
+  >
+    <path d="M4.5 6 8 2.5 11.5 6M4.5 10 8 13.5 11.5 10" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="shrink-0 text-accent"
+  >
+    <path d="M3 8.5 6.5 12 13 4.5" />
+  </svg>
+);
+
+const LinkIcon = () => (
+  <svg
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2" />
+    <path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2" />
+  </svg>
+);
+
+// The grouped link options — shared by the row popover (1c) and the
+// post-connect prompt so both surfaces read identically.
+function LinkOptions({
+  currentCardId,
+  cards,
+  linkedTo,
+  catalogGroups,
+  picking,
+  onSetLink,
+  onAddLink,
+  showNotLinked = true,
+}: {
+  currentCardId: Id<"userCards"> | null;
+  cards: WalletCard[];
+  linkedTo: Map<string, string>;
+  catalogGroups: CatalogGroup[];
+  picking: boolean;
+  onSetLink: (userCardId: Id<"userCards"> | null) => void;
+  onAddLink: (cardKey: string) => void;
+  showNotLinked?: boolean;
+}) {
+  return (
+    <>
+      {showNotLinked && (
+        <button
+          type="button"
+          disabled={picking}
+          onClick={() => onSetLink(null)}
+          className={`flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50 ${!currentCardId ? "bg-accent-soft/50" : ""}`}
+        >
+          {!currentCardId ? <CheckIcon /> : <span className="w-[14px] shrink-0" />}
+          <span className="text-[13.5px] font-semibold text-ink">Not linked</span>
+        </button>
+      )}
+
+      {cards.length > 0 && (
+        <>
+          <div className="px-[10px] pb-[5px] pt-3 font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-tertiary">
+            Your wallet
+          </div>
+          {cards.map((c) => {
+            const current = currentCardId === c.userCardId;
+            const elsewhere = !current && linkedTo.has(c.userCardId);
+            return (
+              <button
+                key={c.userCardId}
+                type="button"
+                disabled={picking || elsewhere}
+                onClick={() => onSetLink(c.userCardId)}
+                className={`flex w-full items-center justify-between gap-[9px] rounded-[9px] py-[9px] pr-[10px] text-left ${
+                  elsewhere
+                    ? "cursor-default pl-[33px] text-tertiary"
+                    : current
+                      ? "bg-accent-soft/50 pl-[10px]"
+                      : "pl-[33px] hover:bg-accent-soft/50"
+                } disabled:opacity-70`}
+              >
+                <span className="flex min-w-0 items-center gap-[9px]">
+                  {current && <CheckIcon />}
+                  <span
+                    className={`truncate text-[13.5px] font-medium ${elsewhere ? "text-tertiary" : "text-ink"}`}
+                  >
+                    {c.name}
+                  </span>
+                </span>
+                {elsewhere && (
+                  <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.05em] text-tertiary">
+                    Linked to ····{linkedTo.get(c.userCardId)}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </>
+      )}
+
+      {catalogGroups.map((g) => {
+        const notOwned = g.cards.filter((c) => !c.owned);
+        if (notOwned.length === 0) return null;
+        return (
+          <div key={g.issuer}>
+            <div className="mx-1 my-[6px] h-px bg-separator" />
+            <div className="px-[10px] pb-[5px] pt-[6px] font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-tertiary">
+              Add new — {g.issuer}
+            </div>
+            {notOwned.map((c) => (
+              <button
+                key={c.cardKey}
+                type="button"
+                disabled={picking}
+                onClick={() => onAddLink(c.cardKey)}
+                className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
+              >
+                <span className="text-accent">
+                  <PlusIcon size={14} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-[13.5px] font-semibold text-ink">
+                    {c.cardName}
+                  </span>
+                  <span className="mt-px block text-[12px] text-secondary">
+                    Adds this card to your wallet
+                  </span>
+                </span>
+              </button>
+            ))}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+// An account the connect flow couldn't auto-resolve to a catalog card (e.g.
+// Chase names every UR card "Ultimate Rewards®") — prompted right after Link.
 type PendingAccount = {
   accountId: string;
   mask?: string;
-  name?: string;
   institutionName?: string;
 };
 
-// "Connected accounts" — Plaid Link connect + per-account → wallet-card linking.
-// Links let transaction sync auto-log the card's credits.
 export function PlaidConnect() {
   const configured = useQuery(api.plaid.plaidConfigured);
   const connections = useQuery(api.plaid.listConnections);
@@ -32,13 +236,29 @@ export function PlaidConnect() {
   const cards = wallet?.cards ?? [];
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  // Unresolved credit accounts from the last connect, shown one at a time.
-  const [pickQueue, setPickQueue] = useState<PendingAccount[]>([]);
   const [picking, setPicking] = useState(false);
-  // Reveal non-institution issuers in the picker (co-brands, catalog gaps).
-  const [showAllIssuers, setShowAllIssuers] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // accountId whose link popover is open — one at a time; siblings dim.
+  const [openFor, setOpenFor] = useState<string | null>(null);
+  // Unresolved credit accounts from the last connect, prompted one at a time.
+  const [pickQueue, setPickQueue] = useState<PendingAccount[]>([]);
+  const [confirmDisconnect, setConfirmDisconnect] = useState<{
+    itemId: string;
+    name: string;
+    linkedCount: number;
+  } | null>(null);
   const openedFor = useRef<string | null>(null);
+  const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  // Close the popover on outside click.
+  useEffect(() => {
+    if (!openFor) return;
+    const onDown = (e: MouseEvent) => {
+      if (!popoverRef.current?.contains(e.target as Node)) setOpenFor(null);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [openFor]);
 
   const onSuccess = useCallback(
     async (publicToken: string, metadata: any) => {
@@ -54,16 +274,13 @@ export function PlaidConnect() {
           institutionName,
         });
         // Banks like Chase report a rewards-program name instead of the card
-        // product, so auto-linking can fail — ask the user per account.
+        // product, so auto-linking can fail — prompt per unresolved account.
         setPickQueue(
           res.accounts
-            .filter(
-              (a) => !a.linked && (!a.subtype || /credit/i.test(a.subtype)),
-            )
+            .filter((a) => !a.linked && isCreditAccount(a.subtype))
             .map((a) => ({
               accountId: a.accountId,
               mask: a.mask,
-              name: a.name,
               institutionName,
             })),
         );
@@ -107,16 +324,14 @@ export function PlaidConnect() {
     }
   };
 
-  const pending = pickQueue[0];
-  const skipPending = () => {
-    setShowAllIssuers(false);
-    setPickQueue((q) => q.slice(1));
-  };
-  const pickCatalogCard = async (accountId: string, cardKey: string) => {
+  const setLink = async (
+    accountId: string,
+    userCardId: Id<"userCards"> | null,
+  ) => {
     setPicking(true);
     try {
-      await linkCatalogCard({ accountId, cardKey });
-      setShowAllIssuers(false);
+      await linkAccount({ accountId, userCardId });
+      setOpenFor(null);
       setPickQueue((q) => q.filter((p) => p.accountId !== accountId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to link card");
@@ -125,21 +340,30 @@ export function PlaidConnect() {
     }
   };
 
-  // Catalog groups split by whether they belong to the connected institution
-  // (e.g. Chase → the Chase group). The picker shows only matched groups by
-  // default — the institution is the one name the bank reports reliably.
-  const splitIssuerGroups = (institutionName?: string) => {
-    const groups = popular ?? [];
-    if (!institutionName) return { matched: [], others: groups };
-    const inst = institutionName.toLowerCase();
-    return {
-      matched: groups.filter((g) => inst.includes(g.issuer.toLowerCase())),
-      others: groups.filter((g) => !inst.includes(g.issuer.toLowerCase())),
-    };
+  const addAndLink = async (accountId: string, cardKey: string) => {
+    setPicking(true);
+    try {
+      await linkCatalogCard({ accountId, cardKey });
+      setOpenFor(null);
+      setPickQueue((q) => q.filter((p) => p.accountId !== accountId));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to link card");
+    } finally {
+      setPicking(false);
+    }
   };
 
-  const feeLabel = (annualFee: number | null) =>
-    annualFee == null ? "" : annualFee === 0 ? "No annual fee" : `$${annualFee}/yr`;
+  // "Add new" scoping: the connected institution's issuer only; an institution
+  // missing from the catalog falls back to the full list.
+  const catalogGroupsFor = (institutionName?: string): CatalogGroup[] => {
+    const groups = popular ?? [];
+    if (!institutionName) return groups;
+    const inst = institutionName.toLowerCase();
+    const matched = groups.filter((g) =>
+      inst.includes(g.issuer.toLowerCase()),
+    );
+    return matched.length > 0 ? matched : groups;
+  };
 
   if (configured === false)
     return (
@@ -151,207 +375,298 @@ export function PlaidConnect() {
       </Panel>
     );
 
-  return (
-    <Panel className="overflow-hidden">
-      {(connections ?? []).map((conn) => (
-        <div key={conn.itemId} className="border-t border-separator p-5 first:border-t-0">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-[14.5px] font-semibold text-ink">
-                {conn.institutionName}
-              </div>
-              <div className="mt-0.5 text-[12.5px] text-secondary">
-                {conn.status === "active"
-                  ? `${conn.accounts.length} account${conn.accounts.length === 1 ? "" : "s"}`
-                  : conn.status === "login_required"
-                    ? "Reconnect needed"
-                    : "Connection error"}
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => void removeConnection({ itemId: conn.itemId })}
-              className="text-[13px] font-semibold text-alert hover:underline"
-            >
-              Disconnect
-            </button>
-          </div>
+  if (connections === undefined) return null;
 
-          <div className="mt-3 flex flex-col gap-2">
-            {conn.accounts.map((acct) => (
-              <div
-                key={acct.accountId}
-                className="flex items-center justify-between gap-3 rounded-[10px] border border-border px-3 py-2"
-              >
-                <div className="min-w-0 text-[13.5px] text-ink">
-                  {acct.name}
-                  {acct.mask ? (
-                    <span className="text-tertiary"> ····{acct.mask}</span>
-                  ) : null}
-                </div>
-                <select
-                  value={acct.userCardId ?? ""}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // "new:<cardKey>" adds the catalog card to the wallet
-                    // (seeding its credits) and links in one step.
-                    if (value.startsWith("new:")) {
-                      void pickCatalogCard(acct.accountId, value.slice(4));
-                      return;
-                    }
-                    void linkAccount({
-                      accountId: acct.accountId,
-                      userCardId: value ? (value as Id<"userCards">) : null,
-                    });
-                  }}
-                  className="rounded-[8px] border border-border bg-surface px-2 py-1.5 text-[13px] text-ink outline-none focus:border-accent"
-                >
-                  <option value="">Not linked</option>
-                  {cards.length > 0 && (
-                    <optgroup label="Your wallet">
-                      {cards.map((c) => (
-                        <option key={c.userCardId} value={c.userCardId}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                  {(() => {
-                    // Same scoping as the picker: only the connected
-                    // institution's issuer group; unmatched → full catalog.
-                    const { matched, others } = splitIssuerGroups(
-                      conn.institutionName,
-                    );
-                    const groups = matched.length > 0 ? matched : others;
-                    return groups.map((g) => {
-                      const notOwned = g.cards.filter((c) => !c.owned);
-                      if (notOwned.length === 0) return null;
-                      return (
-                        <optgroup key={g.issuer} label={`Add new — ${g.issuer}`}>
-                          {notOwned.map((c) => (
-                            <option key={c.cardKey} value={`new:${c.cardKey}`}>
-                              {c.cardName}
-                            </option>
-                          ))}
-                        </optgroup>
-                      );
-                    });
-                  })()}
-                </select>
-              </div>
-            ))}
-          </div>
+  // One card ↔ one account: which wallet card is linked to which account mask,
+  // across every connection — used to disable already-linked cards in pickers.
+  const linkedTo = new Map<string, string>();
+  for (const conn of connections)
+    for (const a of conn.accounts)
+      if (a.userCardId) linkedTo.set(a.userCardId, a.mask ?? "");
+
+  const pending = pickQueue[0];
+
+  const connectButton = (label = "Connect a card") => (
+    <button
+      type="button"
+      onClick={startConnect}
+      disabled={busy}
+      className="inline-flex items-center gap-[7px] rounded-[11px] bg-accent px-[18px] py-[10px] text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-50"
+    >
+      <PlusIcon />
+      {busy ? "Connecting…" : label}
+    </button>
+  );
+
+  // Post-connect link prompt — same option list as the row popover (1c),
+  // presented as a dialog for each account the connect couldn't resolve.
+  const pickPrompt = pending && (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <button
+        type="button"
+        aria-label="Skip for now"
+        onClick={() => setPickQueue((q) => q.slice(1))}
+        className="absolute inset-0 bg-black/40"
+      />
+      <div className="relative flex max-h-[85vh] min-h-[440px] w-full max-w-[480px] flex-col overflow-hidden rounded-[16px] border border-border bg-surface shadow-[0_16px_48px_rgba(33,29,22,.18)]">
+        <div className="border-b border-separator px-6 pb-4 pt-5 text-center">
+          <h3 className="font-display text-[19px] font-semibold text-ink">
+            Link credit card{pending.mask ? ` ····${pending.mask}` : ""}
+          </h3>
+          <p className="mt-1 text-[13px] text-secondary">
+            {pending.institutionName ?? "Your bank"} · transactions will
+            auto-track this card&apos;s credits
+          </p>
         </div>
-      ))}
+        <div className="flex-1 overflow-y-auto p-3">
+          <LinkOptions
+            currentCardId={null}
+            cards={cards}
+            linkedTo={linkedTo}
+            catalogGroups={catalogGroupsFor(pending.institutionName)}
+            picking={picking}
+            onSetLink={(id) => void setLink(pending.accountId, id)}
+            onAddLink={(key) => void addAndLink(pending.accountId, key)}
+            showNotLinked={false}
+          />
+        </div>
+        <div className="border-t border-separator p-3">
+          <button
+            type="button"
+            disabled={picking}
+            onClick={() => setPickQueue((q) => q.slice(1))}
+            className="w-full rounded-[10px] px-3 py-2 text-[13.5px] font-semibold text-secondary transition-colors hover:bg-accent-soft/50 disabled:opacity-50"
+          >
+            Not sure — skip for now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
-      <div className="border-t border-separator p-5 first:border-t-0">
-        <button
-          type="button"
-          onClick={startConnect}
-          disabled={busy}
-          className="rounded-[11px] bg-accent px-4 py-2 text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-50"
-        >
-          {busy ? "Connecting…" : "+ Connect a card"}
-        </button>
-        {error && <p className="mt-2 text-[13px] font-medium text-alert">{error}</p>}
-        <p className="mt-2 text-[12.5px] text-secondary">
+  // ── 1a · Empty state ────────────────────────────────────────────────────────
+  if (connections.length === 0)
+    return (
+      <>
+        <Panel className="flex flex-col items-center px-8 py-12 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-soft text-accent">
+            <LinkIcon />
+          </div>
+          <h3 className="mt-4 font-display text-[21px] font-semibold tracking-[-0.01em] text-ink">
+            Nothing connected yet
+          </h3>
+          <p className="mt-2 max-w-[380px] text-[14px] leading-[1.55] text-secondary">
+            Connect a card account and OfferBee will auto-track its statement
+            credits from your transactions — no more marking them by hand.
+          </p>
+          <div className="mt-[22px]">{connectButton()}</div>
+          {error && (
+            <p className="mt-3 text-[13px] font-medium text-alert">{error}</p>
+          )}
+          <p className="mt-4 font-mono text-[10px] font-medium uppercase tracking-[0.07em] text-tertiary">
+            Read-only access · Disconnect anytime
+          </p>
+        </Panel>
+        {pickPrompt}
+      </>
+    );
+
+  // ── 1b/1c · Connected ───────────────────────────────────────────────────────
+  return (
+    <Panel className="overflow-visible">
+      {connections.map((conn) => {
+        const creditAccounts = conn.accounts.filter((a) =>
+          isCreditAccount(a.subtype),
+        );
+        const notLinked = creditAccounts.filter((a) => !a.userCardId).length;
+        const linkedCount = creditAccounts.length - notLinked;
+        const catalogGroups = catalogGroupsFor(conn.institutionName);
+
+        return (
+          <div key={conn.itemId} className="border-t border-separator first:border-t-0">
+            {/* Institution header */}
+            <div className="flex items-center gap-[14px] border-b border-separator px-6 py-[18px]">
+              <div
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] font-display text-[19px] font-semibold text-white"
+                style={{ background: institutionColor(conn.institutionName) }}
+              >
+                {conn.institutionName.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[16px] font-semibold text-ink">
+                  {conn.institutionName}
+                </div>
+                <div className="mt-px text-[12.5px] text-secondary">
+                  {conn.status === "login_required"
+                    ? "Reconnect needed"
+                    : conn.status === "error"
+                      ? "Connection error"
+                      : `${creditAccounts.length} account${creditAccounts.length === 1 ? "" : "s"} · connected ${connectedOn(conn.connectedAt)}`}
+                  {conn.status === "active" && notLinked > 0 && (
+                    <>
+                      {" · "}
+                      <span className="text-tertiary">
+                        {notLinked} not linked
+                      </span>
+                    </>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setConfirmDisconnect({
+                    itemId: conn.itemId,
+                    name: conn.institutionName,
+                    linkedCount,
+                  })
+                }
+                className="shrink-0 text-[13px] font-semibold text-alert hover:underline"
+              >
+                Disconnect
+              </button>
+            </div>
+
+            {/* Account rows */}
+            {creditAccounts.map((acct) => {
+              const isOpen = openFor === acct.accountId;
+              const dimmed = openFor !== null && !isOpen;
+              return (
+                <div
+                  key={acct.accountId}
+                  className="flex items-center gap-4 border-b border-separator px-6 py-[13px] last:border-b-0"
+                >
+                  <div
+                    className={`flex min-w-0 flex-1 items-baseline gap-2 transition-opacity ${dimmed ? "opacity-55" : ""}`}
+                  >
+                    <span className="text-[14.5px] font-semibold text-ink">
+                      Credit card
+                    </span>
+                    {acct.mask && (
+                      <span className="font-mono text-[13px] font-medium text-tertiary">
+                        ····{acct.mask}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Link selector + popover */}
+                  <div
+                    className={`relative w-[280px] shrink-0 transition-opacity ${dimmed ? "opacity-55" : ""}`}
+                    ref={isOpen ? popoverRef : undefined}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setOpenFor(isOpen ? null : acct.accountId)}
+                      className={`flex w-full items-center justify-between gap-[10px] rounded-[10px] border px-3 py-[9px] text-left ${
+                        isOpen
+                          ? "border-accent bg-surface ring-[3px] ring-accent-soft"
+                          : acct.userCardId
+                            ? "border-border bg-surface hover:border-tertiary/50"
+                            : "border-warning/45 bg-warning-soft"
+                      }`}
+                    >
+                      <span
+                        className={`truncate text-[13.5px] font-medium ${
+                          isOpen
+                            ? "text-tertiary"
+                            : acct.userCardId
+                              ? "text-ink"
+                              : "text-warning"
+                        }`}
+                      >
+                        {isOpen
+                          ? (acct.linkedCardName ?? "Not linked")
+                          : (acct.linkedCardName ??
+                            "Not linked — choose a card")}
+                      </span>
+                      <ChevronsIcon
+                        className={
+                          acct.userCardId || isOpen
+                            ? "text-tertiary"
+                            : "text-warning"
+                        }
+                      />
+                    </button>
+
+                    {isOpen && (
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-20 w-[300px] rounded-[14px] border border-border bg-surface p-[6px] shadow-[0_16px_48px_rgba(33,29,22,.18)]">
+                        <LinkOptions
+                          currentCardId={acct.userCardId}
+                          cards={cards}
+                          linkedTo={linkedTo}
+                          catalogGroups={catalogGroups}
+                          picking={picking}
+                          onSetLink={(id) => void setLink(acct.accountId, id)}
+                          onAddLink={(key) =>
+                            void addAndLink(acct.accountId, key)
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+
+      {/* Footer CTA */}
+      <div className="border-t border-separator px-6 pb-[18px] pt-4">
+        {connectButton()}
+        {error && (
+          <p className="mt-2 text-[13px] font-medium text-alert">{error}</p>
+        )}
+        <p className="mt-[10px] text-[12.5px] text-secondary">
           Link a card so OfferBee can auto-track its statement credits from your
           transactions.
         </p>
       </div>
 
-      {pending && (
+      {/* Disconnect confirm */}
+      {confirmDisconnect && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <button
             type="button"
-            aria-label="Skip for now"
-            onClick={skipPending}
+            aria-label="Cancel"
+            onClick={() => setConfirmDisconnect(null)}
             className="absolute inset-0 bg-black/40"
           />
-          <div className="relative flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-[14px] border border-border bg-surface shadow-xl">
-            <div className="border-b border-separator p-5">
-              <h3 className="text-[15.5px] font-semibold text-ink">
-                Which card is{" "}
-                {pending.institutionName ?? pending.name ?? "this account"}
-                {pending.mask ? ` ····${pending.mask}` : ""}?
-              </h3>
-              <p className="mt-1 text-[12.5px] text-secondary">
-                {pending.institutionName ?? "The bank"} didn&apos;t report which
-                card this account is. Pick it to track its credits — you can
-                change this anytime.
-              </p>
-            </div>
-            <div className="flex-1 overflow-y-auto p-3">
-              {(() => {
-                // Only the connected institution's cards by default; the rest
-                // stay behind "show all" (co-brands, cards missing from the
-                // institution's catalog group). No match → show everything.
-                const { matched, others } = splitIssuerGroups(
-                  pending.institutionName,
-                );
-                const groups =
-                  matched.length === 0 || showAllIssuers
-                    ? [...matched, ...others]
-                    : matched;
-                const hidden = matched.length > 0 && !showAllIssuers;
-                return (
-                  <>
-                    {groups.map((g) => (
-                      <div key={g.issuer} className="mb-2">
-                        <div className="px-2 py-1 text-[11.5px] font-semibold uppercase tracking-wide text-tertiary">
-                          {g.issuer}
-                        </div>
-                        {g.cards.map((c) => (
-                          <button
-                            key={c.cardKey}
-                            type="button"
-                            disabled={picking}
-                            onClick={() =>
-                              void pickCatalogCard(pending.accountId, c.cardKey)
-                            }
-                            className="flex w-full items-center justify-between gap-3 rounded-[10px] px-2 py-2 text-left transition-colors hover:bg-accent/10 disabled:opacity-50"
-                          >
-                            <span className="text-[13.5px] text-ink">
-                              {c.cardName}
-                              {c.owned ? (
-                                <span className="ml-1.5 text-[11.5px] text-tertiary">
-                                  in wallet
-                                </span>
-                              ) : null}
-                            </span>
-                            <span className="shrink-0 text-[12px] text-secondary">
-                              {feeLabel(c.annualFee)}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                    {hidden && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllIssuers(true)}
-                        className="w-full rounded-[10px] px-2 py-2 text-left text-[13px] font-semibold text-accent transition-colors hover:bg-accent/10"
-                      >
-                        My card isn&apos;t listed — show other issuers
-                      </button>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-            <div className="border-t border-separator p-3">
+          <div className="relative w-full max-w-sm rounded-[14px] border border-border bg-surface p-5 shadow-[0_16px_48px_rgba(33,29,22,.18)]">
+            <h3 className="font-display text-[17px] font-semibold text-ink">
+              Disconnect {confirmDisconnect.name}?
+            </h3>
+            <p className="mt-2 text-[13.5px] leading-[1.5] text-secondary">
+              Auto-tracking stops for {confirmDisconnect.linkedCount} linked
+              card{confirmDisconnect.linkedCount === 1 ? "" : "s"}. Your wallet
+              cards and history stay.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={skipPending}
-                disabled={picking}
-                className="w-full rounded-[10px] px-3 py-2 text-[13.5px] font-semibold text-secondary transition-colors hover:bg-accent/10 disabled:opacity-50"
+                onClick={() => setConfirmDisconnect(null)}
+                className="rounded-[10px] px-4 py-2 text-[13.5px] font-semibold text-secondary hover:bg-accent-soft/50"
               >
-                Not sure — skip for now
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void removeConnection({
+                    itemId: confirmDisconnect.itemId,
+                  });
+                  setConfirmDisconnect(null);
+                }}
+                className="rounded-[10px] bg-alert px-4 py-2 text-[13.5px] font-semibold text-white hover:opacity-90"
+              >
+                Disconnect
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {pickPrompt}
     </Panel>
   );
 }
