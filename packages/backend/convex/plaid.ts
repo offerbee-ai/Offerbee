@@ -19,6 +19,7 @@ import {
 } from "./plaidMatch";
 import { llmClassify } from "./plaidLlm";
 import { resolveCardKey } from "./plaidCardMap";
+import { POPULAR_CARD_KEYS } from "./catalog";
 import { missingEnvVariableUrl } from "./utils";
 
 // Plaid runs in Convex's default runtime via plain fetch() — every call is a
@@ -112,6 +113,7 @@ export const exchangePublicToken = action({
       name?: string;
       officialName?: string;
       subtype?: string;
+      linked: boolean;
     }[];
   }> => {
     const userId = await requireUserId(ctx);
@@ -149,6 +151,9 @@ export const exchangePublicToken = action({
     // ensure it's in the wallet (which seeds its credits), then link the account.
     // Done BEFORE the sync so applySync matches against seeded benefits on the
     // first pull — a fresh connection tracks usage with no manual mapping.
+    // Accounts left unresolved (e.g. Chase reports every UR card as "Ultimate
+    // Rewards®") are returned with linked=false so the client can prompt.
+    const linkedIds = new Set<string>();
     for (const a of accounts) {
       if (a.subtype && !/credit/i.test(a.subtype)) continue;
       const cardKey = resolveCardKey(institutionName, a.name, a.officialName);
@@ -161,6 +166,7 @@ export const exchangePublicToken = action({
         accountId: a.accountId,
         userCardId,
       });
+      linkedIds.add(a.accountId);
     }
 
     // First transaction sync (accounts linked + benefits seeded → matches now).
@@ -168,7 +174,13 @@ export const exchangePublicToken = action({
       itemId: ex.item_id,
     });
 
-    return { itemId: ex.item_id, accounts };
+    return {
+      itemId: ex.item_id,
+      accounts: accounts.map((a) => ({
+        ...a,
+        linked: linkedIds.has(a.accountId),
+      })),
+    };
   },
 });
 
@@ -291,6 +303,33 @@ export const linkAccountToCard = mutation({
   },
 });
 
+// Link a Plaid account to a *catalog* card that may not be in the wallet yet:
+// add the card (idempotent) → seed its benefits → link the account. Backs the
+// post-connect picker shown when resolveCardKey can't identify the product —
+// e.g. Chase's OAuth feed names every UR card "Ultimate Rewards®", so only the
+// user can say which account is which card.
+export const linkAccountToCatalogCard = action({
+  args: { accountId: v.string(), cardKey: v.string() },
+  handler: async (
+    ctx,
+    { accountId, cardKey },
+  ): Promise<{ userCardId: Id<"userCards"> }> => {
+    if (!POPULAR_CARD_KEYS.includes(cardKey))
+      throw new Error("Unknown card");
+    // Ownership of the account (and auth) is enforced inside each mutation.
+    const userCardId: Id<"userCards"> = await ctx.runMutation(
+      api.wallet.addCard,
+      { cardKey },
+    );
+    await ctx.runMutation(internal.benefits.seedCardBenefits, { userCardId });
+    await ctx.runMutation(api.plaid.linkAccountToCard, {
+      accountId,
+      userCardId,
+    });
+    return { userCardId };
+  },
+});
+
 // ── Matching + auto-log helpers (shared by applySync + linkAccountToCard) ──────
 
 // One auto usage per transaction, kept in sync on modify. Idempotent.
@@ -310,8 +349,21 @@ async function ensureAutoUsage(
       .take(1)
   )[0];
   if (existing) {
-    if (existing.amount !== amt || existing.periodKey !== pk)
-      await ctx.db.patch(existing._id, { amount: amt, periodKey: pk });
+    // Re-point the benefit too: after a re-link to a different card, the txn
+    // re-matches against the new card's benefits and the old row would
+    // otherwise keep crediting the wrong card.
+    if (
+      existing.amount !== amt ||
+      existing.periodKey !== pk ||
+      existing.userBenefitId !== benefit._id ||
+      existing.cardKey !== benefit.cardKey
+    )
+      await ctx.db.patch(existing._id, {
+        amount: amt,
+        periodKey: pk,
+        userBenefitId: benefit._id,
+        cardKey: benefit.cardKey,
+      });
     return;
   }
   await ctx.db.insert("benefitUsages", {
