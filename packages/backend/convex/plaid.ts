@@ -319,14 +319,29 @@ export const linkAccountToCatalogCard = action({
 // simply not passed — they stay connected but unlinked (fixable in Settings).
 export const confirmDetectedCards = action({
   args: {
+    itemId: v.string(),
     selections: v.array(
       v.object({ accountId: v.string(), cardKey: v.string() }),
     ),
   },
-  handler: async (ctx, { selections }) => {
+  handler: async (ctx, { itemId, selections }) => {
+    // Validate every key up front so a bad selection can't leave the batch
+    // half-applied (each add+link is idempotent, but partial application with
+    // an opaque error would silently drop the trailing selections).
+    for (const s of selections) {
+      if (!POPULAR_CARD_KEYS.includes(s.cardKey)) {
+        const known: boolean = await ctx.runQuery(internal.catalog.hasCard, {
+          cardKey: s.cardKey,
+        });
+        if (!known) throw new Error("Unknown card");
+      }
+    }
     for (const s of selections) {
       await addAndLinkOne(ctx, s.accountId, s.cardKey);
     }
+    // Re-run the item's sync so the suggestion pass sees the newly linked
+    // cards now instead of waiting for the 6-hour cron (cursor makes it cheap).
+    await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
   },
 });
 
