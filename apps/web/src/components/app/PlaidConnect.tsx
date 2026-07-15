@@ -32,8 +32,12 @@ const isCreditAccount = (subtype: string | null | undefined) =>
 const connectedOn = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-type WalletCard = { userCardId: Id<"userCards">; name: string; cardKey: string };
-type CatalogGroup = {
+export type WalletCard = {
+  userCardId: Id<"userCards">;
+  name: string;
+  cardKey: string;
+};
+export type CatalogGroup = {
   issuer: string;
   cards: { cardKey: string; cardName: string; owned: boolean }[];
 };
@@ -104,7 +108,7 @@ const LinkIcon = () => (
 
 // The grouped link options — shared by the row popover (1c) and the
 // post-connect prompt so both surfaces read identically.
-function LinkOptions({
+export function LinkOptions({
   currentCardId,
   cards,
   linkedTo,
