@@ -15,7 +15,7 @@ import { BeeLogo } from "@/components/landing/BrandMark";
 import { Spinner } from "@/components/app/ui";
 import { creditsInPlay, selectedCards } from "./derive";
 import { StepAccount } from "./StepAccount";
-import { StepWallet } from "./StepWallet";
+import { StepConnect } from "./StepConnect";
 import { StepSpending } from "./StepSpending";
 import { StepReminders } from "./StepReminders";
 import { StepReview } from "./StepReview";
@@ -296,7 +296,11 @@ export function OnboardingWizard() {
           <div key={viewStep} className="min-h-full animate-obfade">
             {viewStep === 0 && <StepAccount />}
             {viewStep === 1 && (
-              <StepWallet selected={cards} onToggle={toggleCard} />
+              <StepConnect
+                selected={cards}
+                onToggle={toggleCard}
+                onPlaidDone={() => goTo(2)}
+              />
             )}
             {viewStep === 2 && (
               <StepSpending selected={cats} onToggle={toggleCat} />
