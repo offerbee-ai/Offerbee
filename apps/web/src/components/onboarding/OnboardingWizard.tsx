@@ -7,6 +7,7 @@ import { useConvexAuth, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
   DEFAULT_NOTIFICATION_CATEGORIES,
+  ONBOARDING_CARDS,
   type NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
 import { usd } from "@/components/app/data";
@@ -37,6 +38,12 @@ export function OnboardingWizard() {
   const { user } = useUser();
   const { isAuthenticated } = useConvexAuth();
   const me = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
+  // Live wallet — mirrors Plaid-added cards back into the wizard's curated
+  // selection after a connect (see the plaidDone effect below).
+  const wallet = useQuery(
+    api.benefits.listMyCredits,
+    isAuthenticated ? {} : "skip",
+  );
 
   const ensureUser = useMutation(api.users.ensureUser);
   const updateOnboarding = useMutation(api.onboarding.updateOnboarding);
@@ -48,6 +55,11 @@ export function OnboardingWizard() {
   const [prefs, setPrefs] = useState<NotificationCategories>(DEFAULT_NOTIFICATION_CATEGORIES);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Step-2 Plaid gate: `reviewing` hides the footer while the detected-cards
+  // review is showing (Continue must not bypass confirm); `plaidDone` arms
+  // the wallet → curated-selection sync effect below.
+  const [reviewing, setReviewing] = useState(false);
+  const [plaidDone, setPlaidDone] = useState(false);
 
   const hydrated = useRef(false);
   const ensured = useRef(false);
@@ -97,7 +109,30 @@ export function OnboardingWizard() {
     setCards(new Set());
     setCats(new Set());
     setPrefs(DEFAULT_NOTIFICATION_CATEGORIES);
+    setReviewing(false);
+    setPlaidDone(false);
   }, [clerkLoaded, isSignedIn]);
+
+  // After a Plaid confirm the added cards live in the wallet (userCards), not
+  // in the wizard's curated-id selection — union the matching curated ids in
+  // so the rail counter, StepReminders, and StepReview reflect what the user
+  // just added. The functional update returns `prev` when there is nothing to
+  // add, keeping the effect idempotent so it doesn't fight manual untoggles
+  // more than once per wallet change.
+  useEffect(() => {
+    if (!plaidDone || !wallet) return;
+    const owned = new Set(wallet.cards.map((c) => c.cardKey));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing the async Convex wallet query into editable local selection state; no render-time derivation is possible
+    setCards((prev) => {
+      const missing = ONBOARDING_CARDS.filter(
+        (c) => owned.has(c.cardKey) && !prev.has(c.id),
+      );
+      if (missing.length === 0) return prev;
+      const next = new Set(prev);
+      for (const c of missing) next.add(c.id);
+      return next;
+    });
+  }, [plaidDone, wallet]);
 
   const payload = useMemo(
     () => ({
@@ -299,7 +334,11 @@ export function OnboardingWizard() {
               <StepConnect
                 selected={cards}
                 onToggle={toggleCard}
-                onPlaidDone={() => goTo(2)}
+                onPlaidDone={() => {
+                  setPlaidDone(true);
+                  goTo(2);
+                }}
+                onReviewingChange={setReviewing}
               />
             )}
             {viewStep === 2 && (
@@ -312,8 +351,10 @@ export function OnboardingWizard() {
           </div>
         </main>
 
-        {/* Footer bar — hidden on the Clerk step (Clerk owns that CTA). */}
-        {viewStep > 0 && (
+        {/* Footer bar — hidden on the Clerk step (Clerk owns that CTA) and
+            while the detected-cards review is showing on step 2 (Continue
+            must not bypass the review's confirm). */}
+        {viewStep > 0 && !(viewStep === 1 && reviewing) && (
           <footer className="flex items-center justify-between gap-3 border-t border-border bg-surface px-5 py-4 lg:px-[54px]">
             <div className="lg:hidden">
               <div className="tabular font-mono text-[15px] font-semibold text-accent">

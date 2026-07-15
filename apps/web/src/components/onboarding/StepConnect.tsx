@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import { DetectedCardsReview } from "@/components/app/DetectedCardsReview";
@@ -18,15 +18,32 @@ export function StepConnect({
   selected,
   onToggle,
   onPlaidDone,
+  onReviewingChange,
 }: {
   selected: ReadonlySet<string>;
   onToggle: (id: string) => void;
   onPlaidDone: () => void; // advance the wizard to the Spending step
+  onReviewingChange?: (reviewing: boolean) => void; // review phase showing — parent hides its footer
 }) {
   const configured = useQuery(api.plaid.plaidConfigured);
   const [mode, setMode] = useState<"gate" | "manual">("gate");
   const [notice, setNotice] = useState<string | null>(null);
   const [result, setResult] = useState<DetectResult | null>(null);
+
+  // While the review is showing, the wizard footer's "Continue" must not be
+  // able to skip past confirm — surface the phase to the parent. The effect
+  // cleanup guarantees `reviewing` can never stay stuck true: every way this
+  // component leaves the review (onPlaidDone advancing the step, sign-out
+  // reset, rail navigation) unmounts it and fires false.
+  //
+  // Resume gap (accepted): review state is client-only, so closing the tab
+  // mid-review resumes onboarding at the gate. The Plaid item already exists
+  // server-side and stays manageable via Settings → Connected accounts.
+  const reviewing = result !== null;
+  useEffect(() => {
+    onReviewingChange?.(reviewing);
+    return () => onReviewingChange?.(false);
+  }, [reviewing, onReviewingChange]);
 
   const { startConnect, busy } = usePlaidCardLink({
     onDetected: (r) => {
@@ -41,7 +58,10 @@ export function StepConnect({
     },
     onFail: (reason, message) => {
       if (reason === "error") {
-        setNotice(message ?? "Couldn't connect — pick your cards manually instead.");
+        // Raw Plaid/backend messages aren't user-appropriate — log them for
+        // debugging and show the fixed design copy (state 1c) instead.
+        if (message) console.error("Plaid connect failed:", message);
+        setNotice("Couldn't connect — pick your cards manually instead.");
         setMode("manual");
       }
       // "exit": user closed Link on purpose — stay on the gate.
