@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, View } from "react-native";
+import { Alert, Platform, View } from "react-native";
 import {
   createPlaidLinkSession,
   type LinkSuccess,
@@ -19,8 +19,12 @@ export function PlaidConnectSection() {
   const connections = useQuery(api.plaid.listConnections);
   const { walletCards } = useCredits();
   const createLinkToken = useAction(api.plaid.createLinkToken);
+  const createUpdateLinkToken = useAction(api.plaid.createUpdateLinkToken);
   const exchange = useAction(api.plaid.exchangePublicToken);
+  const reactivate = useMutation(api.plaid.reactivateItem);
   const linkAccount = useMutation(api.plaid.linkAccountToCard);
+  const linkCatalog = useAction(api.plaid.linkAccountToCatalogCard);
+  const searchCards = useAction(api.rapidapi.searchCards);
   const removeConnection = useAction(api.plaid.removeConnection);
   const [busy, setBusy] = useState(false);
 
@@ -69,6 +73,70 @@ export function PlaidConnectSection() {
     }
   };
 
+  // Re-authenticate an existing connection (Plaid Link update mode).
+  const onReauth = async (itemId: string) => {
+    setBusy(true);
+    try {
+      const { linkToken } = await createUpdateLinkToken({ itemId });
+      const session = await createPlaidLinkSession({
+        token: linkToken,
+        onSuccess: async () => {
+          try {
+            await reactivate({ itemId });
+          } catch (e) {
+            Alert.alert("Couldn't reconnect", String(e));
+          }
+        },
+        onExit: () => {},
+        onEvent: () => {},
+      });
+      await session.open();
+    } catch (e) {
+      Alert.alert("Reconnect unavailable", String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Search the catalog for a card the user doesn't own yet, then link it (adds
+  // it to the wallet + seeds credits). iOS-only (Alert.prompt); the wallet-card
+  // options cover other platforms.
+  const searchAndLink = (accountId: string) => {
+    if (Platform.OS !== "ios" || typeof Alert.prompt !== "function") {
+      Alert.alert(
+        "Add the card first",
+        "Add the card to your wallet from the Cards tab, then link it here.",
+      );
+      return;
+    }
+    Alert.prompt(
+      "Find a card",
+      "Type a card name (e.g. Sapphire, Freedom)",
+      async (text) => {
+        const term = (text ?? "").trim();
+        if (term.length < 2) return;
+        try {
+          const results = await searchCards({ term });
+          if (!results.length) {
+            Alert.alert("No matches", "Try a different name.");
+            return;
+          }
+          Alert.alert("Link to which card?", undefined, [
+            ...results.slice(0, 5).map((r) => ({
+              text: r.cardName,
+              onPress: () =>
+                void linkCatalog({ accountId, cardKey: r.cardKey }),
+            })),
+            { text: "Cancel", style: "cancel" as const },
+          ]);
+        } catch (e) {
+          Alert.alert("Search failed", String(e));
+        }
+      },
+      "plain-text",
+    );
+  };
+
   const pickCard = (accountId: string, current: string | null) => {
     const buttons: {
       text: string;
@@ -76,13 +144,18 @@ export function PlaidConnectSection() {
       onPress?: () => void;
     }[] = walletCards.map((c) => ({
       text: c.name + (c.userCardId === current ? "  ✓" : ""),
-      onPress: () =>
-        void linkAccount({ accountId, userCardId: c.userCardId }),
+      onPress: () => void linkAccount({ accountId, userCardId: c.userCardId }),
     }));
     buttons.push({
-      text: "Not linked",
-      onPress: () => void linkAccount({ accountId, userCardId: null }),
+      text: "Search for another card…",
+      onPress: () => searchAndLink(accountId),
     });
+    if (current)
+      buttons.push({
+        text: "Unlink",
+        style: "destructive",
+        onPress: () => void linkAccount({ accountId, userCardId: null }),
+      });
     buttons.push({ text: "Cancel", style: "cancel" });
     Alert.alert("Link this account to a card", undefined, buttons);
   };
@@ -114,7 +187,11 @@ export function PlaidConnectSection() {
           >
             <View style={{ flex: 1 }}>
               <Text variant="body">{conn.institutionName}</Text>
-              <Text variant="subtext" color="secondary" style={{ marginTop: 1 }}>
+              <Text
+                variant="subtext"
+                color={conn.status === "active" ? "secondary" : "alert"}
+                style={{ marginTop: 1 }}
+              >
                 {conn.status === "active"
                   ? `${conn.accounts.length} account${conn.accounts.length === 1 ? "" : "s"}`
                   : conn.status === "login_required"
@@ -122,11 +199,21 @@ export function PlaidConnectSection() {
                     : "Connection error"}
               </Text>
             </View>
-            <PillButton
-              label="Disconnect"
-              tone="neutral"
-              onPress={() => onDisconnect(conn.itemId, conn.institutionName)}
-            />
+            <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              {conn.status !== "active" && (
+                <PillButton
+                  label="Reconnect"
+                  tone="accent"
+                  disabled={busy}
+                  onPress={() => onReauth(conn.itemId)}
+                />
+              )}
+              <PillButton
+                label="Disconnect"
+                tone="neutral"
+                onPress={() => onDisconnect(conn.itemId, conn.institutionName)}
+              />
+            </View>
           </View>
 
           {conn.accounts.map((acct) => (
