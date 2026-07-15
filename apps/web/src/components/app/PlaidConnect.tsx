@@ -36,6 +36,8 @@ export function PlaidConnect() {
   // Unresolved credit accounts from the last connect, shown one at a time.
   const [pickQueue, setPickQueue] = useState<PendingAccount[]>([]);
   const [picking, setPicking] = useState(false);
+  // Reveal non-institution issuers in the picker (co-brands, catalog gaps).
+  const [showAllIssuers, setShowAllIssuers] = useState(false);
   const openedFor = useRef<string | null>(null);
 
   const onSuccess = useCallback(
@@ -106,11 +108,15 @@ export function PlaidConnect() {
   };
 
   const pending = pickQueue[0];
-  const skipPending = () => setPickQueue((q) => q.slice(1));
+  const skipPending = () => {
+    setShowAllIssuers(false);
+    setPickQueue((q) => q.slice(1));
+  };
   const pickCatalogCard = async (accountId: string, cardKey: string) => {
     setPicking(true);
     try {
       await linkCatalogCard({ accountId, cardKey });
+      setShowAllIssuers(false);
       setPickQueue((q) => q.filter((p) => p.accountId !== accountId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to link card");
@@ -119,16 +125,17 @@ export function PlaidConnect() {
     }
   };
 
-  // Issuer groups with the connected institution's own cards first.
-  const issuerGroups = (institutionName?: string) => {
+  // Catalog groups split by whether they belong to the connected institution
+  // (e.g. Chase → the Chase group). The picker shows only matched groups by
+  // default — the institution is the one name the bank reports reliably.
+  const splitIssuerGroups = (institutionName?: string) => {
     const groups = popular ?? [];
-    if (!institutionName) return groups;
+    if (!institutionName) return { matched: [], others: groups };
     const inst = institutionName.toLowerCase();
-    return [...groups].sort((a, b) => {
-      const am = inst.includes(a.issuer.toLowerCase()) ? 0 : 1;
-      const bm = inst.includes(b.issuer.toLowerCase()) ? 0 : 1;
-      return am - bm;
-    });
+    return {
+      matched: groups.filter((g) => inst.includes(g.issuer.toLowerCase())),
+      others: groups.filter((g) => !inst.includes(g.issuer.toLowerCase())),
+    };
   };
 
   const feeLabel = (annualFee: number | null) =>
@@ -209,19 +216,27 @@ export function PlaidConnect() {
                       ))}
                     </optgroup>
                   )}
-                  {issuerGroups(conn.institutionName).map((g) => {
-                    const notOwned = g.cards.filter((c) => !c.owned);
-                    if (notOwned.length === 0) return null;
-                    return (
-                      <optgroup key={g.issuer} label={`Add new — ${g.issuer}`}>
-                        {notOwned.map((c) => (
-                          <option key={c.cardKey} value={`new:${c.cardKey}`}>
-                            {c.cardName}
-                          </option>
-                        ))}
-                      </optgroup>
+                  {(() => {
+                    // Same scoping as the picker: only the connected
+                    // institution's issuer group; unmatched → full catalog.
+                    const { matched, others } = splitIssuerGroups(
+                      conn.institutionName,
                     );
-                  })}
+                    const groups = matched.length > 0 ? matched : others;
+                    return groups.map((g) => {
+                      const notOwned = g.cards.filter((c) => !c.owned);
+                      if (notOwned.length === 0) return null;
+                      return (
+                        <optgroup key={g.issuer} label={`Add new — ${g.issuer}`}>
+                          {notOwned.map((c) => (
+                            <option key={c.cardKey} value={`new:${c.cardKey}`}>
+                              {c.cardName}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    });
+                  })()}
                 </select>
               </div>
             ))}
@@ -267,36 +282,62 @@ export function PlaidConnect() {
               </p>
             </div>
             <div className="flex-1 overflow-y-auto p-3">
-              {issuerGroups(pending.institutionName).map((g) => (
-                <div key={g.issuer} className="mb-2">
-                  <div className="px-2 py-1 text-[11.5px] font-semibold uppercase tracking-wide text-tertiary">
-                    {g.issuer}
-                  </div>
-                  {g.cards.map((c) => (
-                    <button
-                      key={c.cardKey}
-                      type="button"
-                      disabled={picking}
-                      onClick={() =>
-                        void pickCatalogCard(pending.accountId, c.cardKey)
-                      }
-                      className="flex w-full items-center justify-between gap-3 rounded-[10px] px-2 py-2 text-left transition-colors hover:bg-accent/10 disabled:opacity-50"
-                    >
-                      <span className="text-[13.5px] text-ink">
-                        {c.cardName}
-                        {c.owned ? (
-                          <span className="ml-1.5 text-[11.5px] text-tertiary">
-                            in wallet
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="shrink-0 text-[12px] text-secondary">
-                        {feeLabel(c.annualFee)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              ))}
+              {(() => {
+                // Only the connected institution's cards by default; the rest
+                // stay behind "show all" (co-brands, cards missing from the
+                // institution's catalog group). No match → show everything.
+                const { matched, others } = splitIssuerGroups(
+                  pending.institutionName,
+                );
+                const groups =
+                  matched.length === 0 || showAllIssuers
+                    ? [...matched, ...others]
+                    : matched;
+                const hidden = matched.length > 0 && !showAllIssuers;
+                return (
+                  <>
+                    {groups.map((g) => (
+                      <div key={g.issuer} className="mb-2">
+                        <div className="px-2 py-1 text-[11.5px] font-semibold uppercase tracking-wide text-tertiary">
+                          {g.issuer}
+                        </div>
+                        {g.cards.map((c) => (
+                          <button
+                            key={c.cardKey}
+                            type="button"
+                            disabled={picking}
+                            onClick={() =>
+                              void pickCatalogCard(pending.accountId, c.cardKey)
+                            }
+                            className="flex w-full items-center justify-between gap-3 rounded-[10px] px-2 py-2 text-left transition-colors hover:bg-accent/10 disabled:opacity-50"
+                          >
+                            <span className="text-[13.5px] text-ink">
+                              {c.cardName}
+                              {c.owned ? (
+                                <span className="ml-1.5 text-[11.5px] text-tertiary">
+                                  in wallet
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className="shrink-0 text-[12px] text-secondary">
+                              {feeLabel(c.annualFee)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                    {hidden && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAllIssuers(true)}
+                        className="w-full rounded-[10px] px-2 py-2 text-left text-[13px] font-semibold text-accent transition-colors hover:bg-accent/10"
+                      >
+                        My card isn&apos;t listed — show other issuers
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
             <div className="border-t border-separator p-3">
               <button
