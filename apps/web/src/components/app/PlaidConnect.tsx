@@ -138,12 +138,6 @@ export function PlaidConnect() {
     };
   };
 
-  // Issuer groups with the connected institution's own cards first.
-  const issuerGroups = (institutionName?: string) => {
-    const { matched, others } = splitIssuerGroups(institutionName);
-    return [...matched, ...others];
-  };
-
   const feeLabel = (annualFee: number | null) =>
     annualFee == null ? "" : annualFee === 0 ? "No annual fee" : `$${annualFee}/yr`;
 
@@ -222,19 +216,27 @@ export function PlaidConnect() {
                       ))}
                     </optgroup>
                   )}
-                  {issuerGroups(conn.institutionName).map((g) => {
-                    const notOwned = g.cards.filter((c) => !c.owned);
-                    if (notOwned.length === 0) return null;
-                    return (
-                      <optgroup key={g.issuer} label={`Add new — ${g.issuer}`}>
-                        {notOwned.map((c) => (
-                          <option key={c.cardKey} value={`new:${c.cardKey}`}>
-                            {c.cardName}
-                          </option>
-                        ))}
-                      </optgroup>
+                  {(() => {
+                    // Same scoping as the picker: only the connected
+                    // institution's issuer group; unmatched → full catalog.
+                    const { matched, others } = splitIssuerGroups(
+                      conn.institutionName,
                     );
-                  })}
+                    const groups = matched.length > 0 ? matched : others;
+                    return groups.map((g) => {
+                      const notOwned = g.cards.filter((c) => !c.owned);
+                      if (notOwned.length === 0) return null;
+                      return (
+                        <optgroup key={g.issuer} label={`Add new — ${g.issuer}`}>
+                          {notOwned.map((c) => (
+                            <option key={c.cardKey} value={`new:${c.cardKey}`}>
+                              {c.cardName}
+                            </option>
+                          ))}
+                        </optgroup>
+                      );
+                    });
+                  })()}
                 </select>
               </div>
             ))}
