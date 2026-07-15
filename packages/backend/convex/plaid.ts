@@ -1089,6 +1089,74 @@ export const reactivateItem = mutation({
   },
 });
 
+// ── Manual refresh (user-requested, cooldown-limited) ────────────────────────
+// /transactions/refresh asks Plaid to re-poll the institution on demand (no
+// per-call fee — included in the Transactions subscription). The fresh data
+// lands minutes later via the SYNC_UPDATES_AVAILABLE webhook → syncItem; we
+// also sync immediately to surface anything Plaid already has cached. The
+// cooldown is enforced server-side; clients read nextRefreshAt off
+// listConnections to disable the button.
+
+const MANUAL_REFRESH_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+// Atomically check the cooldown and stamp lastManualRefreshAt (stamp-first, so
+// two rapid requests can't double-fire the refresh). Returns the previous stamp
+// so a failed Plaid call can roll back instead of consuming the window.
+export const beginManualRefresh = internalMutation({
+  args: { itemId: v.string(), userId: v.string() },
+  handler: async (ctx, { itemId, userId }) => {
+    const item = await ctx.db
+      .query("plaidItems")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .unique();
+    if (!item || item.userId !== userId) throw new Error("Connection not found");
+    const now = Date.now();
+    const prev = item.lastManualRefreshAt;
+    if (prev && now < prev + MANUAL_REFRESH_COOLDOWN_MS) {
+      const mins = Math.ceil((prev + MANUAL_REFRESH_COOLDOWN_MS - now) / 60000);
+      throw new Error(`Refresh available again in ${mins} min`);
+    }
+    await ctx.db.patch(item._id, { lastManualRefreshAt: now });
+    return { accessToken: item.accessToken, prevRefreshAt: prev ?? null };
+  },
+});
+
+// Restore/clear the cooldown stamp (rollback when the Plaid call fails).
+export const setManualRefreshAt = internalMutation({
+  args: { itemId: v.string(), value: v.optional(v.number()) },
+  handler: async (ctx, { itemId, value }) => {
+    const item = await ctx.db
+      .query("plaidItems")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .unique();
+    if (item) await ctx.db.patch(item._id, { lastManualRefreshAt: value });
+  },
+});
+
+export const refreshConnection = action({
+  args: { itemId: v.string() },
+  handler: async (ctx, { itemId }): Promise<void> => {
+    const userId = await requireUserId(ctx);
+    const { accessToken, prevRefreshAt } = await ctx.runMutation(
+      internal.plaid.beginManualRefresh,
+      { itemId, userId },
+    );
+    try {
+      await plaidRequest("/transactions/refresh", {
+        access_token: accessToken,
+      });
+    } catch (e) {
+      await ctx.runMutation(internal.plaid.setManualRefreshAt, {
+        itemId,
+        value: prevRefreshAt ?? undefined,
+      });
+      throw e;
+    }
+    console.log(`[plaid refresh] item=${itemId} requested`);
+    await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
+  },
+});
+
 // ── Read: connected institutions + accounts (never returns accessToken) ───────
 
 export const listConnections = query({
@@ -1121,6 +1189,11 @@ export const listConnections = query({
           institutionName: item.institutionName ?? "Bank",
           status: item.status,
           lastSyncedAt: item.lastSyncedAt ?? null,
+          // When the next manual refresh unlocks (null ⇒ available now). The
+          // cooldown constant stays server-side; clients just compare to now.
+          nextRefreshAt: item.lastManualRefreshAt
+            ? item.lastManualRefreshAt + MANUAL_REFRESH_COOLDOWN_MS
+            : null,
           accounts: accounts.map((a) => ({
             accountId: a.accountId,
             mask: a.mask ?? null,

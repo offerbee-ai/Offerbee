@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Alert, Platform, View } from "react-native";
 import {
   createPlaidLinkSession,
@@ -10,6 +10,17 @@ import { api } from "@packages/backend/convex/_generated/api";
 import { Button, Card, PillButton, SectionLabel, Text } from "@/components/ui";
 import { spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
+
+// Compact relative timestamp for the "Updated …" status line. (Duplicated from
+// web PlaidConnect — same convention as the credits derive logic.)
+function timeAgo(ts: number): string {
+  const mins = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 // Native "Connected accounts": Plaid Link connect + per-account → wallet-card
 // linking. Requires a dev client (Plaid's native module isn't in Expo Go).
@@ -26,7 +37,35 @@ export function PlaidConnectSection() {
   const linkCatalog = useAction(api.plaid.linkAccountToCatalogCard);
   const searchCards = useAction(api.rapidapi.searchCards);
   const removeConnection = useAction(api.plaid.removeConnection);
+  const refresh = useAction(api.plaid.refreshConnection);
   const [busy, setBusy] = useState(false);
+  // Per-connection manual refresh + cooldown. `now` re-renders once when the
+  // earliest cooldown expires so the button re-enables without a remount.
+  const [refreshingItem, setRefreshingItem] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const pending = (connections ?? [])
+      .map((c) => c.nextRefreshAt)
+      .filter((t): t is number => t != null && t > now);
+    if (pending.length === 0) return;
+    const t = setTimeout(
+      () => setNow(Date.now()),
+      Math.min(...pending) - now + 1000,
+    );
+    return () => clearTimeout(t);
+  }, [connections, now]);
+
+  const onRefresh = async (itemId: string) => {
+    setRefreshingItem(itemId);
+    try {
+      await refresh({ itemId });
+    } catch (e) {
+      Alert.alert("Refresh failed", String(e));
+    } finally {
+      setRefreshingItem(null);
+    }
+  };
 
   if (configured === false) {
     return (
@@ -193,13 +232,30 @@ export function PlaidConnectSection() {
                 style={{ marginTop: 1 }}
               >
                 {conn.status === "active"
-                  ? `${conn.accounts.length} account${conn.accounts.length === 1 ? "" : "s"}`
+                  ? `${conn.accounts.length} account${conn.accounts.length === 1 ? "" : "s"}${
+                      conn.lastSyncedAt
+                        ? ` · Updated ${timeAgo(conn.lastSyncedAt)}`
+                        : ""
+                    }`
                   : conn.status === "login_required"
                     ? "Reconnect needed"
                     : "Connection error"}
               </Text>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+              {conn.status === "active" && (
+                <PillButton
+                  label={
+                    refreshingItem === conn.itemId ? "Refreshing…" : "Refresh"
+                  }
+                  tone="soft"
+                  disabled={
+                    refreshingItem === conn.itemId ||
+                    (conn.nextRefreshAt != null && conn.nextRefreshAt > now)
+                  }
+                  onPress={() => void onRefresh(conn.itemId)}
+                />
+              )}
               {conn.status !== "active" && (
                 <PillButton
                   label="Reconnect"
