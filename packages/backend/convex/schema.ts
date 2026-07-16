@@ -245,6 +245,7 @@ export default defineSchema({
     transactionId: v.string(),
     merchantName: v.optional(v.string()),
     name: v.optional(v.string()),
+    originalDescription: v.optional(v.string()), // raw statement text — keeps credit wording Plaid's cleaning strips
     amount: v.number(), // dollars; positive = spend (outflow)
     date: v.number(), // ms, from the transaction date
     pfcPrimary: v.optional(v.string()), // personal_finance_category.primary

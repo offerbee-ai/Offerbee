@@ -22,6 +22,7 @@ export type LlmCandidate = {
   transactionId: string;
   merchantName?: string;
   name?: string;
+  originalDescription?: string; // raw statement text, when Plaid provides it
   amount: number; // negative = statement credit, positive = purchase
   date: number;
   pfcPrimary?: string;
@@ -59,8 +60,9 @@ export async function llmClassify(
     .map(
       (c) =>
         `${c.transactionId}: ${c.merchantName ?? c.name ?? "?"} $${Math.abs(c.amount)} ` +
-        `${c.amount < 0 ? "(statement credit)" : "(purchase)"} ` +
-        `${new Date(c.date).toISOString().slice(0, 10)} [${c.pfcPrimary ?? "?"}]`,
+        `${c.amount < 0 ? "(credit/refund)" : "(purchase)"} ` +
+        `${new Date(c.date).toISOString().slice(0, 10)} [${c.pfcPrimary ?? "?"}]` +
+        (c.originalDescription ? ` raw="${c.originalDescription}"` : ""),
     )
     .join("\n");
 
@@ -73,7 +75,13 @@ export async function llmClassify(
     `Rules:\n` +
     `- Match by merchant/category fit to the benefit's purpose.\n` +
     `- Do NOT map a transaction to a benefit that has $0 remaining this period.\n` +
-    `- A "(statement credit)" line is the issuer reimbursing a credit — map it to the matching benefit.\n` +
+    `- A "(credit/refund)" line labeled as a credit is the issuer reimbursing a benefit — map it.\n` +
+    `- Issuers sometimes post reimbursements under the plain merchant name (e.g. Amex's Walmart+ ` +
+    `rebate posts as "Walmart"). A refund whose amount ≈ the benefit's periodic amount, close in ` +
+    `time to a matching purchase, is likely such a reimbursement — map it. An arbitrary-amount ` +
+    `one-off refund is likely a merchant return — use -1.\n` +
+    `- Airline/incidental fee credits cover incidentals (bags, seats, change fees), NOT airfare — ` +
+    `do not map ticket purchases (typically large amounts) to them.\n` +
     `- If unsure, use -1 (no match).\n` +
     `Reply with ONLY JSON, no prose: ` +
     `{"maps":[{"txn":"<transactionId>","benefit":<index or -1>,"confidence":<0-1>}]}`;
