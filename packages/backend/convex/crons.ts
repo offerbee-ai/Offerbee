@@ -33,6 +33,15 @@ crons.interval(
   { cursor: null },
 );
 
+// Daily retirement of Plaid suggestions logic has since resolved (period
+// expired or issuer credit covered it) — keeps Detected down to actionables.
+crons.interval(
+  "retire resolved suggestions",
+  { hours: 24 },
+  internal.plaid.retireAllResolvedSuggestions,
+  { cursor: null },
+);
+
 // Daily credit reminders: unused-before-reset expiry alerts + Plaid
 // suggested-credit confirmation nudges.
 crons.interval(

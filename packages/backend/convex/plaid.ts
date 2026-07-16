@@ -13,9 +13,13 @@ import { api, internal } from "./_generated/api";
 import { getUserId, requireUserId } from "./auth";
 import { periodKey } from "./benefitCycles";
 import {
+  COVERED_RATIO,
+  cappedUsageAmount,
   isCreditLabeled,
+  isRecurringReimbursement,
   isStatementCreditFor,
   matchBenefitToTransaction,
+  resolveSuggestion,
 } from "./plaidMatch";
 import { llmClassify } from "./plaidLlm";
 import { deriveDetected, type DetectedAccount } from "./plaidDetect";
@@ -382,13 +386,15 @@ export const confirmDetectedCards = action({
 // ── Matching + auto-log helpers (shared by applySync + linkAccountToCard) ──────
 
 // One auto usage per transaction, kept in sync on modify. Idempotent.
+// amountOverride lets cap-aware callers log less than the txn magnitude.
 async function ensureAutoUsage(
   ctx: MutationCtx,
   txn: Doc<"plaidTransactions">,
   benefit: Doc<"userBenefits">,
+  amountOverride?: number,
 ) {
   const pk = periodKey(benefit.cycle, txn.date); // attribute to the txn's period
-  const amt = Math.abs(txn.amount); // credit postings are negative; log magnitude
+  const amt = amountOverride ?? Math.abs(txn.amount); // credit postings are negative; log magnitude
   const existing = (
     await ctx.db
       .query("benefitUsages")
@@ -433,6 +439,27 @@ async function removeAutoUsage(ctx: MutationCtx, transactionId: string) {
     .withIndex("by_transactionId", (q) => q.eq("transactionId", transactionId))
     .take(10);
   for (const r of rows) if (r.source === "auto") await ctx.db.delete(r._id);
+}
+
+// Flip a suggested purchase to "skipped" when logic already has the answer:
+// the issuer effectively captured the period (≥80% posted), or the period
+// ended and confirming can't change anything. Detected keeps only "open".
+async function retireIfResolved(
+  ctx: MutationCtx,
+  txn: Doc<"plaidTransactions">,
+) {
+  if (!txn.matchedBenefitId) return;
+  const benefit = await ctx.db.get(txn.matchedBenefitId);
+  if (!benefit) return;
+  const other = await periodUsageExcluding(
+    ctx,
+    benefit._id,
+    periodKey(benefit.cycle, txn.date),
+    txn.transactionId,
+  );
+  const state = resolveSuggestion(benefit, txn.date, other, Date.now());
+  if (state !== "open")
+    await ctx.db.patch(txn._id, { matchStatus: "skipped" });
 }
 
 // A benefit's usage for one period, excluding a given transaction's own row (so
@@ -487,6 +514,25 @@ async function autoLogWithCap(
     matchStatus: "auto",
     matchedBenefitId: benefit._id,
   });
+
+  // Period now effectively captured → retire pending suggestions for the same
+  // benefit + period, so Detected stops offering purchases the issuer already
+  // reimbursed (and a later confirm can't double-log).
+  if (
+    other + Math.abs(txn.amount) >= benefit.amount * COVERED_RATIO &&
+    txn.userCardId
+  ) {
+    const siblings = await ctx.db
+      .query("plaidTransactions")
+      .withIndex("by_userCardId", (q) => q.eq("userCardId", txn.userCardId))
+      .take(500);
+    for (const s of siblings) {
+      if (s.matchStatus !== "suggested") continue;
+      if (s.matchedBenefitId !== benefit._id) continue;
+      if (periodKey(benefit.cycle, s.date) !== pk) continue;
+      await ctx.db.patch(s._id, { matchStatus: "skipped" });
+    }
+  }
 }
 
 // Stage 1 — deterministic classification of one stored transaction:
@@ -500,12 +546,14 @@ async function classifyTransaction(
   ctx: MutationCtx,
   txn: Doc<"plaidTransactions">,
 ) {
-  if (
-    txn.matchStatus === "confirmed" ||
-    txn.matchStatus === "dismissed" ||
-    txn.matchStatus === "suggested"
-  )
+  if (txn.matchStatus === "confirmed" || txn.matchStatus === "dismissed")
     return;
+  if (txn.matchStatus === "suggested") {
+    // Re-sweeps retire suggestions logic has since resolved (issuer credit
+    // auto-logged, or period expired) instead of re-classifying them.
+    await retireIfResolved(ctx, txn);
+    return;
+  }
 
   const set = async (
     status: Doc<"plaidTransactions">["matchStatus"],
@@ -535,28 +583,84 @@ async function classifyTransaction(
       .take(100)
   ).filter((b) => b.archivedAt === undefined);
 
-  const txnName = `${txn.merchantName ?? ""} ${txn.name ?? ""}`;
+  // originalDescription is the raw statement line — issuers' credit wording
+  // often survives there after Plaid's cleaning strips it from name.
+  const txnName = `${txn.merchantName ?? ""} ${txn.name ?? ""} ${txn.originalDescription ?? ""}`;
+  const matchTxn = {
+    merchantName: txn.merchantName,
+    name: txn.name,
+    originalDescription: txn.originalDescription,
+    pfcPrimary: txn.pfcPrimary,
+    amount: txn.amount,
+  };
 
-  // Refund (negative): only a credit-labeled posting cleanly matched to a
-  // curated benefit is authoritative usage. Ambiguous → candidate (LLM decides).
+  // Refund (negative), strongest signal first:
+  //   1. credit-labeled posting cleanly matched to one benefit → auto-log
+  //   2. unlabeled but structurally a recurring reimbursement (same merchant,
+  //      ~benefit amount, ≥2 prior months — the Amex Walmart+ pattern) → auto-log
+  //   3. merchant-plausible for some benefit → candidate (LLM decides)
+  //   4. anything else → none
   if (txn.amount < 0) {
-    if (!isCreditLabeled(txnName)) {
+    if (isCreditLabeled(txnName)) {
+      const matches = benefits.filter((b) =>
+        isStatementCreditFor(
+          { title: b.title, benefitTitle: b.benefitTitle },
+          txnName,
+        ),
+      );
+      if (matches.length === 1) {
+        await autoLogWithCap(ctx, txn, matches[0]);
+      } else {
+        await removeAutoUsage(ctx, txn.transactionId);
+        await set("candidate", undefined);
+      }
+      return;
+    }
+
+    const plausible = benefits.filter((b) =>
+      matchBenefitToTransaction(
+        { title: b.title, benefitTitle: b.benefitTitle },
+        matchTxn,
+      ),
+    );
+    if (plausible.length === 0) {
       await removeAutoUsage(ctx, txn.transactionId);
       await set("none", undefined);
       return;
     }
-    const matches = benefits.filter((b) =>
-      isStatementCreditFor(
-        { title: b.title, benefitTitle: b.benefitTitle },
-        txnName,
+
+    // Structural check needs account history — fetched only on this rare path.
+    const priors = (
+      await ctx.db
+        .query("plaidTransactions")
+        .withIndex("by_accountId", (q) => q.eq("accountId", txn.accountId))
+        .take(500)
+    )
+      .filter((t) => t.amount < 0 && t.transactionId !== txn.transactionId)
+      .map((t) => ({
+        text: `${t.merchantName ?? ""} ${t.name ?? ""} ${t.originalDescription ?? ""}`,
+        amount: t.amount,
+        date: t.date,
+      }));
+    const recurring = plausible.find((b) =>
+      isRecurringReimbursement(
+        { title: b.title, benefitTitle: b.benefitTitle, amount: b.amount },
+        { text: txnName, amount: txn.amount, date: txn.date },
+        priors,
       ),
     );
-    if (matches.length === 1) {
-      await autoLogWithCap(ctx, txn, matches[0]);
-    } else {
-      await removeAutoUsage(ctx, txn.transactionId);
-      await set("candidate", undefined);
+    if (recurring) {
+      console.log(
+        `[plaid match] recurring reimbursement auto-log txn=${txn.transactionId} $${txn.amount} → "${recurring.title}"`,
+      );
+      await autoLogWithCap(ctx, txn, recurring);
+      return;
     }
+    console.log(
+      `[plaid match] unlabeled refund → LLM candidate txn=${txn.transactionId} $${txn.amount} (${plausible.length} plausible benefit(s))`,
+    );
+    await removeAutoUsage(ctx, txn.transactionId);
+    await set("candidate", undefined);
     return;
   }
 
@@ -564,12 +668,7 @@ async function classifyTransaction(
   const plausible = benefits.find((b) =>
     matchBenefitToTransaction(
       { title: b.title, benefitTitle: b.benefitTitle },
-      {
-        merchantName: txn.merchantName,
-        name: txn.name,
-        pfcPrimary: txn.pfcPrimary,
-        amount: txn.amount,
-      },
+      matchTxn,
     ),
   );
   await set(plausible ? "candidate" : "none", plausible?._id);
@@ -582,6 +681,7 @@ const normalizedTxnValidator = v.object({
   accountId: v.string(),
   merchantName: v.optional(v.string()),
   name: v.optional(v.string()),
+  originalDescription: v.optional(v.string()),
   amount: v.number(),
   date: v.number(),
   pfcPrimary: v.optional(v.string()),
@@ -596,6 +696,7 @@ function normalizeTxn(t: any) {
     accountId: String(t.account_id),
     merchantName: t.merchant_name ?? undefined,
     name: t.name ?? undefined,
+    originalDescription: t.original_description ?? undefined,
     amount: typeof t.amount === "number" ? t.amount : Number(t.amount) || 0,
     date: Date.parse(`${t.date}T00:00:00Z`) || Date.now(),
     pfcPrimary: t.personal_finance_category?.primary ?? undefined,
@@ -669,6 +770,7 @@ export const applySync = internalMutation({
       const fields = {
         merchantName: t.merchantName,
         name: t.name,
+        originalDescription: t.originalDescription,
         amount: t.amount,
         date: t.date,
         pfcPrimary: t.pfcPrimary,
@@ -743,6 +845,9 @@ export const syncItem = internalAction({
         access_token: item.accessToken,
         ...(cursor ? { cursor } : {}),
         count: 500,
+        // Raw statement text — issuer credit wording ("WALMART+ ... CREDIT")
+        // that Plaid's cleaned name/merchant_name drops.
+        options: { include_original_description: true },
       });
       const added = resp.added ?? [];
       const modified = resp.modified ?? [];
@@ -839,6 +944,7 @@ export const getCandidatesForCard = internalQuery({
         transactionId: t.transactionId,
         merchantName: t.merchantName,
         name: t.name,
+        originalDescription: t.originalDescription,
         amount: t.amount,
         date: t.date,
         pfcPrimary: t.pfcPrimary,
@@ -914,11 +1020,60 @@ export const applyLlmResults = internalMutation({
       if (txn.amount < 0) {
         await autoLogWithCap(ctx, txn, benefit); // ambiguous refund resolved
       } else {
+        // Only surface what the user can still act on: covered or expired
+        // periods are logic's to resolve, not the user's.
+        const other = await periodUsageExcluding(
+          ctx,
+          benefit._id,
+          periodKey(benefit.cycle, txn.date),
+          txn.transactionId,
+        );
+        const state = resolveSuggestion(benefit, txn.date, other, Date.now());
         await ctx.db.patch(txn._id, {
-          matchStatus: "suggested",
+          matchStatus: state === "open" ? "suggested" : "skipped",
           matchedBenefitId: benefit._id,
         });
       }
+    }
+  },
+});
+
+// Maintenance: clear an item's sync cursor so the next syncItem re-pulls full
+// history — used to backfill newly-requested fields (originalDescription) onto
+// existing rows; applySync patches by transactionId, so no duplicates.
+export const resetItemCursor = internalMutation({
+  args: { itemId: v.string() },
+  handler: async (ctx, { itemId }) => {
+    const item = await ctx.db
+      .query("plaidItems")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .unique();
+    if (item) await ctx.db.patch(item._id, { cursor: undefined });
+  },
+});
+
+// Maintenance: re-run stage-1 classification over an item's stored transactions
+// (e.g. after widening the matcher). classifyTransaction itself respects
+// terminal states (confirmed/dismissed/suggested). Paged to stay inside
+// mutation limits; kicks off syncItem at the end so stage 2 (LLM) picks up any
+// new candidates. Run: npx convex run plaid:reclassifyItemTxns '{"itemId":"..."}'
+export const reclassifyItemTxns = internalMutation({
+  args: { itemId: v.string(), cursor: v.optional(v.union(v.string(), v.null())) },
+  handler: async (ctx, { itemId, cursor }) => {
+    const page = await ctx.db
+      .query("plaidTransactions")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .paginate({ numItems: 50, cursor: cursor ?? null });
+    const docs = [...page.page].sort((a, b) => a.amount - b.amount); // refunds first
+    for (const d of docs) await classifyTransaction(ctx, d);
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(0, internal.plaid.reclassifyItemTxns, {
+        itemId,
+        cursor: page.continueCursor,
+      });
+    } else {
+      console.log(`[plaid reclassify] done item=${itemId}, scheduling LLM pass`);
+      await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
     }
   },
 });
@@ -955,6 +1110,54 @@ export const syncAllItems = internalAction({
   },
 });
 
+// Retire an item's suggestions that logic has since resolved (period expired,
+// or issuer credit covered it). Cheap: touches suggested rows only.
+export const retireResolvedSuggestions = internalMutation({
+  args: { itemId: v.string(), userId: v.string() },
+  handler: async (ctx, { itemId, userId }) => {
+    const rows = (
+      await ctx.db
+        .query("plaidTransactions")
+        .withIndex("by_userId_and_matchStatus", (q) =>
+          q.eq("userId", userId).eq("matchStatus", "suggested"),
+        )
+        .take(200)
+    ).filter((t) => t.itemId === itemId);
+    for (const t of rows) await retireIfResolved(ctx, t);
+  },
+});
+
+// Cron entry: daily pass so suggestions stop asking once their period lapses.
+export const retireAllResolvedSuggestions = internalAction({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const page = await ctx.runQuery(internal.plaid.getItemsPageWithUsers, {
+      cursor,
+      limit: 50,
+    });
+    for (const it of page.items)
+      await ctx.runMutation(internal.plaid.retireResolvedSuggestions, it);
+    if (!page.isDone)
+      await ctx.scheduler.runAfter(5_000, internal.plaid.retireAllResolvedSuggestions, {
+        cursor: page.continueCursor,
+      });
+  },
+});
+
+export const getItemsPageWithUsers = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()), limit: v.number() },
+  handler: async (ctx, { cursor, limit }) => {
+    const page = await ctx.db
+      .query("plaidItems")
+      .paginate({ numItems: limit, cursor });
+    return {
+      items: page.page.map((i) => ({ itemId: i.itemId, userId: i.userId })),
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
 // ── Suggestions: confirm / dismiss ────────────────────────────────────────────
 
 export const confirmSuggestion = mutation({
@@ -972,7 +1175,18 @@ export const confirmSuggestion = mutation({
     const benefit = await ctx.db.get(txn.matchedBenefitId);
     if (!benefit || benefit.userId !== userId)
       throw new Error("Benefit not found");
-    await ensureAutoUsage(ctx, txn, benefit);
+    // Clamp to the period's remaining allowance: a $738 hotel stay against a
+    // $600 credit captures $600; a period already covered logs nothing (the
+    // issuer's own credit posting may have auto-logged it first).
+    const pk = periodKey(benefit.cycle, txn.date);
+    const other = await periodUsageExcluding(
+      ctx,
+      benefit._id,
+      pk,
+      txn.transactionId,
+    );
+    const amt = cappedUsageAmount(benefit.amount, other, txn.amount);
+    if (amt > 0) await ensureAutoUsage(ctx, txn, benefit, amt);
     await ctx.db.patch(txn._id, { matchStatus: "confirmed" });
   },
 });
@@ -1005,11 +1219,23 @@ export const listSuggestions = query({
         q.eq("userId", userId).eq("matchStatus", "suggested"),
       )
       .take(50);
-    return await Promise.all(
+    const out = await Promise.all(
       rows.map(async (t) => {
         const benefit = t.matchedBenefitId
           ? await ctx.db.get(t.matchedBenefitId)
           : null;
+        // Read-time guard: rows resolve lazily (the daily sweep flips them),
+        // but Detected must never show covered/expired periods.
+        if (benefit) {
+          const other = await periodUsageExcluding(
+            ctx,
+            benefit._id,
+            periodKey(benefit.cycle, t.date),
+            t.transactionId,
+          );
+          if (resolveSuggestion(benefit, t.date, other, Date.now()) !== "open")
+            return null;
+        }
         return {
           transactionId: t.transactionId,
           merchantName: t.merchantName ?? t.name ?? "Transaction",
@@ -1021,6 +1247,7 @@ export const listSuggestions = query({
         };
       }),
     );
+    return out.filter((r) => r !== null);
   },
 });
 
