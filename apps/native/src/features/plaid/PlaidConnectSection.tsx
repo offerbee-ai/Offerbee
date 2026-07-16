@@ -1,24 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Alert, Modal, Pressable, View } from "react-native";
+import { createPlaidLinkSession } from "react-native-plaid-link-sdk";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import {
-  createPlaidLinkSession,
-  type LinkSuccess,
-} from "react-native-plaid-link-sdk";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 
-import { Button, Card, Icon, SearchField, SectionLabel, Text } from "@/components/ui";
-import { fontFamilies, radius, spacing, useTheme } from "@/theme";
+import { Button, Card, Icon, SectionLabel, Text } from "@/components/ui";
+import { fontFamilies, spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
+import {
+  isPlaidAvailable,
+  usePlaidCardLink,
+  type DetectResult,
+} from "./usePlaidCardLink";
+import { LinkPickerSheet, type SheetTarget } from "./LinkPickerSheet";
+import { DetectedCardsReview } from "./DetectedCardsReview";
 
 // Native "Connected accounts" — Plaid Link connect + per-account → wallet-card
-// linking (Design/design_handoff_connected_accounts, states 1d–1f). The link
-// picker is a bottom sheet; it also opens right after a connect for each
-// account the backend couldn't auto-resolve (e.g. Chase reports every UR card
-// as "Ultimate Rewards®"). Requires a dev client (Plaid's native module isn't
-// in Expo Go).
+// linking (Design/design_handoff_connected_accounts, states 1d–1f). A
+// successful connect opens the detected-cards review ("We found your cards");
+// the link picker bottom sheet handles per-account relinking from the rows
+// below. Requires a dev client (Plaid's native module isn't in Expo Go).
 
 // Institution brand colors are CONTENT, not theme tokens — never remapped.
 const INSTITUTION_COLORS: [RegExp, string][] = [
@@ -52,16 +55,6 @@ function timeAgo(ts: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-// The account the link sheet is targeting.
-type SheetTarget = {
-  accountId: string;
-  mask: string | null;
-  institutionName: string;
-  currentCardId: string | null;
-};
-
-type CatalogResult = { cardKey: string; cardName: string; cardIssuer: string };
-
 export function PlaidConnectSection() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -69,15 +62,15 @@ export function PlaidConnectSection() {
   const connections = useQuery(api.plaid.listConnections);
   const popular = useQuery(api.catalog.popularCards);
   const { walletCards } = useCredits();
-  const createLinkToken = useAction(api.plaid.createLinkToken);
   const createUpdateLinkToken = useAction(api.plaid.createUpdateLinkToken);
-  const exchange = useAction(api.plaid.exchangePublicToken);
   const reactivate = useMutation(api.plaid.reactivateItem);
   const linkAccount = useMutation(api.plaid.linkAccountToCard);
   const linkCatalogCard = useAction(api.plaid.linkAccountToCatalogCard);
   const removeConnection = useAction(api.plaid.removeConnection);
   const refresh = useAction(api.plaid.refreshConnection);
-  const [busy, setBusy] = useState(false);
+  // Set while re-authenticating an existing item (Plaid Link update mode) —
+  // separate from the connect flow's `busy` (owned by usePlaidCardLink).
+  const [reauthBusy, setReauthBusy] = useState(false);
   // Per-connection manual refresh + cooldown. `now` re-renders once when the
   // earliest cooldown expires so the button re-enables without a remount.
   const [refreshingItem, setRefreshingItem] = useState<string | null>(null);
@@ -96,138 +89,31 @@ export function PlaidConnectSection() {
   }, [connections, now]);
   const [picking, setPicking] = useState(false);
   const [sheet, setSheet] = useState<SheetTarget | null>(null);
-  // Post-connect prompts for accounts the backend couldn't auto-resolve.
-  const [queue, setQueue] = useState<SheetTarget[]>([]);
+  // Post-connect review ("We found your cards") — replaces the old
+  // per-account prompt queue.
+  const [reviewResult, setReviewResult] = useState<DetectResult | null>(null);
 
-  const target = sheet ?? queue[0] ?? null;
-  const fromQueue = !sheet && queue.length > 0;
-  const closeSheet = () => {
-    if (fromQueue) setQueue((q) => q.slice(1));
-    else setSheet(null);
-  };
-
-  // Search-any-card: instant local-catalog hits + a debounced live API search
-  // (the add-card screen's hybrid pattern), so cards outside the popular list
-  // are linkable here without a detour through the wallet.
-  const [term, setTerm] = useState("");
-  const [apiResults, setApiResults] = useState<CatalogResult[]>([]);
-  const [searching, setSearching] = useState(false);
-  const [searched, setSearched] = useState(false);
-  const searchCards = useAction(api.rapidapi.searchCards);
-  const reqId = useRef(0);
-
-  const trimmed = term.trim();
-  const searchActive = trimmed.length >= 2;
-  const localResults = useQuery(
-    api.catalog.searchCatalogLocal,
-    searchActive ? { term: trimmed } : "skip",
-  );
-
-  // The sheet stays mounted across opens — clear the search per target account.
-  const targetAccountId = target?.accountId ?? null;
-  useEffect(() => {
-    setTerm("");
-  }, [targetAccountId]);
-
-  useEffect(() => {
-    if (trimmed.length < 2) {
-      setApiResults([]);
-      setSearched(false);
-      setSearching(false);
-      return;
-    }
-    const id = ++reqId.current;
-    setApiResults([]);
-    setSearching(true);
-    const timer = setTimeout(async () => {
-      try {
-        const r = await searchCards({ term: trimmed });
-        if (id === reqId.current) {
-          setApiResults(r);
-          setSearched(true);
-        }
-      } catch {
-        if (id === reqId.current) setSearched(true);
-      } finally {
-        if (id === reqId.current) setSearching(false);
+  const { startConnect, busy } = usePlaidCardLink({
+    onDetected: (result) => {
+      if (result.accounts.length === 0) {
+        Alert.alert(
+          "No credit cards found",
+          "Accounts other than credit cards aren't tracked.",
+        );
+        return;
       }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [trimmed, searchCards]);
+      setReviewResult(result);
+    },
+    onFail: (reason, message) => {
+      // Plain user cancel stays silent.
+      if (reason === "error") Alert.alert("Couldn't connect", message ?? "");
+    },
+  });
 
-  // Owned cards are pickable in the wallet section above — drop them from
-  // search results instead of offering a second "add" path to the same card.
-  const ownedKeys = useMemo(
-    () => new Set(walletCards.map((c) => c.cardKey)),
-    [walletCards],
-  );
-  const searchResults = useMemo(() => {
-    const map = new Map<string, CatalogResult>();
-    for (const r of localResults ?? []) map.set(r.cardKey, r);
-    for (const r of apiResults) map.set(r.cardKey, r);
-    return Array.from(map.values()).filter((r) => !ownedKeys.has(r.cardKey));
-  }, [localResults, apiResults, ownedKeys]);
-
-  if (configured === false) {
-    return (
-      <>
-        <SectionLabel>Connected accounts</SectionLabel>
-        <Card>
-          <Text variant="subtext" color="secondary">
-            Bank connections aren&apos;t configured yet.
-          </Text>
-        </Card>
-      </>
-    );
-  }
-
-  const onConnect = async () => {
-    setBusy(true);
-    try {
-      const { linkToken } = await createLinkToken({});
-      const session = await createPlaidLinkSession({
-        token: linkToken,
-        onSuccess: async (success: LinkSuccess) => {
-          try {
-            const institutionName =
-              success.metadata?.institution?.name ?? "Your bank";
-            const res = await exchange({
-              publicToken: success.publicToken,
-              institutionId: success.metadata?.institution?.id,
-              institutionName,
-            });
-            setQueue(
-              res.accounts
-                .filter((a) => !a.linked && isCreditAccount(a.subtype))
-                .map((a) => ({
-                  accountId: a.accountId,
-                  mask: a.mask ?? null,
-                  institutionName,
-                  currentCardId: null,
-                })),
-            );
-          } catch (e) {
-            Alert.alert("Couldn't link account", String(e));
-          }
-        },
-        onExit: () => {},
-        onEvent: () => {},
-      });
-      await session.open();
-    } catch (e) {
-      Alert.alert(
-        "Plaid unavailable",
-        "Connecting a card needs a development build (not Expo Go).\n\n" +
-          String(e),
-      );
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  // Re-authenticate an existing connection (Plaid Link update mode).
+  // Re-authenticate an existing connection (Plaid Link update mode): its
+  // onSuccess reactivates the item in place — never a public-token exchange.
   const onReauth = async (itemId: string) => {
-    setBusy(true);
+    setReauthBusy(true);
     try {
       const { linkToken } = await createUpdateLinkToken({ itemId });
       const session = await createPlaidLinkSession({
@@ -246,7 +132,7 @@ export function PlaidConnectSection() {
     } catch (e) {
       Alert.alert("Reconnect unavailable", String(e));
     } finally {
-      setBusy(false);
+      setReauthBusy(false);
     }
   };
 
@@ -268,7 +154,7 @@ export function PlaidConnectSection() {
         accountId,
         userCardId: userCardId as Id<"userCards"> | null,
       });
-      closeSheet();
+      setSheet(null);
     } catch (e) {
       Alert.alert("Couldn't link card", String(e));
     } finally {
@@ -280,7 +166,7 @@ export function PlaidConnectSection() {
     setPicking(true);
     try {
       await linkCatalogCard({ accountId, cardKey });
-      closeSheet();
+      setSheet(null);
     } catch (e) {
       Alert.alert("Couldn't link card", String(e));
     } finally {
@@ -303,6 +189,19 @@ export function PlaidConnectSection() {
     );
   };
 
+  if (configured === false) {
+    return (
+      <>
+        <SectionLabel>Connected accounts</SectionLabel>
+        <Card>
+          <Text variant="subtext" color="secondary">
+            Bank connections aren&apos;t configured yet.
+          </Text>
+        </Card>
+      </>
+    );
+  }
+
   if (connections === undefined) return null;
 
   // One card ↔ one account, across every connection — already-linked wallet
@@ -323,21 +222,78 @@ export function PlaidConnectSection() {
     return matched.length > 0 ? matched : groups;
   };
 
-  const monoLabel = (label: string) => (
-    <Text
-      style={{
-        fontFamily: fontFamilies.monoMedium,
-        fontSize: 10,
-        letterSpacing: 0.7,
-        textTransform: "uppercase",
-        color: colors.tertiary,
-        paddingHorizontal: spacing.base,
-        paddingTop: spacing.md,
-        paddingBottom: 6,
-      }}
-    >
-      {label}
-    </Text>
+  // Shared by the empty and connected branches: the settings-row link picker
+  // and the post-connect review (same bottom-sheet presentation).
+  const modals = (
+    <>
+      {/* ── 1f · Link picker bottom sheet ─────────────────────────────────── */}
+      <LinkPickerSheet
+        target={sheet}
+        walletCards={walletCards}
+        linkedTo={linkedTo}
+        catalogGroups={sheet ? catalogGroupsFor(sheet.institutionName) : []}
+        picking={picking}
+        onSetLink={(userCardId) => {
+          if (sheet) void setLink(sheet.accountId, userCardId);
+        }}
+        onAddLink={(cardKey) => {
+          if (sheet) void addAndLink(sheet.accountId, cardKey);
+        }}
+        onClose={() => setSheet(null)}
+      />
+
+      {/* ── 3c · Detected-cards review ────────────────────────────────────── */}
+      {/* Non-dismissable (matches web): the DetectResult is ephemeral, so a
+          backdrop mis-tap or Android back would discard in-progress picks
+          irrecoverably. "Skip for now" inside the review is the single
+          explicit escape. */}
+      <Modal
+        visible={reviewResult !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => {}}
+      >
+        <View style={{ flex: 1, justifyContent: "flex-end" }}>
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0,0,0,0.42)",
+            }}
+          />
+          {reviewResult && (
+            <View
+              style={{
+                backgroundColor: colors.background,
+                borderTopLeftRadius: 22,
+                borderTopRightRadius: 22,
+                paddingBottom: 22 + insets.bottom,
+                maxHeight: "88%",
+              }}
+            >
+              {/* Grabber */}
+              <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 8 }}>
+                <View
+                  style={{
+                    width: 36,
+                    height: 4,
+                    borderRadius: 2,
+                    backgroundColor: colors.track,
+                  }}
+                />
+              </View>
+              <DetectedCardsReview
+                result={reviewResult}
+                onDone={() => setReviewResult(null)}
+              />
+            </View>
+          )}
+        </View>
+      </Modal>
+    </>
   );
 
   // ── 1d · Empty state ────────────────────────────────────────────────────────
@@ -379,10 +335,19 @@ export function PlaidConnectSection() {
           <Button
             label={busy ? "Connecting…" : "+ Connect a card"}
             haptic={false}
-            disabled={busy}
-            onPress={onConnect}
+            disabled={busy || !isPlaidAvailable}
+            onPress={startConnect}
             style={{ alignSelf: "stretch", marginTop: 18 }}
           />
+          {!isPlaidAvailable && (
+            <Text
+              variant="caption"
+              color="secondary"
+              style={{ textAlign: "center", marginTop: 8 }}
+            >
+              Connecting a bank needs a development build (not Expo Go).
+            </Text>
+          )}
           <Text
             style={{
               fontFamily: fontFamilies.monoMedium,
@@ -396,6 +361,7 @@ export function PlaidConnectSection() {
             Read-only access · Disconnect anytime
           </Text>
         </Card>
+        {modals}
       </>
     );
   }
@@ -491,7 +457,7 @@ export function PlaidConnectSection() {
               ) : (
                 <Pressable
                   onPress={() => void onReauth(conn.itemId)}
-                  disabled={busy}
+                  disabled={busy || reauthBusy || !isPlaidAvailable}
                   hitSlop={8}
                 >
                   <Text
@@ -499,7 +465,7 @@ export function PlaidConnectSection() {
                       fontFamily: fontFamilies.textSemiBold,
                       fontSize: 12.5,
                       color: colors.accent,
-                      opacity: busy ? 0.5 : 1,
+                      opacity: busy || reauthBusy || !isPlaidAvailable ? 0.5 : 1,
                     }}
                   >
                     Reconnect
@@ -602,323 +568,20 @@ export function PlaidConnectSection() {
       <Button
         label={busy ? "Connecting…" : "+ Connect a card"}
         haptic={false}
-        disabled={busy}
-        onPress={onConnect}
+        disabled={busy || !isPlaidAvailable}
+        onPress={startConnect}
       />
       <Text
         variant="caption"
         color="secondary"
         style={{ textAlign: "center", marginTop: spacing.sm, paddingHorizontal: 12 }}
       >
-        Link a card so OfferBee can auto-track its statement credits from your
-        transactions.
+        {isPlaidAvailable
+          ? "Link a card so OfferBee can auto-track its statement credits from your transactions."
+          : "Connecting a bank needs a development build (not Expo Go)."}
       </Text>
 
-      {/* ── 1f · Link picker bottom sheet ─────────────────────────────────── */}
-      <Modal
-        visible={target !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={closeSheet}
-      >
-        <View style={{ flex: 1, justifyContent: "flex-end" }}>
-          <Pressable
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: "rgba(0,0,0,0.42)",
-            }}
-            onPress={closeSheet}
-          />
-          {target && (
-            <View
-              style={{
-                backgroundColor: colors.background,
-                borderTopLeftRadius: 22,
-                borderTopRightRadius: 22,
-                paddingBottom: 22 + insets.bottom,
-                maxHeight: "82%",
-              }}
-            >
-              {/* Grabber */}
-              <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 4 }}>
-                <View
-                  style={{
-                    width: 36,
-                    height: 4,
-                    borderRadius: 2,
-                    backgroundColor: colors.track,
-                  }}
-                />
-              </View>
-              <View style={{ alignItems: "center", paddingTop: 4, paddingBottom: 12, paddingHorizontal: 20 }}>
-                <Text
-                  style={{
-                    fontFamily: fontFamilies.display,
-                    fontSize: 17,
-                    color: colors.ink,
-                  }}
-                >
-                  Link credit card{target.mask ? ` ····${target.mask}` : ""}
-                </Text>
-                <Text variant="caption" color="secondary" style={{ marginTop: 2 }}>
-                  {target.institutionName} · transactions will auto-track this
-                  card&apos;s credits
-                </Text>
-              </View>
-
-              <ScrollView style={{ flexGrow: 0 }}>
-                <View
-                  style={{
-                    marginHorizontal: spacing.base,
-                    backgroundColor: colors.surface,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    borderRadius: radius.card,
-                    overflow: "hidden",
-                  }}
-                >
-                  {/* Not linked */}
-                  <Pressable
-                    disabled={picking}
-                    onPress={() => void setLink(target.accountId, null)}
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      gap: 10,
-                      paddingHorizontal: spacing.base,
-                      paddingVertical: 13,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.separator,
-                    }}
-                  >
-                    {!target.currentCardId ? (
-                      <Icon name="check" size={15} color="accent" />
-                    ) : (
-                      <View style={{ width: 15 }} />
-                    )}
-                    <Text variant="body" style={{ fontSize: 14.5 }}>
-                      Not linked
-                    </Text>
-                  </Pressable>
-
-                  {/* Your wallet */}
-                  {walletCards.length > 0 && (
-                    <>
-                      {monoLabel("Your wallet")}
-                      {walletCards.map((c) => {
-                        const current = target.currentCardId === c.userCardId;
-                        const elsewhere =
-                          !current && linkedTo.has(c.userCardId);
-                        return (
-                          <Pressable
-                            key={c.userCardId}
-                            disabled={picking || elsewhere}
-                            onPress={() =>
-                              void setLink(target.accountId, c.userCardId)
-                            }
-                            style={{
-                              flexDirection: "row",
-                              alignItems: "center",
-                              justifyContent: "space-between",
-                              gap: 8,
-                              paddingLeft: current ? spacing.base : 41,
-                              paddingRight: spacing.base,
-                              paddingVertical: 12,
-                              borderBottomWidth: 1,
-                              borderBottomColor: colors.separator,
-                            }}
-                          >
-                            <View
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 10,
-                                flexShrink: 1,
-                              }}
-                            >
-                              {current && (
-                                <Icon name="check" size={15} color="accent" />
-                              )}
-                              <Text
-                                variant="subtext"
-                                numberOfLines={1}
-                                style={{
-                                  fontSize: 14.5,
-                                  color: elsewhere
-                                    ? colors.tertiary
-                                    : colors.ink,
-                                }}
-                              >
-                                {c.name}
-                              </Text>
-                            </View>
-                            {elsewhere && (
-                              <Text
-                                style={{
-                                  fontFamily: fontFamilies.monoMedium,
-                                  fontSize: 9.5,
-                                  letterSpacing: 0.5,
-                                  textTransform: "uppercase",
-                                  color: colors.tertiary,
-                                }}
-                              >
-                                Linked ····{linkedTo.get(c.userCardId)}
-                              </Text>
-                            )}
-                          </Pressable>
-                        );
-                      })}
-                    </>
-                  )}
-
-                  {/* Add new: search the full catalog, or browse the issuer's
-                      popular cards while the input is empty. */}
-                  <View
-                    style={{
-                      paddingHorizontal: spacing.sm,
-                      paddingTop: spacing.md,
-                    }}
-                  >
-                    <SearchField
-                      value={term}
-                      onChangeText={setTerm}
-                      placeholder="Search any card…"
-                    />
-                  </View>
-
-                  {searchActive ? (
-                    <View>
-                      {monoLabel("Add new — search")}
-                      {searchResults.map((c, i) => (
-                        <Pressable
-                          key={c.cardKey}
-                          disabled={picking}
-                          onPress={() =>
-                            void addAndLink(target.accountId, c.cardKey)
-                          }
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            gap: 10,
-                            paddingHorizontal: spacing.base,
-                            paddingVertical: 12,
-                            borderBottomWidth:
-                              i === searchResults.length - 1 ? 0 : 1,
-                            borderBottomColor: colors.separator,
-                          }}
-                        >
-                          <Icon name="plus" size={15} color="accent" />
-                          <View style={{ flexShrink: 1 }}>
-                            <Text variant="body" style={{ fontSize: 14.5 }}>
-                              {c.cardName}
-                            </Text>
-                            <Text
-                              variant="caption"
-                              color="secondary"
-                              numberOfLines={1}
-                              style={{ marginTop: 1 }}
-                            >
-                              {c.cardIssuer} · adds this card to your wallet
-                            </Text>
-                          </View>
-                        </Pressable>
-                      ))}
-                      {searchResults.length === 0 && (
-                        <Text
-                          variant="subtext"
-                          color="secondary"
-                          style={{
-                            paddingHorizontal: spacing.base,
-                            paddingVertical: 12,
-                          }}
-                        >
-                          {searching || localResults === undefined
-                            ? "Searching…"
-                            : searched
-                              ? "No matches — try a different card name."
-                              : "Searching…"}
-                        </Text>
-                      )}
-                    </View>
-                  ) : (
-                    catalogGroupsFor(target.institutionName).map((g) => {
-                      const notOwned = g.cards.filter((c) => !c.owned);
-                      if (notOwned.length === 0) return null;
-                      return (
-                        <View key={g.issuer}>
-                          {monoLabel(`Add new — ${g.issuer}`)}
-                          {notOwned.map((c, i) => (
-                            <Pressable
-                              key={c.cardKey}
-                              disabled={picking}
-                              onPress={() =>
-                                void addAndLink(target.accountId, c.cardKey)
-                              }
-                              style={{
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 10,
-                                paddingHorizontal: spacing.base,
-                                paddingVertical: 12,
-                                borderBottomWidth: i === notOwned.length - 1 ? 0 : 1,
-                                borderBottomColor: colors.separator,
-                              }}
-                            >
-                              <Icon name="plus" size={15} color="accent" />
-                              <View style={{ flexShrink: 1 }}>
-                                <Text variant="body" style={{ fontSize: 14.5 }}>
-                                  {c.cardName}
-                                </Text>
-                                <Text
-                                  variant="caption"
-                                  color="secondary"
-                                  style={{ marginTop: 1 }}
-                                >
-                                  Adds this card to your wallet
-                                </Text>
-                              </View>
-                            </Pressable>
-                          ))}
-                        </View>
-                      );
-                    })
-                  )}
-                </View>
-              </ScrollView>
-
-              {/* Cancel */}
-              <Pressable
-                disabled={picking}
-                onPress={closeSheet}
-                style={{
-                  marginHorizontal: spacing.base,
-                  marginTop: spacing.md,
-                  backgroundColor: colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 14,
-                  alignItems: "center",
-                  paddingVertical: 13,
-                }}
-              >
-                <Text
-                  style={{
-                    fontFamily: fontFamilies.textSemiBold,
-                    fontSize: 15,
-                    color: colors.accent,
-                  }}
-                >
-                  {fromQueue ? "Not sure — skip for now" : "Cancel"}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-        </View>
-      </Modal>
+      {modals}
     </>
   );
 }

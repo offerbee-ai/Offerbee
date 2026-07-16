@@ -12,9 +12,12 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
   DEFAULT_NOTIFICATION_CATEGORIES,
+  ONBOARDING_CARDS,
   ONBOARDING_CARDS_BY_ID,
   type NotificationCategories,
 } from "@packages/backend/convex/onboardingCatalog";
+
+import { useCredits } from "@/features/credits/CreditsProvider";
 
 // Mirrors the web wizard's persistence contract: every change saves (debounced)
 // via onboarding.updateOnboarding so a user can resume on any device; finish is
@@ -84,6 +87,31 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     },
     [updateOnboarding],
   );
+
+  // Cards confirmed via Plaid live in the wallet (userCards), not in the
+  // curated-id selection — union the matching curated ids in so the credits
+  // bar, reminders, and review reflect what the user actually added (same
+  // pattern as the web wizard). Unlike web there is no plaidDone gate: a
+  // wallet-owned curated card always counts as selected, which matches server
+  // state (completeOnboarding's add is idempotent) and lets a resumed session
+  // self-heal. Gated on `hydrated` so the resume overwrite can't clobber the
+  // union; the functional update returns `prev` when there is nothing to add,
+  // keeping the effect idempotent so it doesn't fight manual untoggles more
+  // than once per wallet change.
+  const { walletCards } = useCredits();
+  useEffect(() => {
+    if (!hydrated) return;
+    const owned = new Set(walletCards.map((c) => c.cardKey));
+    setCards((prev) => {
+      const missing = ONBOARDING_CARDS.filter(
+        (c) => owned.has(c.cardKey) && !prev.includes(c.id),
+      );
+      if (missing.length === 0) return prev;
+      const next = [...prev, ...missing.map((c) => c.id)];
+      saveSoon({ cards: next });
+      return next;
+    });
+  }, [hydrated, walletCards, saveSoon]);
 
   const toggleCard = useCallback(
     (id: string) => {

@@ -38,6 +38,7 @@ function useTitle(pathname: string, name: string): { eyebrow: string; title: str
     "/app/offers": { eyebrow: "What to do next", title: "Alerts & Notifications" },
     "/app/tips": { eyebrow: "Get the most from your cards", title: "Tips & Offers" },
     "/app/add": { eyebrow: "Build your wallet", title: "Add a card" },
+    "/app/add/search": { eyebrow: "Build your wallet", title: "Search cards" },
     "/app/wallet": { eyebrow: "Owned cards", title: "Wallet" },
     "/app/review": { eyebrow: "Data quality", title: "Review" },
   };

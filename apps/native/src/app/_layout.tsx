@@ -74,6 +74,7 @@ function RootNavigator() {
           <Stack.Screen name="card/[cardKey]" />
           <Stack.Screen name="credit/[creditId]" />
           <Stack.Screen name="add-card" options={{ presentation: "modal" }} />
+          <Stack.Screen name="add-card-search" options={{ presentation: "modal" }} />
           <Stack.Screen name="settings" />
           <Stack.Screen name="notifications" />
         </Stack.Protected>

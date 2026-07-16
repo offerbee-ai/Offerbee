@@ -28,6 +28,7 @@ export function StepChrome({
   continueLabel = "Continue",
   continueDisabled = false,
   continueLoading = false,
+  hideBar = false,
   onContinue,
   children,
 }: {
@@ -37,7 +38,10 @@ export function StepChrome({
   continueLabel?: string;
   continueDisabled?: boolean;
   continueLoading?: boolean;
-  onContinue: () => void;
+  /** Hide the floating action bar entirely (connect gate, design 1a). */
+  hideBar?: boolean;
+  /** Required on every step that shows the action bar (i.e. unless hideBar). */
+  onContinue?: () => void;
   children: React.ReactNode;
 }) {
   const { colors } = useTheme();
@@ -63,13 +67,29 @@ export function StepChrome({
             justifyContent: "space-between",
           }}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.sm,
+            }}
+          >
             <BeeLogo size={24} />
-            <Text style={{ fontFamily: "SourceSerif4_600SemiBold", fontSize: 17, color: colors.ink }}>
+            <Text
+              style={{
+                fontFamily: "SourceSerif4_600SemiBold",
+                fontSize: 17,
+                color: colors.ink,
+              }}
+            >
               OfferBee
             </Text>
           </View>
-          <Text variant="sectionLabel" style={{ fontSize: 11 }} color="tertiary">
+          <Text
+            variant="sectionLabel"
+            style={{ fontSize: 11 }}
+            color="tertiary"
+          >
             Step {step} of 4
           </Text>
         </View>
@@ -96,7 +116,8 @@ export function StepChrome({
                     borderRadius: 13,
                     alignItems: "center",
                     justifyContent: "center",
-                    backgroundColor: done || active ? colors.accent : "transparent",
+                    backgroundColor:
+                      done || active ? colors.accent : "transparent",
                     borderWidth: done || active ? 0 : 1.5,
                     borderColor: colors.border,
                   }}
@@ -143,7 +164,8 @@ export function StepChrome({
         style={{ flex: 1 }}
         contentContainerStyle={{
           paddingHorizontal: spacing.screenInset,
-          paddingBottom: 140 + insets.bottom,
+          // No floating bar → no scroll clearance to reserve for it.
+          paddingBottom: (hideBar ? spacing.xl : 140) + insets.bottom,
         }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -152,50 +174,59 @@ export function StepChrome({
       </ScrollView>
 
       {/* Floating glass action bar */}
-      <GlassSurface
-        variant="bar"
-        borderRadius={radius.cardLg}
-        style={{
-          position: "absolute",
-          left: spacing.base,
-          right: spacing.base,
-          bottom: Math.max(insets.bottom, spacing.md),
-        }}
-      >
-        <View
+      {hideBar ? null : (
+        <GlassSurface
+          variant="bar"
+          borderRadius={radius.cardLg}
           style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: spacing.base,
-            paddingVertical: spacing.md,
-            gap: spacing.md,
+            position: "absolute",
+            left: spacing.base,
+            right: spacing.base,
+            bottom: Math.max(insets.bottom, spacing.md),
           }}
         >
-          <View style={{ flex: 1 }}>
-            <Text variant="sectionLabel" style={{ fontSize: 9.5 }} color="tertiary">
-              Credits in play
-            </Text>
-            <Text variant="figureS" color="accent">
-              {usd(creditsInPlay)}
-              <Text variant="subtext" color="tertiary"> / yr</Text>
-            </Text>
-          </View>
-          {step > 1 ? (
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              paddingHorizontal: spacing.base,
+              paddingVertical: spacing.md,
+              gap: spacing.md,
+            }}
+          >
+            <View style={{ flex: 1 }}>
+              <Text
+                variant="sectionLabel"
+                style={{ fontSize: 9.5 }}
+                color="tertiary"
+              >
+                Credits in play
+              </Text>
+              <Text variant="figureS" color="accent">
+                {usd(creditsInPlay)}
+                <Text variant="subtext" color="tertiary">
+                  {" "}
+                  / yr
+                </Text>
+              </Text>
+            </View>
+            {step > 1 ? (
+              <Button
+                label="Back"
+                variant="ghost"
+                size="sm"
+                onPress={() => router.replace(STEP_ROUTES[step - 2])}
+              />
+            ) : null}
             <Button
-              label="Back"
-              variant="ghost"
-              size="sm"
-              onPress={() => router.replace(STEP_ROUTES[step - 2])}
+              label={continueLabel}
+              disabled={continueDisabled}
+              loading={continueLoading}
+              onPress={onContinue}
             />
-          ) : null}
-          <Button
-            label={continueLabel}
-            disabled={continueDisabled}
-            loading={continueLoading}
-            onPress={onContinue}
-          />
-        </View>
-      </GlassSurface>
+          </View>
+        </GlassSurface>
+      )}
     </View>
   );
 }

@@ -4,6 +4,7 @@ import { ONBOARDING_CARDS_BY_ID } from "@packages/backend/convex/onboardingCatal
 
 import { Card, CardArt, Text } from "@/components/ui";
 import { radius, spacing, useTheme } from "@/theme";
+import { useCredits } from "@/features/credits/CreditsProvider";
 import { usd } from "@/features/credits/derive";
 import { useOnboarding } from "@/features/onboarding/OnboardingProvider";
 import { StepChrome } from "@/features/onboarding/StepChrome";
@@ -11,13 +12,25 @@ import { DaysTile } from "@/features/credits/components/DaysTile";
 
 export default function OnboardingReview() {
   const { colors } = useTheme();
-  const { cards, notificationCategories, creditsInPlay, complete, completing, setStep } =
-    useOnboarding();
+  const {
+    cards,
+    notificationCategories,
+    creditsInPlay,
+    complete,
+    completing,
+    setStep,
+  } = useOnboarding();
+  // Plaid-confirmed cards land in userCards (walletCards), not the curated
+  // onboarding selection — a Plaid-only user must still be able to finish.
+  const { walletCards } = useCredits();
 
   useEffect(() => setStep(4), [setStep]);
 
   const selected = useMemo(
-    () => cards.map((id) => ONBOARDING_CARDS_BY_ID.get(id)).filter((c) => c !== undefined),
+    () =>
+      cards
+        .map((id) => ONBOARDING_CARDS_BY_ID.get(id))
+        .filter((c) => c !== undefined),
     [cards],
   );
 
@@ -31,7 +44,9 @@ export default function OnboardingReview() {
     [selected],
   );
   const slippingSum = slipping.reduce((sum, c) => sum + c.next.amt, 0);
-  const remindersOn = Object.values(notificationCategories).filter(Boolean).length;
+  const remindersOn = Object.values(notificationCategories).filter(
+    Boolean,
+  ).length;
 
   const summary = [
     { figure: `${selected.length}`, label: "cards added", accent: false },
@@ -45,7 +60,7 @@ export default function OnboardingReview() {
       title=""
       continueLabel="Enter OfferBee →"
       continueLoading={completing}
-      continueDisabled={selected.length === 0}
+      continueDisabled={selected.length === 0 && walletCards.length === 0}
       onContinue={() => void complete()}
     >
       {/* Reveal headline */}
@@ -53,12 +68,19 @@ export default function OnboardingReview() {
         <Text variant="sectionLabel" color="accent">
           You're all set
         </Text>
-        <Text style={{ fontFamily: "SourceSerif4_600SemiBold", fontSize: 30, lineHeight: 36, color: colors.ink }}>
+        <Text
+          style={{
+            fontFamily: "SourceSerif4_600SemiBold",
+            fontSize: 30,
+            lineHeight: 36,
+            color: colors.ink,
+          }}
+        >
           {usd(slippingSum)} is about to slip away.
         </Text>
         <Text variant="subtext" color="secondary">
-          {slipping.length} {slipping.length === 1 ? "credit" : "credits"} reset within a week
-          across your wallet.
+          {slipping.length} {slipping.length === 1 ? "credit" : "credits"} reset
+          within a week across your wallet.
         </Text>
       </View>
 
@@ -78,12 +100,23 @@ export default function OnboardingReview() {
               }}
             >
               <DaysTile days={card.next.days} urgent={card.next.days <= 3} />
-              <CardArt cardKey={card.cardKey} color={card.color} width={30} height={20} borderRadius={4} />
+              <CardArt
+                cardKey={card.cardKey}
+                color={card.color}
+                width={30}
+                height={20}
+                borderRadius={4}
+              />
               <View style={{ flex: 1 }}>
                 <Text variant="body" numberOfLines={1}>
                   {card.next.name}
                 </Text>
-                <Text variant="subtext" color="secondary" numberOfLines={1} style={{ marginTop: 1 }}>
+                <Text
+                  variant="subtext"
+                  color="secondary"
+                  numberOfLines={1}
+                  style={{ marginTop: 1 }}
+                >
                   {card.name}
                 </Text>
               </View>
@@ -117,7 +150,11 @@ export default function OnboardingReview() {
               borderLeftColor: colors.separator,
             }}
           >
-            <Text variant="mono" style={{ fontSize: 16 }} color={col.accent ? "accent" : "ink"}>
+            <Text
+              variant="mono"
+              style={{ fontSize: 16 }}
+              color={col.accent ? "accent" : "ink"}
+            >
               {col.figure}
             </Text>
             <Text variant="caption" color="tertiary">
