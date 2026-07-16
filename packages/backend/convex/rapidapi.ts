@@ -1,7 +1,9 @@
-import { action, internalAction } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { missingEnvVariableUrl } from "./utils";
+import { POPULAR_CARD_KEYS } from "./catalog";
+import { ONBOARDING_CARD_KEYS } from "./onboardingCatalog";
 import type { CardDetailContent } from "./validators";
 
 // The Rewards Credit Card API. fetch() works in Convex's default runtime, so no
@@ -13,6 +15,7 @@ const RAPIDAPI_SIGNUP_URL =
 
 const MAX_DETAILS_PER_RUN = 25;
 const DETAIL_RUN_SPACING_MS = 60_000;
+const SEARCH_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // card lists change rarely
 
 function headers(key: string) {
   return { "X-RapidAPI-Key": key, "X-RapidAPI-Host": RAPIDAPI_HOST };
@@ -66,11 +69,20 @@ export const searchCards = action({
 
     const t = term.trim();
     if (t.length < 2) return [];
+    const norm = t.toLowerCase();
+
+    // Cache hit: a term's cached results are the complete API answer for that
+    // term, so we can serve them without touching the API.
+    const cached = await ctx.runQuery(internal.catalogSync.getCachedSearch, {
+      term: norm,
+    });
+    if (cached && Date.now() - cached.fetchedAt < SEARCH_CACHE_TTL_MS)
+      return cached.results;
 
     const key = process.env.RAPIDAPI_KEY;
     if (!key) {
       console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
-      return [];
+      return cached?.results ?? []; // serve stale rather than nothing
     }
 
     try {
@@ -78,7 +90,7 @@ export const searchCards = action({
         `${BASE_URL}/creditcard-detail-namesearch/${encodeURIComponent(t)}`,
         { headers: headers(key) },
       );
-      if (!res.ok) return [];
+      if (!res.ok) return cached?.results ?? [];
       const body = await res.json();
       const rows = Array.isArray(body) ? body : [];
       const results = rows
@@ -89,6 +101,12 @@ export const searchCards = action({
         }))
         .filter((r) => r.cardKey);
 
+      // Cache the term's answer (even empty, to avoid re-hitting the API for
+      // no-match terms) and keep the catalog rows for the wallet name fallback.
+      await ctx.runMutation(internal.catalogSync.saveSearchCache, {
+        term: norm,
+        results,
+      });
       if (results.length > 0) {
         await ctx.runMutation(internal.catalogSync.upsertCatalogBatch, {
           cards: results.map((r) => ({ ...r, isActive: true })),
@@ -98,7 +116,7 @@ export const searchCards = action({
       return results;
     } catch (e) {
       console.error("Card search failed", e);
-      return [];
+      return cached?.results ?? []; // serve stale on transient API failure
     }
   },
 });
@@ -290,26 +308,161 @@ export const refreshStaleDetails = internalAction({
   },
 });
 
-// Lazy single fetch triggered when a user adds a not-yet-cached card.
-export const fetchCardDetail = internalAction({
-  args: { cardKey: v.string() },
-  handler: async (ctx, { cardKey }) => {
+// Pre-warm a curated cardKey list's details (image + fee) one at a time,
+// self-scheduling with a delay so the BASIC-plan per-second rate limit isn't
+// tripped. Idempotent (hash-gated saves). Shared by the popular-cards (Add
+// screen) and onboarding-wizard warmers below.
+const WARM_SPACING_MS = 2500;
+
+async function warmOne(ctx: ActionCtx, apiKey: string, cardKey: string) {
+  try {
+    const detail = await fetchDetail(apiKey, cardKey);
+    if (detail) {
+      await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+        cardKey,
+        content: detail.content,
+        hash: detail.hash,
+      });
+    }
+  } catch (e) {
+    console.error(`Warm failed for '${cardKey}'`, e);
+  }
+}
+
+// Kick off with `convex run rapidapi:warmPopularCards {}` after a deploy.
+export const warmPopularCards = internalAction({
+  args: { index: v.optional(v.number()) },
+  handler: async (ctx, { index }) => {
     const key = process.env.RAPIDAPI_KEY;
     if (!key) {
       console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
       return;
     }
-    try {
-      const detail = await fetchDetail(key, cardKey);
-      if (detail) {
-        await ctx.runMutation(internal.catalogSync.saveCardDetail, {
-          cardKey,
-          content: detail.content,
-          hash: detail.hash,
-        });
-      }
-    } catch (e) {
-      console.error(`Detail fetch failed for '${cardKey}'`, e);
+    const i = index ?? 0;
+    if (i >= POPULAR_CARD_KEYS.length) return;
+    await warmOne(ctx, key, POPULAR_CARD_KEYS[i]);
+    if (i + 1 < POPULAR_CARD_KEYS.length) {
+      await ctx.scheduler.runAfter(
+        WARM_SPACING_MS,
+        internal.rapidapi.warmPopularCards,
+        { index: i + 1 },
+      );
     }
+  },
+});
+
+// Reusable catalog prefill: walk cardCatalog and fetch any missing/stale
+// cardDetails (image + fee), one card per tick. Spaces only when it actually
+// hits the API (fresh cards zip by), so it respects the BASIC per-second limit
+// and re-runs are cheap. Idempotent. Kick off with
+//   convex run rapidapi:prefillCatalog {} [--deployment X]
+// (or use scripts/prefill-card-details.sh). See also warmPopularCards for just
+// the curated set.
+const PREFILL_FETCH_SPACING_MS = 2500; // between real API fetches
+const PREFILL_SKIP_SPACING_MS = 100; // between already-fresh cards
+export const prefillCatalog = internalAction({
+  args: {
+    cursor: v.optional(v.union(v.string(), v.null())),
+    fetched: v.optional(v.number()),
+  },
+  handler: async (ctx, { cursor, fetched }) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      return;
+    }
+    const page = await ctx.runQuery(internal.catalogSync.getCatalogPageForWarm, {
+      cursor: cursor ?? null,
+      limit: 1,
+    });
+
+    let total = fetched ?? 0;
+    let didFetch = false;
+    for (const item of page.items) {
+      if (!item.needsFetch) continue;
+      didFetch = true;
+      try {
+        const detail = await fetchDetail(key, item.cardKey);
+        if (detail) {
+          await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+            cardKey: item.cardKey,
+            content: detail.content,
+            hash: detail.hash,
+          });
+          total += 1;
+        }
+      } catch (e) {
+        console.error(`Prefill failed for '${item.cardKey}'`, e);
+      }
+    }
+
+    if (!page.isDone) {
+      await ctx.scheduler.runAfter(
+        didFetch ? PREFILL_FETCH_SPACING_MS : PREFILL_SKIP_SPACING_MS,
+        internal.rapidapi.prefillCatalog,
+        { cursor: page.continueCursor, fetched: total },
+      );
+    } else {
+      console.log(`prefillCatalog complete — fetched ${total} card details`);
+    }
+  },
+});
+
+// Pre-warm the onboarding wizard's curated catalog so StepWallet shows real
+// card art + real annual fee. Kick off with
+// `convex run rapidapi:warmOnboardingCards {}` after a deploy (dev and prod).
+export const warmOnboardingCards = internalAction({
+  args: { index: v.optional(v.number()) },
+  handler: async (ctx, { index }) => {
+    const key = process.env.RAPIDAPI_KEY;
+    if (!key) {
+      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+      return;
+    }
+    const i = index ?? 0;
+    if (i >= ONBOARDING_CARD_KEYS.length) return;
+    await warmOne(ctx, key, ONBOARDING_CARD_KEYS[i]);
+    if (i + 1 < ONBOARDING_CARD_KEYS.length) {
+      await ctx.scheduler.runAfter(
+        WARM_SPACING_MS,
+        internal.rapidapi.warmOnboardingCards,
+        { index: i + 1 },
+      );
+    }
+  },
+});
+
+// Fetch + cache one card's detail right now. Swallows failures (missing key,
+// API error) — the card is simply left detail-less and a later scheduled fetch
+// or stale-refresh retries. Exported so other actions (plaid link) can await
+// the detail inline instead of racing the scheduled lazy fetch.
+export async function fetchAndSaveCardDetail(
+  ctx: ActionCtx,
+  cardKey: string,
+): Promise<void> {
+  const key = process.env.RAPIDAPI_KEY;
+  if (!key) {
+    console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+    return;
+  }
+  try {
+    const detail = await fetchDetail(key, cardKey);
+    if (detail) {
+      await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+        cardKey,
+        content: detail.content,
+        hash: detail.hash,
+      });
+    }
+  } catch (e) {
+    console.error(`Detail fetch failed for '${cardKey}'`, e);
+  }
+}
+
+// Lazy single fetch triggered when a user adds a not-yet-cached card.
+export const fetchCardDetail = internalAction({
+  args: { cardKey: v.string() },
+  handler: async (ctx, { cardKey }) => {
+    await fetchAndSaveCardDetail(ctx, cardKey);
   },
 });

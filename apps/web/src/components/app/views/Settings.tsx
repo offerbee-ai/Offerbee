@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
+import {
+  DEFAULT_NOTIFICATION_CATEGORIES,
+  type NotificationCategories,
+} from "@packages/backend/convex/onboardingCatalog";
 import { useApp, type Theme } from "../AppProvider";
 import { Segmented, ToggleSwitch, MonoLabel, Panel } from "../controls";
-import { SAMPLE_CREDITS, CYCLE_LABEL } from "../data";
-
-// Local (sample) toggles that don't yet have a dedicated backend field. Persist
-// them so they feel real; the master switch below is the real backend flag.
-const LOCAL_PREF_KEY = "offerbee-notif-prefs";
-type LocalPrefs = { expiry: boolean; weekly: boolean; renewal: boolean };
-const DEFAULT_LOCAL: LocalPrefs = { expiry: true, weekly: true, renewal: false };
+import { PlaidConnect } from "../PlaidConnect";
+import { CYCLE_LABEL, usd, type Credit } from "../data";
+import { clerkImageUrl } from "@/lib/utils";
 
 function SettingsSection({
   label,
@@ -52,15 +52,24 @@ function ToggleRow({
   );
 }
 
-function downloadCreditsCsv() {
-  const header = ["Credit", "Card", "Cycle", "Amount", "Used", "Days to reset"];
-  const rows = SAMPLE_CREDITS.map((c) => [
+function downloadCreditsCsv(credits: Credit[]) {
+  const header = [
+    "Credit",
+    "Card",
+    "Cycle",
+    "Amount",
+    "Used this period",
+    "Remaining",
+    "Resets",
+  ];
+  const rows = credits.map((c) => [
     c.name,
     c.card,
     CYCLE_LABEL[c.cycle],
-    String(c.amount),
-    c.used ? "yes" : "no",
-    String(c.days),
+    usd(c.amount),
+    usd(Math.min(c.usedAmount, c.amount)),
+    usd(Math.max(0, c.amount - c.usedAmount)),
+    new Date(c.resetAt).toISOString().slice(0, 10),
   ]);
   const csv = [header, ...rows]
     .map((r) => r.map((f) => `"${f.replace(/"/g, '""')}"`).join(","))
@@ -77,7 +86,7 @@ export function Settings() {
   const router = useRouter();
   const { user } = useUser();
   const { signOut, openUserProfile } = useClerk();
-  const { theme, setTheme } = useApp();
+  const { theme, setTheme, credits } = useApp();
 
   const me = useQuery(api.users.getMe);
   const updatePrefs = useMutation(api.users.updateNotificationPrefs);
@@ -87,28 +96,12 @@ export function Settings() {
   const [override, setOverride] = useState<boolean | null>(null);
   const remindersOn = override ?? me?.notificationsEnabled ?? true;
 
-  const [local, setLocal] = useState<LocalPrefs>(DEFAULT_LOCAL);
-  // Load persisted local toggles after mount (default-first avoids an SSR
-  // hydration mismatch; there is no server value to read).
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(LOCAL_PREF_KEY);
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (raw) setLocal({ ...DEFAULT_LOCAL, ...JSON.parse(raw) });
-    } catch {
-      /* ignore */
-    }
-  }, []);
-  const setLocalPref = (patch: Partial<LocalPrefs>) => {
-    setLocal((prev) => {
-      const next = { ...prev, ...patch };
-      try {
-        window.localStorage.setItem(LOCAL_PREF_KEY, JSON.stringify(next));
-      } catch {
-        /* ignore */
-      }
-      return next;
-    });
+  const cats: NotificationCategories =
+    me?.notificationCategories ?? DEFAULT_NOTIFICATION_CATEGORIES;
+  const setCategory = (key: keyof NotificationCategories, value: boolean) => {
+    updatePrefs({ notificationCategories: { ...cats, [key]: value } }).catch((e) =>
+      console.error("updateNotificationPrefs failed", e),
+    );
   };
 
   const toggleReminders = (v: boolean) => {
@@ -124,17 +117,27 @@ export function Settings() {
     ? new Date(user.createdAt).getFullYear()
     : 2024;
   const initial = (name[0] ?? "M").toUpperCase();
+  const photo = user?.hasImage ? clerkImageUrl(user.imageUrl, 64) : null;
 
   return (
     <div className="flex max-w-[720px] flex-col gap-5">
       {/* Profile */}
       <Panel className="flex flex-wrap items-center gap-4 p-5">
-        <div
-          className="flex size-16 shrink-0 items-center justify-center rounded-full text-[26px] font-semibold text-white"
-          style={{ background: "linear-gradient(135deg,#F5B14D,#E8680E)" }}
-        >
-          {initial}
-        </div>
+        {photo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={photo}
+            alt=""
+            className="size-16 shrink-0 rounded-full object-cover"
+          />
+        ) : (
+          <div
+            className="flex size-16 shrink-0 items-center justify-center rounded-full text-[26px] font-semibold text-white"
+            style={{ background: "linear-gradient(135deg,#F5B14D,#E8680E)" }}
+          >
+            {initial}
+          </div>
+        )}
         <div className="min-w-0 flex-1">
           <div className="font-display text-[22px] font-semibold text-ink">{name}</div>
           <div className="text-[13.5px] text-secondary">
@@ -172,6 +175,11 @@ export function Settings() {
         </div>
       </div>
 
+      {/* Connected accounts (Plaid) */}
+      <SettingsSection label="Connected accounts">
+        <PlaidConnect />
+      </SettingsSection>
+
       {/* Appearance */}
       <SettingsSection label="Appearance">
         <Panel className="flex items-center justify-between gap-4 p-5">
@@ -196,28 +204,34 @@ export function Settings() {
       <SettingsSection label="Notifications">
         <Panel className="overflow-hidden">
           <ToggleRow
-            title="Smart reminders"
-            desc="Nudges timed to how you actually spend."
+            title="All reminders"
+            desc="Master switch for every notification below."
             checked={remindersOn}
             onChange={toggleReminders}
           />
           <ToggleRow
             title="Expiry alerts"
-            desc="Warn me before a credit resets."
-            checked={local.expiry}
-            onChange={(v) => setLocalPref({ expiry: v })}
+            desc="A nudge before each credit resets."
+            checked={cats.expiry}
+            onChange={(v) => setCategory("expiry", v)}
           />
           <ToggleRow
             title="Weekly digest"
-            desc="A Monday summary of unused credits."
-            checked={local.weekly}
-            onChange={(v) => setLocalPref({ weekly: v })}
+            desc="Monday summary of what's available."
+            checked={cats.digest}
+            onChange={(v) => setCategory("digest", v)}
           />
           <ToggleRow
             title="Renewal alerts"
-            desc="Heads-up before an annual fee posts."
-            checked={local.renewal}
-            onChange={(v) => setLocalPref({ renewal: v })}
+            desc="Annual fees and signup deadlines."
+            checked={cats.renewal}
+            onChange={(v) => setCategory("renewal", v)}
+          />
+          <ToggleRow
+            title="Detected credits"
+            desc="When we spot a credit you can confirm."
+            checked={cats.transactions}
+            onChange={(v) => setCategory("transactions", v)}
           />
         </Panel>
       </SettingsSection>
@@ -226,7 +240,7 @@ export function Settings() {
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <button
           type="button"
-          onClick={downloadCreditsCsv}
+          onClick={() => downloadCreditsCsv(credits)}
           className="rounded-[11px] border border-border bg-surface px-4 py-[11px] text-[14px] font-semibold text-secondary transition-colors hover:border-accent hover:text-ink"
         >
           Export data (CSV)

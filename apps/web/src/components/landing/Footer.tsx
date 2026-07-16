@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BrandMark } from "./BrandMark";
+import { Reveal } from "./motion/Reveal";
 
 const columns = [
   {
@@ -23,7 +24,7 @@ const columns = [
 export function Footer() {
   return (
     <div className="mt-24 border-t border-border">
-      <div className="mx-auto flex max-w-[1200px] flex-wrap items-start justify-between gap-8 px-6 py-12 md:px-10">
+      <Reveal className="mx-auto flex max-w-[1200px] flex-wrap items-start justify-between gap-8 px-6 py-12 md:px-10">
         <div className="max-w-[22em]">
           <BrandMark size={28} wordSize={19} gid="foot" />
           <p className="mt-[14px] text-[14px] leading-[1.6] text-muted">
@@ -62,7 +63,7 @@ export function Footer() {
             </div>
           ))}
         </div>
-      </div>
+      </Reveal>
       <div className="mx-auto max-w-[1200px] px-6 pb-10 text-[13px] text-tertiary md:px-10">
         © 2026 OfferBee.ai · Not affiliated with any card issuer. Card names are
         trademarks of their respective owners.

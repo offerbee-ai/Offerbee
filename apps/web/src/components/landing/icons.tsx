@@ -151,3 +151,12 @@ export function MoonIcon(props: IconProps) {
     </Base>
   );
 }
+
+export function LightbulbIcon(props: IconProps) {
+  return (
+    <Base strokeWidth={1.8} {...props}>
+      <path d="M9 18h6M10 21h4" />
+      <path d="M12 3a6.5 6.5 0 0 0-3.5 12c.6.4 1 1.1 1 1.9V17h5v-.1c0-.8.4-1.5 1-1.9A6.5 6.5 0 0 0 12 3Z" />
+    </Base>
+  );
+}

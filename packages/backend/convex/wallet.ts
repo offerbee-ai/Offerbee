@@ -65,6 +65,19 @@ export const addCard = mutation({
       signupBonusStartDate,
     });
 
+    // Restore any benefits archived when this card was previously removed —
+    // re-adding recovers the user's tracked credits + full usage history.
+    const archived = await ctx.db
+      .query("userBenefits")
+      .withIndex("by_userId_and_cardKey", (q) =>
+        q.eq("userId", userId).eq("cardKey", cardKey),
+      )
+      .take(400);
+    for (const b of archived) {
+      if (b.archivedAt !== undefined)
+        await ctx.db.patch(b._id, { userCardId, archivedAt: undefined });
+    }
+
     // Lazily cache detail if we've never fetched it; otherwise evaluate offers now.
     const detail = await ctx.db
       .query("cardDetails")
@@ -72,6 +85,11 @@ export const addCard = mutation({
       .unique();
     if (detail) {
       await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
+      // Auto-track this card's credits now that detail is on hand. When it's
+      // not cached yet, saveCardDetail seeds once the lazy fetch below lands.
+      await ctx.scheduler.runAfter(0, internal.benefits.seedCardBenefits, {
+        userCardId,
+      });
     } else {
       await ctx.scheduler.runAfter(0, internal.rapidapi.fetchCardDetail, {
         cardKey,
@@ -90,6 +108,20 @@ export const removeCard = mutation({
     if (!userCard) throw new Error(`Card '${userCardId}' could not be found`);
     if (userCard.userId !== userId)
       throw new Error(`User '${userId}' cannot remove card '${userCardId}'`);
+
+    // Archive (don't delete) tracked benefits so an accidental removal loses no
+    // usage history — re-adding the card restores them (see addCard). Usage rows
+    // are left untouched.
+    const now = Date.now();
+    const benefits = await ctx.db
+      .query("userBenefits")
+      .withIndex("by_userCardId", (q) => q.eq("userCardId", userCardId))
+      .take(400);
+    for (const b of benefits) {
+      if (b.archivedAt === undefined)
+        await ctx.db.patch(b._id, { archivedAt: now });
+    }
+
     await ctx.db.delete(userCardId);
   },
 });

@@ -9,14 +9,31 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as benefitCycles from "../benefitCycles.js";
+import type * as benefitParser from "../benefitParser.js";
+import type * as benefits from "../benefits.js";
 import type * as catalog from "../catalog.js";
 import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
+import type * as email from "../email.js";
+import type * as http from "../http.js";
+import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
 import type * as offers from "../offers.js";
+import type * as onboarding from "../onboarding.js";
+import type * as onboardingCatalog from "../onboardingCatalog.js";
+import type * as plaid from "../plaid.js";
+import type * as plaidCardMap from "../plaidCardMap.js";
+import type * as plaidDetect from "../plaidDetect.js";
+import type * as plaidLlm from "../plaidLlm.js";
+import type * as plaidMatch from "../plaidMatch.js";
 import type * as push from "../push.js";
+import type * as pushQuietHours from "../pushQuietHours.js";
 import type * as rapidapi from "../rapidapi.js";
+import type * as reminderRules from "../reminderRules.js";
+import type * as reminders from "../reminders.js";
 import type * as review from "../review.js";
+import type * as tips from "../tips.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 import type * as validators from "../validators.js";
@@ -31,14 +48,31 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  benefitCycles: typeof benefitCycles;
+  benefitParser: typeof benefitParser;
+  benefits: typeof benefits;
   catalog: typeof catalog;
   catalogSync: typeof catalogSync;
   crons: typeof crons;
+  email: typeof email;
+  http: typeof http;
+  migrations: typeof migrations;
   notifications: typeof notifications;
   offers: typeof offers;
+  onboarding: typeof onboarding;
+  onboardingCatalog: typeof onboardingCatalog;
+  plaid: typeof plaid;
+  plaidCardMap: typeof plaidCardMap;
+  plaidDetect: typeof plaidDetect;
+  plaidLlm: typeof plaidLlm;
+  plaidMatch: typeof plaidMatch;
   push: typeof push;
+  pushQuietHours: typeof pushQuietHours;
   rapidapi: typeof rapidapi;
+  reminderRules: typeof reminderRules;
+  reminders: typeof reminders;
   review: typeof review;
+  tips: typeof tips;
   users: typeof users;
   utils: typeof utils;
   validators: typeof validators;
@@ -72,4 +106,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: {
+  pushNotifications: import("@convex-dev/expo-push-notifications/_generated/component.js").ComponentApi<"pushNotifications">;
+};

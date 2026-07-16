@@ -9,11 +9,45 @@ export const platformValidator = v.union(
   v.literal("web"),
 );
 
+// The four onboarding reminder toggles (step 4 of the wizard).
+export const reminderPrefsValidator = v.object({
+  expiry: v.boolean(),
+  digest: v.boolean(),
+  renewal: v.boolean(),
+  smart: v.boolean(),
+});
+
+// Unified notification-preference categories (Notifications v2). Additive
+// widen step: coexists with reminderPrefs/enabledOfferTypes until a later
+// task migrates users onto this and drops the old fields.
+export const notificationCategoriesValidator = v.object({
+  expiry: v.boolean(),
+  digest: v.boolean(),
+  renewal: v.boolean(),
+  transactions: v.boolean(),
+});
+
 export const deliveryStatusValidator = v.union(
   v.literal("pending"),
   v.literal("sent"),
   v.literal("failed"),
   v.literal("skipped"),
+);
+
+// ── Benefit-usage tracking ──────────────────────────────────────────────────
+// The reset cadence of a tracked credit. Calendar periods (UTC v1).
+export const cycleValidator = v.union(
+  v.literal("monthly"),
+  v.literal("quarterly"),
+  v.literal("semiannual"),
+  v.literal("annual"),
+);
+export type BenefitCycle = Infer<typeof cycleValidator>;
+
+// How a tracked credit was created: parsed-and-confirmed vs hand-entered.
+export const benefitSourceValidator = v.union(
+  v.literal("suggested"),
+  v.literal("manual"),
 );
 
 // ── Data-verification pipeline ──────────────────────────────────────────────

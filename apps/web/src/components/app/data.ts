@@ -1,85 +1,92 @@
 /**
- * Sample-data model + derivation logic for the authenticated app views.
- *
- * Ported faithfully from the design prototype (Design/design_handoff_webapp).
- * The backend does not yet track "statement credits" (used flags / captured
- * value / reset countdowns), so these features run on sample data — everything
- * downstream (captured totals, net-vs-fees, verdicts, expiring groups) is
- * DERIVED from `credits`, never stored. Swap `SAMPLE_CREDITS` / `CARDS_BASE`
- * for real queries once the API exists; the derivation stays the same.
+ * Derivation logic for the authenticated app views. Runs on REAL data now:
+ * `AppProvider` maps `api.benefits.listMyCredits` into the `Credit`/`CardBase`
+ * shapes below, and every downstream aggregate (captured totals, net-vs-fees,
+ * verdicts, expiring groups) is DERIVED here — nothing is stored. These are pure
+ * functions of (credits, cards); the backend owns persistence.
  */
 
-export type Cycle = "monthly" | "quarterly" | "annual";
+export type Cycle = "monthly" | "quarterly" | "semiannual" | "annual";
+
+export type PeriodStatus = "elapsed" | "current" | "upcoming";
+
+// One cell of a credit's per-period grid (this calendar year). Server-computed
+// in benefits.listMyCredits; annual → 1 cell (a checkbox), quarterly → 4,
+// semiannual → 2. Monthly credits have no grid (periods undefined).
+export interface PeriodCell {
+  key: string; // periodKey, e.g. "2026-Q3"
+  label: string; // "Q1".."Q4" | "Jan–Jun"/"Jul–Dec" | year (annual)
+  usedAmount: number; // dollars logged in that period
+  used: boolean; // usedAmount >= amount
+  status: PeriodStatus;
+}
 
 export interface Credit {
   id: string;
   name: string;
   card: string; // display name of the owning card
-  cardId: string;
-  color: string; // brand hex (theme-independent)
-  amount: number;
+  cardId: string; // = cardKey
+  color: string; // brand hex fallback (derived from cardKey) when no image
+  image: string | null; // real card art (cardDetails.cardImageUrl)
+  amount: number; // dollars per cycle period
   cycle: Cycle;
-  used: boolean;
-  days: number; // days until this credit resets
+  usedAmount: number; // dollars logged in the current period
+  used: boolean; // materialized: usedAmount >= amount
+  days: number; // whole days until reset (client-computed from resetAt)
+  resetAt: number; // ms; period end
+  snoozed: boolean; // snoozedUntil > now
+  periods?: PeriodCell[]; // per-period cells (non-monthly cycles only)
 }
 
+// Credits render as a per-period grid unless monthly (12 cells is too busy — it
+// keeps the single current-period control).
+export const hasGrid = (cycle: Cycle): boolean => cycle !== "monthly";
+
 export interface CardBase {
-  id: string;
+  id: string; // = cardKey
   name: string;
-  color: string;
+  color: string; // brand hex fallback when no image
+  image: string | null; // real card art (cardDetails.cardImageUrl)
   fee: number;
   terms: string;
 }
 
-// Brand colors live OUTSIDE the theme and never change.
-export const CARDS_BASE: CardBase[] = [
-  { id: "platinum", name: "Amex Platinum", color: "#3A4048", fee: 695, terms: "$695 / yr · renews Mar 2027" },
-  { id: "gold", name: "Amex Gold", color: "#B08A3E", fee: 325, terms: "$325 / yr · renews Sep 2026" },
-  { id: "sapphire", name: "Sapphire Reserve", color: "#1E6FB8", fee: 550, terms: "$550 / yr · renews Jan 2027" },
-  { id: "aspire", name: "Hilton Aspire", color: "#7A2E3B", fee: 550, terms: "$550 / yr · renews Nov 2026" },
+// Brand-ish palette (theme-independent). Deterministic hash of the cardKey picks
+// a tone, so the same card always renders the same color and same-issuer cards
+// stay distinct. Replicable verbatim on native.
+const CARD_PALETTE = [
+  "#3A4048", "#B08A3E", "#1E6FB8", "#7A2E3B",
+  "#2E6E4E", "#5B4A8A", "#B05A2E", "#1B6E8C",
 ];
-
-export const SAMPLE_CREDITS: Credit[] = [
-  // ── Amex Platinum ──
-  { id: "p1", name: "Uber Cash", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 15, cycle: "monthly", used: true, days: 12 },
-  { id: "p2", name: "Streaming credit", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 20, cycle: "monthly", used: true, days: 12 },
-  { id: "p3", name: "Wireless credit", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 10, cycle: "monthly", used: false, days: 6 },
-  { id: "p4", name: "Saks Fifth Ave", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 50, cycle: "quarterly", used: false, days: 18 },
-  { id: "p5", name: "Airline fee credit", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 200, cycle: "annual", used: true, days: 210 },
-  { id: "p6", name: "CLEAR Plus", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 189, cycle: "annual", used: false, days: 96 },
-  { id: "p7", name: "Hotel credit", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 300, cycle: "annual", used: true, days: 150 },
-  { id: "p8", name: "Equinox credit", card: "Amex Platinum", cardId: "platinum", color: "#3A4048", amount: 300, cycle: "annual", used: true, days: 120 },
-  // ── Amex Gold ──
-  { id: "g1", name: "Dining credit", card: "Amex Gold", cardId: "gold", color: "#B08A3E", amount: 10, cycle: "monthly", used: false, days: 2 },
-  { id: "g2", name: "Resy dining", card: "Amex Gold", cardId: "gold", color: "#B08A3E", amount: 250, cycle: "quarterly", used: true, days: 40 },
-  { id: "g3", name: "Hotel collection", card: "Amex Gold", cardId: "gold", color: "#B08A3E", amount: 160, cycle: "annual", used: true, days: 100 },
-  // ── Sapphire Reserve ──
-  { id: "s1", name: "Travel credit", card: "Sapphire Reserve", cardId: "sapphire", color: "#1E6FB8", amount: 25, cycle: "monthly", used: false, days: 5 },
-  { id: "s2", name: "Lyft credit", card: "Sapphire Reserve", cardId: "sapphire", color: "#1E6FB8", amount: 15, cycle: "monthly", used: false, days: 23 },
-  { id: "s3", name: "DoorDash credit", card: "Sapphire Reserve", cardId: "sapphire", color: "#1E6FB8", amount: 45, cycle: "quarterly", used: false, days: 31 },
-  { id: "s4", name: "Hotel credit", card: "Sapphire Reserve", cardId: "sapphire", color: "#1E6FB8", amount: 300, cycle: "annual", used: true, days: 150 },
-  { id: "s5", name: "Annual travel", card: "Sapphire Reserve", cardId: "sapphire", color: "#1E6FB8", amount: 300, cycle: "annual", used: true, days: 180 },
-  // ── Hilton Aspire ──
-  { id: "x1", name: "Resort credit", card: "Hilton Aspire", cardId: "aspire", color: "#7A2E3B", amount: 400, cycle: "annual", used: true, days: 120 },
-  { id: "x2", name: "Flight credit", card: "Hilton Aspire", cardId: "aspire", color: "#7A2E3B", amount: 100, cycle: "annual", used: true, days: 90 },
-  { id: "x3", name: "Airline incidental", card: "Hilton Aspire", cardId: "aspire", color: "#7A2E3B", amount: 100, cycle: "annual", used: false, days: 88 },
-];
+export function cardColor(cardKey: string): string {
+  let h = 0;
+  for (let i = 0; i < cardKey.length; i++) h = (h * 31 + cardKey.charCodeAt(i)) | 0;
+  return CARD_PALETTE[Math.abs(h) % CARD_PALETTE.length];
+}
 
 export const CYCLE_LABEL: Record<Cycle, string> = {
   monthly: "Monthly",
   quarterly: "Quarterly",
+  semiannual: "Semiannual",
   annual: "Annual",
 };
+
+const roundCents = (n: number): number => Math.round(n * 100) / 100;
 
 export const usd = (n: number): string => "$" + Math.round(n).toLocaleString("en-US");
 
 /** Signed net string with the design's minus glyph, e.g. "+$120" / "−$40". */
 export const netStr = (n: number): string => (n >= 0 ? "+$" : "−$") + Math.abs(n).toLocaleString("en-US");
 
+/** Captured (clamped) and remaining dollars for a credit's current period. */
+const captured = (c: Credit): number => Math.min(c.usedAmount, c.amount);
+const remaining = (c: Credit): number => roundCents(Math.max(0, c.amount - c.usedAmount));
+
 export interface DerivedCard {
   id: string;
   name: string;
   color: string;
+  image: string | null;
   fee: number;
   terms: string;
   captured: number;
@@ -91,6 +98,7 @@ export interface DerivedCard {
 
 export interface DerivedCredit extends Credit {
   amountStr: string;
+  remaining: number;
   sub: string; // "Card · $amount"
   reset: string; // status/reset line
   urgentReset: boolean; // reset line should use --alert
@@ -119,63 +127,69 @@ export interface Derived {
 }
 
 function decorate(c: Credit): DerivedCredit {
+  const rem = remaining(c);
   return {
     ...c,
     amountStr: usd(c.amount),
+    remaining: rem,
     sub: `${c.card} · ${usd(c.amount)}`,
     cycleLabel: CYCLE_LABEL[c.cycle],
     reset: c.used
       ? "Used this cycle"
-      : c.cycle === "monthly"
-        ? `$${c.amount} · resets in ${c.days}d`
-        : `$${c.amount} · ${CYCLE_LABEL[c.cycle]}`,
-    urgentReset: !c.used && c.days <= 3,
+      : c.usedAmount > 0
+        ? `${usd(rem)} of ${usd(c.amount)} left · resets in ${c.days}d`
+        : c.cycle === "monthly"
+          ? `$${c.amount} · resets in ${c.days}d`
+          : `$${c.amount} · ${CYCLE_LABEL[c.cycle]}`,
+    urgentReset: !c.used && !c.snoozed && c.days <= 3,
   };
 }
 
-/** All wallet-level + per-card totals, derived from the current credits. */
-export function derive(credits: Credit[]): Derived {
+/** All wallet-level + per-card totals, derived from the current credits + cards. */
+export function derive(credits: Credit[], cards: CardBase[]): Derived {
   const total = credits.reduce((a, c) => a + c.amount, 0);
-  const captured = credits.filter((c) => c.used).reduce((a, c) => a + c.amount, 0);
-  const pct = total ? Math.round((captured / total) * 100) : 0;
-  const fees = CARDS_BASE.reduce((a, c) => a + c.fee, 0);
-  const net = captured - fees;
+  const cap = credits.reduce((a, c) => a + captured(c), 0);
+  const pct = total ? Math.round((cap / total) * 100) : 0;
+  const fees = cards.reduce((a, c) => a + c.fee, 0);
+  const net = cap - fees;
   const remainMonth = credits
     .filter((c) => c.cycle === "monthly" && !c.used)
-    .reduce((a, c) => a + c.amount, 0);
-  const atRiskCredits = credits.filter((c) => !c.used && c.days <= 7);
-  const atRisk = atRiskCredits.reduce((a, c) => a + c.amount, 0);
+    .reduce((a, c) => a + remaining(c), 0);
+  const atRiskCredits = credits.filter((c) => !c.used && !c.snoozed && c.days <= 7);
+  const atRisk = atRiskCredits.reduce((a, c) => a + remaining(c), 0);
 
-  const cards: DerivedCard[] = CARDS_BASE.map((cb) => {
-    const cap = credits
-      .filter((c) => c.cardId === cb.id && c.used)
-      .reduce((a, c) => a + c.amount, 0);
-    const cnet = cap - cb.fee;
+  const derivedCards: DerivedCard[] = cards.map((cb) => {
+    const capCard = credits
+      .filter((c) => c.cardId === cb.id)
+      .reduce((a, c) => a + captured(c), 0);
+    const cnet = capCard - cb.fee;
     const keep = cnet >= 0;
     return {
       id: cb.id,
       name: cb.name,
       color: cb.color,
+      image: cb.image,
       fee: cb.fee,
       terms: cb.terms,
-      captured: cap,
+      captured: capCard,
       net: cnet,
       keep,
       verdict: keep ? "Keep" : "Review",
-      pct: Math.min(100, Math.round((cap / cb.fee) * 100)),
+      // Fee-free cards (e.g. boa-travelrewards): 100% if anything captured, else 0.
+      pct: cb.fee > 0 ? Math.min(100, Math.round((capCard / cb.fee) * 100)) : capCard > 0 ? 100 : 0,
     };
   });
 
   return {
     total,
-    captured,
+    captured: cap,
     pct,
     fees,
     net,
     remainMonth,
     atRisk,
     atRiskCount: atRiskCredits.length,
-    cards,
+    cards: derivedCards,
     decorated: credits.map(decorate),
   };
 }
@@ -195,21 +209,21 @@ export function filterBenefits(
   const open = matched.filter((c) => !c.used);
   return {
     visible: matched.map(decorate),
-    available: open.reduce((a, c) => a + c.amount, 0),
+    available: open.reduce((a, c) => a + remaining(c), 0),
     openCount: open.length,
   };
 }
 
-/** Grouped expiring lists for the given horizon. */
+/** Grouped expiring lists for the given horizon (snoozed credits excluded). */
 export function expiringGroups(
   credits: Credit[],
   range: "week" | "month",
 ): { groups: ExpiringGroup[]; total: number } {
   const horizon = range === "week" ? 7 : 31;
   const exp = credits
-    .filter((c) => !c.used && c.days <= horizon)
+    .filter((c) => !c.used && !c.snoozed && c.days <= horizon)
     .sort((a, b) => a.days - b.days);
-  const total = exp.reduce((a, c) => a + c.amount, 0);
+  const total = exp.reduce((a, c) => a + remaining(c), 0);
   const soon = exp.filter((c) => c.days <= 7);
   const later = exp.filter((c) => c.days > 7);
 
@@ -218,14 +232,14 @@ export function expiringGroups(
     groups.push({
       label: "Next 7 days",
       urgent: true,
-      sumStr: `${usd(soon.reduce((a, c) => a + c.amount, 0))} at risk`,
+      sumStr: `${usd(soon.reduce((a, c) => a + remaining(c), 0))} at risk`,
       items: soon.map(decorate),
     });
   if (later.length)
     groups.push({
       label: range === "week" ? "Also soon" : "Later this month",
       urgent: false,
-      sumStr: usd(later.reduce((a, c) => a + c.amount, 0)),
+      sumStr: usd(later.reduce((a, c) => a + remaining(c), 0)),
       items: later.map(decorate),
     });
   return { groups, total };
@@ -234,7 +248,7 @@ export function expiringGroups(
 /** The 4 soonest-to-reset unused credits, for the dashboard "use before reset". */
 export function dashExpiring(credits: Credit[]): DerivedCredit[] {
   return credits
-    .filter((c) => !c.used)
+    .filter((c) => !c.used && !c.snoozed)
     .sort((a, b) => a.days - b.days)
     .slice(0, 4)
     .map(decorate);

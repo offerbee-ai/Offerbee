@@ -20,9 +20,11 @@
     "class-variance-authority": "^0.7.1",
     "convex": "^1.35.1",
     "lucide-react": "^1.8.0",
+    "motion": "^12.42.2",
     "next": "^16.2.4",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "react-plaid-link": "^4.1.1",
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {

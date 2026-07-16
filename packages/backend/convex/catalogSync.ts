@@ -53,6 +53,62 @@ export const getStaleDetailCards = internalQuery({
   },
 });
 
+// ── Search-term cache ───────────────────────────────────────────────────────
+const searchResultValidator = v.array(
+  v.object({
+    cardKey: v.string(),
+    cardName: v.string(),
+    cardIssuer: v.string(),
+  }),
+);
+
+export const getCachedSearch = internalQuery({
+  args: { term: v.string() },
+  handler: async (ctx, { term }) => {
+    return await ctx.db
+      .query("searchCache")
+      .withIndex("by_term", (q) => q.eq("term", term))
+      .unique();
+  },
+});
+
+export const saveSearchCache = internalMutation({
+  args: { term: v.string(), results: searchResultValidator },
+  handler: async (ctx, { term, results }) => {
+    const existing = await ctx.db
+      .query("searchCache")
+      .withIndex("by_term", (q) => q.eq("term", term))
+      .unique();
+    if (existing) await ctx.db.patch(existing._id, { results, fetchedAt: Date.now() });
+    else await ctx.db.insert("searchCache", { term, results, fetchedAt: Date.now() });
+  },
+});
+
+// One page of the catalog, each card flagged whether its detail is missing or
+// past the TTL — drives rapidapi.prefillCatalog (skip-fresh keeps re-runs cheap).
+export const getCatalogPageForWarm = internalQuery({
+  args: { cursor: v.union(v.string(), v.null()), limit: v.number() },
+  handler: async (ctx, { cursor, limit }) => {
+    const page = await ctx.db
+      .query("cardCatalog")
+      .paginate({ numItems: limit, cursor });
+    const now = Date.now();
+    const items = await Promise.all(
+      page.page.map(async (row) => {
+        const detail = await ctx.db
+          .query("cardDetails")
+          .withIndex("by_cardKey", (q) => q.eq("cardKey", row.cardKey))
+          .unique();
+        return {
+          cardKey: row.cardKey,
+          needsFetch: !detail || detail.detailFetchedAt < now - DETAIL_TTL_MS,
+        };
+      }),
+    );
+    return { items, continueCursor: page.continueCursor, isDone: page.isDone };
+  },
+});
+
 export const saveCardDetail = internalMutation({
   args: {
     cardKey: v.string(),
@@ -73,6 +129,11 @@ export const saveCardDetail = internalMutation({
         detailHash: hash,
       });
       await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
+      // Detail just landed — auto-track credits for any owner still unseeded
+      // (covers lazy-fetch adds and wallets predating the auto-seed feature).
+      await ctx.scheduler.runAfter(0, internal.benefits.seedOwnersForCard, {
+        cardKey,
+      });
       return;
     }
 
@@ -88,5 +149,8 @@ export const saveCardDetail = internalMutation({
       detailHash: hash,
     });
     await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
+    await ctx.scheduler.runAfter(0, internal.benefits.seedOwnersForCard, {
+      cardKey,
+    });
   },
 });

@@ -1,18 +1,18 @@
 name: Deploy web to staging
 
-# Persistent staging environment. Every push to the long-lived `preview` branch
-# redeploys ONE fixed Convex preview backend (name: "staging") and publishes to a
-# STABLE Netlify URL (https://staging--offerbee-web.netlify.app). Unlike the
-# per-PR previews (preview-web.yml), this reuses the same deployment every time,
-# so there is a single staging URL you can always hit.
+# Staging environment. Every push to the long-lived `preview` branch redeploys
+# the dedicated, durable "staging" Convex deployment via a plain `convex deploy`
+# (see apps/web/netlify.toml [context.deploy-preview]). Staging is a standing
+# deployment (its own project's prod deployment), NOT an ephemeral preview, so
+# its backend + data (seeded card catalog, warmed details, any imported prod
+# data) persist across every deploy and are never reclaimed. Publishes to a
+# stable Netlify alias URL (see DEPLOYMENT.md for the URL).
 #
-# Flow: feature branch -> PR into `preview` (gets a per-PR preview) -> merge into
+# Flow: feature branch -> PR into `preview` (CI only, no deploy) -> merge into
 # `preview` (this workflow -> staging) -> PR `preview` into `main` -> prod.
 #
-# Uses the same PREVIEW deploy key + Convex Preview-scope env vars as preview-web.
-# Note (free plan): Convex reclaims a preview deployment after 5 days idle, so if
-# `preview` sits untouched that long the staging backend + data are recreated
-# fresh on the next push (the catalog re-fills from live search).
+# Uses the staging deployment's deploy key (CONVEX_STAGING_DEPLOY_KEY) + env vars
+# set on that deployment (see DEPLOYMENT.md).
 
 on:
   push:
@@ -49,8 +49,8 @@ jobs:
 
       - name: Build & deploy to staging
         id: deploy
-        # netlify.toml [context.deploy-preview] runs `convex deploy --preview-create
-        # "$CONVEX_PREVIEW_NAME"` (fixed name "staging" -> same backend each time),
+        # netlify.toml [context.deploy-preview] runs a plain `convex deploy` to
+        # the durable staging deployment (backend + data persist each push),
         # then next build. --alias pins a stable Netlify subdomain.
         run: |
           set -o pipefail
@@ -59,23 +59,35 @@ jobs:
             --context deploy-preview \
             --filter web-app \
             --alias staging \
-            --message "staging ${{ github.sha }}" \
+            --message "staging ${GITHUB_SHA}" \
             --json | tee deploy-output.json
           url=$(jq -r '.deploy_url // .url // empty' deploy-output.json)
+          if [ -z "$url" ]; then
+            echo "Could not parse a deploy URL from netlify output" >&2
+            exit 1
+          fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
           {
             echo "### Staging deployed"
             echo ""
-            echo "- **Web:** ${url:-https://staging--offerbee-web.netlify.app}"
-            echo "- **Convex backend:** preview \`staging\`"
+            echo "- **Web:** ${url}"
+            echo "- **Convex backend:** dedicated \`staging\` deployment (durable, data persists)"
             echo "- Commit: \`${GITHUB_SHA:0:7}\`"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          # PREVIEW deploy key — reused for the staging preview deployment.
-          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_PREVIEW_DEPLOY_KEY }}
-          # Fixed name -> convex always deploys to the same "staging" backend.
-          CONVEX_PREVIEW_NAME: staging
-          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY }}
+          # Deploy key for the dedicated, durable staging Convex deployment (its
+          # own project's PROD deploy key). A plain `convex deploy` targets it, so
+          # the backend + data persist across every deploy — no reclaim.
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_STAGING_DEPLOY_KEY }}
+          # Staging authenticates against a Clerk DEVELOPMENT instance (pk_test),
+          # which accepts any origin — so sign-in works on the staging--*.netlify.app
+          # URL. (A pk_live prod instance serves clerk.offerbee.ai and rejects any
+          # non-offerbee.ai origin, which is why prod keys 400 on the netlify.app URL.)
+          # Falls back to the prod keys until the *_PREVIEW dev secrets exist, so the
+          # deploy stays green in the meantime. When you add CLERK_*_PREVIEW, also set
+          # the Convex Preview-scope CLERK_JWT_ISSUER_DOMAIN to the dev instance issuer
+          # (https://<slug>.clerk.accounts.dev), or JWT validation fails.
+          NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY_PREVIEW || secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY_PREVIEW || secrets.CLERK_SECRET_KEY }}

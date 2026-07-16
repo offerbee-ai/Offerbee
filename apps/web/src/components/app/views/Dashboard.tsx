@@ -13,6 +13,7 @@ import {
   Panel,
   MonoLabel,
 } from "../controls";
+import { Spinner } from "../ui";
 import { ChecklistIcon, ClockIcon } from "@/components/landing/icons";
 
 function ResetRow({
@@ -27,7 +28,6 @@ function ResetRow({
   return (
     <div className="flex items-center gap-3 border-t border-separator px-4 py-[13px] first:border-t-0 sm:px-6">
       <DaysTile days={credit.days} size={tileSize} urgent={credit.days <= 7} />
-      <BrandChip color={credit.color} width={32} height={22} />
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14.5px] font-semibold text-ink">
           {credit.name}
@@ -45,7 +45,18 @@ function WalletRow({ card }: { card: DerivedCard }) {
       href="/app/wallet"
       className="flex items-center gap-3 border-t border-separator px-4 py-[13px] transition-colors first:border-t-0 hover:bg-surface-2 sm:px-6"
     >
-      <BrandChip color={card.color} width={34} height={23} />
+      {card.image ? (
+        // Plain <img>: the card-image host path rotates (see wallet page).
+        // 46×29 keeps the real 1.586 card aspect ratio so art stays crisp.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={card.image}
+          alt=""
+          className="h-[29px] w-[46px] shrink-0 rounded-[5px] object-cover"
+        />
+      ) : (
+        <BrandChip color={card.color} width={46} height={29} />
+      )}
       <div className="min-w-0 flex-1">
         <div className="truncate text-[14px] font-semibold text-ink">
           {card.name}
@@ -92,9 +103,17 @@ function ListHeader({
 }
 
 export function Dashboard() {
-  const { derived, credits, markUsed, dashLayout, setDashLayout } = useApp();
+  const { derived, credits, markUsed, dashLayout, setDashLayout, isLoading } =
+    useApp();
   const expiring = dashExpiring(credits);
   const { captured, total, pct, net, fees, remainMonth, atRisk, cards } = derived;
+
+  if (isLoading)
+    return (
+      <div className="flex justify-center py-24">
+        <Spinner />
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-5">
@@ -143,7 +162,7 @@ export function Dashboard() {
             </Panel>
 
             <Panel className="pb-2">
-              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/expiring" />
+              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/benefits" />
               <div>
                 {expiring.map((c) => (
                   <ResetRow key={c.id} credit={c} tileSize={46} onToggle={() => markUsed(c.id)} />
@@ -208,7 +227,7 @@ export function Dashboard() {
           {/* Two columns */}
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             <Panel className="pb-2">
-              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/expiring" />
+              <ListHeader title="Use before they reset" linkLabel="See all →" href="/app/benefits" />
               <div>
                 {expiring.map((c) => (
                   <ResetRow key={c.id} credit={c} tileSize={42} onToggle={() => markUsed(c.id)} />
