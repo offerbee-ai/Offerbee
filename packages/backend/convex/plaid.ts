@@ -20,6 +20,7 @@ import {
 import { llmClassify } from "./plaidLlm";
 import { resolveCardKey } from "./plaidCardMap";
 import { POPULAR_CARD_KEYS } from "./catalog";
+import { fetchAndSaveCardDetail } from "./rapidapi";
 import { missingEnvVariableUrl } from "./utils";
 
 // Plaid runs in Convex's default runtime via plain fetch() — every call is a
@@ -169,6 +170,15 @@ export const exchangePublicToken = action({
       if (a.subtype && !/credit/i.test(a.subtype)) continue;
       const cardKey = resolveCardKey(institutionName, a.name, a.officialName);
       if (!cardKey) continue;
+      // Seeding needs the card's cached detail; popular keys are pre-warmed,
+      // but if this one isn't, fetch inline so the first sync below matches
+      // against seeded benefits (a swallowed failure falls back to addCard's
+      // scheduled lazy fetch).
+      const hasDetail: boolean = await ctx.runQuery(
+        internal.catalog.hasCardDetail,
+        { cardKey },
+      );
+      if (!hasDetail) await fetchAndSaveCardDetail(ctx, cardKey);
       const userCardId = await ctx.runMutation(api.wallet.addCard, { cardKey });
       // Force a synchronous seed (addCard also schedules one; both are idempotent)
       // so benefits exist before the sync runs its matcher.
@@ -333,6 +343,19 @@ export const linkAccountToCatalogCard = action({
       });
       if (!known) throw new Error("Unknown card");
     }
+    // Search-picked cards usually have no cached detail yet (name search
+    // returns only key/name/issuer), and benefits can't seed without one.
+    // Fetch it inline — we're in an action — so the card's benefits are
+    // tracked by the time this returns and the benefits page shows them
+    // immediately, matching a manual add from the wallet. It also lets
+    // linkAccountToCard's transaction re-classification below match the
+    // seeded benefits instead of waiting for the next sync. If the fetch
+    // fails, addCard still schedules the lazy fetch as the retry path.
+    const hasDetail: boolean = await ctx.runQuery(
+      internal.catalog.hasCardDetail,
+      { cardKey },
+    );
+    if (!hasDetail) await fetchAndSaveCardDetail(ctx, cardKey);
     // Ownership of the account (and auth) is enforced inside each mutation.
     const userCardId: Id<"userCards"> = await ctx.runMutation(
       api.wallet.addCard,
