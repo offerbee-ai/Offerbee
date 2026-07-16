@@ -44,6 +44,20 @@ export const hasCard = internalQuery({
   },
 });
 
+// Whether a card's full detail is already cached — benefits can only seed once
+// it is. Used by plaid.linkAccountToCatalogCard to decide whether to fetch the
+// detail inline before seeding.
+export const hasCardDetail = internalQuery({
+  args: { cardKey: v.string() },
+  handler: async (ctx, { cardKey }) => {
+    const row = await ctx.db
+      .query("cardDetails")
+      .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
+      .first();
+    return row !== null;
+  },
+});
+
 // Cached full detail for a single card (or null if not yet fetched).
 export const getCardDetail = query({
   args: { cardKey: v.string() },

@@ -432,26 +432,37 @@ export const warmOnboardingCards = internalAction({
   },
 });
 
+// Fetch + cache one card's detail right now. Swallows failures (missing key,
+// API error) — the card is simply left detail-less and a later scheduled fetch
+// or stale-refresh retries. Exported so other actions (plaid link) can await
+// the detail inline instead of racing the scheduled lazy fetch.
+export async function fetchAndSaveCardDetail(
+  ctx: ActionCtx,
+  cardKey: string,
+): Promise<void> {
+  const key = process.env.RAPIDAPI_KEY;
+  if (!key) {
+    console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
+    return;
+  }
+  try {
+    const detail = await fetchDetail(key, cardKey);
+    if (detail) {
+      await ctx.runMutation(internal.catalogSync.saveCardDetail, {
+        cardKey,
+        content: detail.content,
+        hash: detail.hash,
+      });
+    }
+  } catch (e) {
+    console.error(`Detail fetch failed for '${cardKey}'`, e);
+  }
+}
+
 // Lazy single fetch triggered when a user adds a not-yet-cached card.
 export const fetchCardDetail = internalAction({
   args: { cardKey: v.string() },
   handler: async (ctx, { cardKey }) => {
-    const key = process.env.RAPIDAPI_KEY;
-    if (!key) {
-      console.error(missingEnvVariableUrl("RAPIDAPI_KEY", RAPIDAPI_SIGNUP_URL));
-      return;
-    }
-    try {
-      const detail = await fetchDetail(key, cardKey);
-      if (detail) {
-        await ctx.runMutation(internal.catalogSync.saveCardDetail, {
-          cardKey,
-          content: detail.content,
-          hash: detail.hash,
-        });
-      }
-    } catch (e) {
-      console.error(`Detail fetch failed for '${cardKey}'`, e);
-    }
+    await fetchAndSaveCardDetail(ctx, cardKey);
   },
 });
