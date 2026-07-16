@@ -6,6 +6,8 @@ import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { Panel } from "./controls";
+import { usePlaidCardLink, type DetectResult } from "./usePlaidCardLink";
+import { DetectedCardsReview } from "./DetectedCardsReview";
 
 // "Connected accounts" — Plaid Link connect + per-account → wallet-card linking
 // (Design/design_handoff_connected_accounts, states 1a–1c). Links let
@@ -42,8 +44,12 @@ function timeAgo(ts: number): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-type WalletCard = { userCardId: Id<"userCards">; name: string; cardKey: string };
-type CatalogGroup = {
+export type WalletCard = {
+  userCardId: Id<"userCards">;
+  name: string;
+  cardKey: string;
+};
+export type CatalogGroup = {
   issuer: string;
   cards: { cardKey: string; cardName: string; owned: boolean }[];
 };
@@ -114,7 +120,7 @@ const LinkIcon = () => (
 
 // The grouped link options — shared by the row popover (1c) and the
 // post-connect prompt so both surfaces read identically.
-function LinkOptions({
+export function LinkOptions({
   currentCardId,
   cards,
   linkedTo,
@@ -130,7 +136,7 @@ function LinkOptions({
   catalogGroups: CatalogGroup[];
   picking: boolean;
   onSetLink: (userCardId: Id<"userCards"> | null) => void;
-  onAddLink: (cardKey: string) => void;
+  onAddLink: (cardKey: string, cardName?: string) => void;
   showNotLinked?: boolean;
 }) {
   // Search-any-card: instant local-catalog hits + a debounced live API search
@@ -269,7 +275,7 @@ function LinkOptions({
               key={c.cardKey}
               type="button"
               disabled={picking}
-              onClick={() => onAddLink(c.cardKey)}
+              onClick={() => onAddLink(c.cardKey, c.cardName)}
               className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
             >
               <span className="text-accent">
@@ -310,7 +316,7 @@ function LinkOptions({
                   key={c.cardKey}
                   type="button"
                   disabled={picking}
-                  onClick={() => onAddLink(c.cardKey)}
+                  onClick={() => onAddLink(c.cardKey, c.cardName)}
                   className="flex w-full items-center gap-[9px] rounded-[9px] px-[10px] py-[9px] text-left hover:bg-accent-soft/50 disabled:opacity-50"
                 >
                   <span className="text-accent">
@@ -334,22 +340,12 @@ function LinkOptions({
   );
 }
 
-// An account the connect flow couldn't auto-resolve to a catalog card (e.g.
-// Chase names every UR card "Ultimate Rewards®") — prompted right after Link.
-type PendingAccount = {
-  accountId: string;
-  mask?: string;
-  institutionName?: string;
-};
-
 export function PlaidConnect() {
   const configured = useQuery(api.plaid.plaidConfigured);
   const connections = useQuery(api.plaid.listConnections);
   const wallet = useQuery(api.benefits.listMyCredits);
   const popular = useQuery(api.catalog.popularCards);
-  const createLinkToken = useAction(api.plaid.createLinkToken);
   const createUpdateLinkToken = useAction(api.plaid.createUpdateLinkToken);
-  const exchange = useAction(api.plaid.exchangePublicToken);
   const reactivate = useMutation(api.plaid.reactivateItem);
   const linkAccount = useMutation(api.plaid.linkAccountToCard);
   const linkCatalogCard = useAction(api.plaid.linkAccountToCatalogCard);
@@ -357,28 +353,39 @@ export function PlaidConnect() {
   const refresh = useAction(api.plaid.refreshConnection);
 
   const cards = wallet?.cards ?? [];
-  const [linkToken, setLinkToken] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [picking, setPicking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // accountId whose link popover is open — one at a time; siblings dim.
   const [openFor, setOpenFor] = useState<string | null>(null);
-  // Unresolved credit accounts from the last connect, prompted one at a time.
-  const [pickQueue, setPickQueue] = useState<PendingAccount[]>([]);
+  // Detection results from the last connect — reviewed in one dialog.
+  const [reviewResult, setReviewResult] = useState<DetectResult | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState<{
     itemId: string;
     name: string;
     linkedCount: number;
   } | null>(null);
-  // Set while re-authenticating an existing item (Link update mode); null = a
-  // fresh connect. onSuccess branches on this.
-  const [reauthItemId, setReauthItemId] = useState<string | null>(null);
   // Per-connection manual refresh + cooldown. `now` re-renders once when the
   // earliest cooldown expires so the button re-enables without a reload.
   const [refreshingItem, setRefreshingItem] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const openedFor = useRef<string | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
+
+  const { startConnect, busy } = usePlaidCardLink({
+    onDetected: (result) => {
+      // Depository-only connect: nothing to review — explain why instead of
+      // opening an empty "0 cards found" dialog with a dead CTA.
+      if (result.accounts.length === 0) {
+        setError(
+          "No credit cards found at that bank — accounts other than credit cards aren't tracked.",
+        );
+        return;
+      }
+      setReviewResult(result);
+    },
+    onFail: (reason, message) => {
+      if (reason === "error") setError(message ?? "Failed to connect");
+    },
+  });
 
   useEffect(() => {
     const cooldowns = (connections ?? [])
@@ -402,89 +409,66 @@ export function PlaidConnect() {
     return () => document.removeEventListener("mousedown", onDown);
   }, [openFor]);
 
-  const onSuccess = useCallback(
-    async (publicToken: string, metadata: any) => {
-      setBusy(true);
-      setError(null);
-      try {
-        if (reauthItemId) {
-          // Update mode: no public-token exchange — just mark the item healthy.
-          await reactivate({ itemId: reauthItemId });
-        } else {
-          const institutionName = metadata?.institution?.name as
-            | string
-            | undefined;
-          const res = await exchange({
-            publicToken,
-            institutionId: metadata?.institution?.institution_id,
-            institutionName,
-          });
-          // Banks like Chase report a rewards-program name instead of the card
-          // product, so auto-linking can fail — prompt per unresolved account.
-          setPickQueue(
-            res.accounts
-              .filter((a) => !a.linked && isCreditAccount(a.subtype))
-              .map((a) => ({
-                accountId: a.accountId,
-                mask: a.mask,
-                institutionName,
-              })),
-          );
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to link account");
-      } finally {
-        setBusy(false);
-        setLinkToken(null);
-        setReauthItemId(null);
-        openedFor.current = null;
-      }
-    },
-    [exchange, reactivate, reauthItemId],
-  );
+  // ── Re-auth (Plaid Link update mode) ──────────────────────────────────────
+  // The shared usePlaidCardLink hook only covers fresh connects (exchange →
+  // detect → review). Update mode repairs an existing item in place: its
+  // onSuccess must call reactivateItem, never exchange — so it gets its own
+  // minimal Link instance, scoped strictly to re-auth.
+  const [reauth, setReauth] = useState<{
+    itemId: string;
+    linkToken: string;
+  } | null>(null);
+  const [reauthBusy, setReauthBusy] = useState(false);
+  const reauthOpenedFor = useRef<string | null>(null);
 
-  // User closed Link without finishing — reset so the button leaves "Connecting…".
-  const onExit = useCallback(() => {
-    setBusy(false);
-    setLinkToken(null);
-    setReauthItemId(null);
-    openedFor.current = null;
+  const onReauthSuccess = useCallback(async () => {
+    try {
+      // Update mode: no public-token exchange — just mark the item healthy.
+      if (reauth) await reactivate({ itemId: reauth.itemId });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to reconnect");
+    } finally {
+      setReauthBusy(false);
+      setReauth(null);
+      reauthOpenedFor.current = null;
+    }
+  }, [reauth, reactivate]);
+
+  // User closed Link without finishing — reset so the button leaves its busy state.
+  const onReauthExit = useCallback(() => {
+    setReauthBusy(false);
+    setReauth(null);
+    reauthOpenedFor.current = null;
   }, []);
 
-  const { open, ready } = usePlaidLink({ token: linkToken, onSuccess, onExit });
+  const { open: openReauth, ready: reauthReady } = usePlaidLink({
+    token: reauth?.linkToken ?? null,
+    onSuccess: onReauthSuccess,
+    onExit: onReauthExit,
+  });
 
   // usePlaidLink needs the token up front, so fetch it, then auto-open once ready.
   useEffect(() => {
-    if (linkToken && ready && openedFor.current !== linkToken) {
-      openedFor.current = linkToken;
-      open();
+    if (
+      reauth &&
+      reauthReady &&
+      reauthOpenedFor.current !== reauth.linkToken
+    ) {
+      reauthOpenedFor.current = reauth.linkToken;
+      openReauth();
     }
-  }, [linkToken, ready, open]);
-
-  const startConnect = async () => {
-    setBusy(true);
-    setError(null);
-    try {
-      const { linkToken } = await createLinkToken({});
-      setLinkToken(linkToken);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to start Plaid");
-      setBusy(false);
-    }
-  };
+  }, [reauth, reauthReady, openReauth]);
 
   // Re-authenticate an existing connection (Plaid Link update mode).
   const startReauth = async (itemId: string) => {
-    setBusy(true);
+    setReauthBusy(true);
     setError(null);
-    setReauthItemId(itemId);
     try {
       const { linkToken } = await createUpdateLinkToken({ itemId });
-      setLinkToken(linkToken);
+      setReauth({ itemId, linkToken });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start reconnect");
-      setBusy(false);
-      setReauthItemId(null);
+      setReauthBusy(false);
     }
   };
 
@@ -508,7 +492,6 @@ export function PlaidConnect() {
     try {
       await linkAccount({ accountId, userCardId });
       setOpenFor(null);
-      setPickQueue((q) => q.filter((p) => p.accountId !== accountId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to link card");
     } finally {
@@ -521,7 +504,6 @@ export function PlaidConnect() {
     try {
       await linkCatalogCard({ accountId, cardKey });
       setOpenFor(null);
-      setPickQueue((q) => q.filter((p) => p.accountId !== accountId));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to link card");
     } finally {
@@ -560,12 +542,13 @@ export function PlaidConnect() {
     for (const a of conn.accounts)
       if (a.userCardId) linkedTo.set(a.userCardId, a.mask ?? "");
 
-  const pending = pickQueue[0];
-
   const connectButton = (label = "Connect a card") => (
     <button
       type="button"
-      onClick={startConnect}
+      onClick={() => {
+        setError(null);
+        void startConnect();
+      }}
       disabled={busy}
       className="inline-flex items-center gap-[7px] rounded-[11px] bg-accent px-[18px] py-[10px] text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-50"
     >
@@ -574,48 +557,24 @@ export function PlaidConnect() {
     </button>
   );
 
-  // Post-connect link prompt — same option list as the row popover (1c),
-  // presented as a dialog for each account the connect couldn't resolve.
-  const pickPrompt = pending && (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Skip for now"
-        onClick={() => setPickQueue((q) => q.slice(1))}
-        className="absolute inset-0 bg-black/40"
-      />
-      <div className="relative flex max-h-[85vh] min-h-[440px] w-full max-w-[480px] flex-col overflow-hidden rounded-[16px] border border-border bg-surface shadow-[0_16px_48px_rgba(33,29,22,.18)]">
-        <div className="border-b border-separator px-6 pb-4 pt-5 text-center">
-          <h3 className="font-display text-[19px] font-semibold text-ink">
-            Link credit card{pending.mask ? ` ····${pending.mask}` : ""}
-          </h3>
-          <p className="mt-1 text-[13px] text-secondary">
-            {pending.institutionName ?? "Your bank"} · transactions will
-            auto-track this card&apos;s credits
-          </p>
-        </div>
-        <div className="flex-1 overflow-y-auto p-3">
-          <LinkOptions
-            currentCardId={null}
-            cards={cards}
-            linkedTo={linkedTo}
-            catalogGroups={catalogGroupsFor(pending.institutionName)}
-            picking={picking}
-            onSetLink={(id) => void setLink(pending.accountId, id)}
-            onAddLink={(key) => void addAndLink(pending.accountId, key)}
-            showNotLinked={false}
-          />
-        </div>
-        <div className="border-t border-separator p-3">
-          <button
-            type="button"
-            disabled={picking}
-            onClick={() => setPickQueue((q) => q.slice(1))}
-            className="w-full rounded-[10px] px-3 py-2 text-[13.5px] font-semibold text-secondary transition-colors hover:bg-accent-soft/50 disabled:opacity-50"
-          >
-            Not sure — skip for now
-          </button>
-        </div>
+  // Post-connect review — one dialog covering every detected account (replaces
+  // the old per-account prompts). DetectedCardsReview owns confirm/skip; keyed
+  // by itemId so a second connect in the same session seeds fresh row state.
+  const reviewModal = reviewResult && (
+    <div
+      role="dialog"
+      aria-modal="true"
+      className="fixed inset-0 z-50 flex justify-center overflow-y-auto p-4"
+    >
+      <div className="absolute inset-0 bg-black/40" />
+      {/* my-auto (not items-center) centers when short but lets a review
+          taller than the viewport scroll from the top instead of clipping. */}
+      <div className="relative my-auto w-full max-w-[560px]">
+        <DetectedCardsReview
+          key={reviewResult.itemId}
+          result={reviewResult}
+          onDone={() => setReviewResult(null)}
+        />
       </div>
     </div>
   );
@@ -643,7 +602,7 @@ export function PlaidConnect() {
             Read-only access · Disconnect anytime
           </p>
         </Panel>
-        {pickPrompt}
+        {reviewModal}
       </>
     );
 
@@ -715,7 +674,7 @@ export function PlaidConnect() {
                 <button
                   type="button"
                   onClick={() => void startReauth(conn.itemId)}
-                  disabled={busy}
+                  disabled={busy || reauthBusy}
                   className="shrink-0 rounded-[9px] bg-accent px-3 py-[7px] text-[12.5px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-50"
                 >
                   Reconnect
@@ -875,7 +834,7 @@ export function PlaidConnect() {
         </div>
       )}
 
-      {pickPrompt}
+      {reviewModal}
     </Panel>
   );
 }

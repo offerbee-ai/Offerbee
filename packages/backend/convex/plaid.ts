@@ -8,7 +8,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { getUserId, requireUserId } from "./auth";
 import { periodKey } from "./benefitCycles";
@@ -18,7 +18,7 @@ import {
   matchBenefitToTransaction,
 } from "./plaidMatch";
 import { llmClassify } from "./plaidLlm";
-import { resolveCardKey } from "./plaidCardMap";
+import { deriveDetected, type DetectedAccount } from "./plaidDetect";
 import { POPULAR_CARD_KEYS } from "./catalog";
 import { fetchAndSaveCardDetail } from "./rapidapi";
 import { missingEnvVariableUrl } from "./utils";
@@ -108,14 +108,8 @@ export const exchangePublicToken = action({
     { publicToken, institutionId, institutionName },
   ): Promise<{
     itemId: string;
-    accounts: {
-      accountId: string;
-      mask?: string;
-      name?: string;
-      officialName?: string;
-      subtype?: string;
-      linked: boolean;
-    }[];
+    institutionName?: string;
+    accounts: DetectedAccount[];
   }> => {
     const userId = await requireUserId(ctx);
     const ex = await plaidRequest<{ access_token: string; item_id: string }>(
@@ -159,49 +153,18 @@ export const exchangePublicToken = action({
       accounts,
     });
 
-    // Auto-add + auto-link: resolve each credit-card account to a catalog card,
-    // ensure it's in the wallet (which seeds its credits), then link the account.
-    // Done BEFORE the sync so applySync matches against seeded benefits on the
-    // first pull — a fresh connection tracks usage with no manual mapping.
-    // Accounts left unresolved (e.g. Chase reports every UR card as "Ultimate
-    // Rewards®") are returned with linked=false so the client can prompt.
-    const linkedIds = new Set<string>();
-    for (const a of accounts) {
-      if (a.subtype && !/credit/i.test(a.subtype)) continue;
-      const cardKey = resolveCardKey(institutionName, a.name, a.officialName);
-      if (!cardKey) continue;
-      // Seeding needs the card's cached detail; popular keys are pre-warmed,
-      // but if this one isn't, fetch inline so the first sync below matches
-      // against seeded benefits (a swallowed failure falls back to addCard's
-      // scheduled lazy fetch).
-      const hasDetail: boolean = await ctx.runQuery(
-        internal.catalog.hasCardDetail,
-        { cardKey },
-      );
-      if (!hasDetail) await fetchAndSaveCardDetail(ctx, cardKey);
-      const userCardId = await ctx.runMutation(api.wallet.addCard, { cardKey });
-      // Force a synchronous seed (addCard also schedules one; both are idempotent)
-      // so benefits exist before the sync runs its matcher.
-      await ctx.runMutation(internal.benefits.seedCardBenefits, { userCardId });
-      await ctx.runMutation(api.plaid.linkAccountToCard, {
-        accountId: a.accountId,
-        userCardId,
-      });
-      linkedIds.add(a.accountId);
-    }
+    // No auto-add: detection results go back to the client, which shows the
+    // review screen ("We found your cards") — nothing enters the wallet until
+    // the user confirms (confirmDetectedCards). The first sync still runs now;
+    // linkAccountToCard back-fills and re-classifies transactions after the
+    // user links, so no data is lost by syncing before linking.
+    const detected = deriveDetected(accounts, institutionName);
 
-    // First transaction sync (accounts linked + benefits seeded → matches now).
     await ctx.scheduler.runAfter(0, internal.plaid.syncItem, {
       itemId: ex.item_id,
     });
 
-    return {
-      itemId: ex.item_id,
-      accounts: accounts.map((a) => ({
-        ...a,
-        linked: linkedIds.has(a.accountId),
-      })),
-    };
+    return { itemId: ex.item_id, institutionName, accounts: detected };
   },
 });
 
@@ -324,49 +287,95 @@ export const linkAccountToCard = mutation({
   },
 });
 
-// Link a Plaid account to a *catalog* card that may not be in the wallet yet:
-// add the card (idempotent) → seed its benefits → link the account. Backs the
-// post-connect picker shown when resolveCardKey can't identify the product —
-// e.g. Chase's OAuth feed names every UR card "Ultimate Rewards®", so only the
-// user can say which account is which card.
+// Add a catalog card to the wallet (idempotent) → seed its benefits → link the
+// account. Shared by the single-account picker (settings) and the post-connect
+// review screen's batch confirm. Backs the picker shown when resolveCardKey
+// can't identify the product — e.g. Chase's OAuth feed names every UR card
+// "Ultimate Rewards®", so only the user can say which account is which card.
+async function addAndLinkOne(
+  ctx: ActionCtx,
+  accountId: string,
+  cardKey: string,
+): Promise<Id<"userCards">> {
+  // Popular keys pass outright; anything else must already be in cardCatalog
+  // (searchCards upserts every result it returns, so search picks qualify).
+  if (!POPULAR_CARD_KEYS.includes(cardKey)) {
+    const known: boolean = await ctx.runQuery(internal.catalog.hasCard, {
+      cardKey,
+    });
+    if (!known) throw new Error("Unknown card");
+  }
+  // Search-picked cards usually have no cached detail yet (name search
+  // returns only key/name/issuer), and benefits can't seed without one.
+  // Fetch it inline — we're in an action — so the card's benefits are
+  // tracked by the time this returns and the benefits page shows them
+  // immediately, matching a manual add from the wallet. It also lets
+  // linkAccountToCard's transaction re-classification below match the
+  // seeded benefits instead of waiting for the next sync. If the fetch
+  // fails, addCard still schedules the lazy fetch as the retry path.
+  const hasDetail: boolean = await ctx.runQuery(
+    internal.catalog.hasCardDetail,
+    { cardKey },
+  );
+  if (!hasDetail) await fetchAndSaveCardDetail(ctx, cardKey);
+  // Ownership of the account (and auth) is enforced inside each mutation.
+  const userCardId: Id<"userCards"> = await ctx.runMutation(
+    api.wallet.addCard,
+    { cardKey },
+  );
+  await ctx.runMutation(internal.benefits.seedCardBenefits, { userCardId });
+  await ctx.runMutation(api.plaid.linkAccountToCard, { accountId, userCardId });
+  return userCardId;
+}
+
 export const linkAccountToCatalogCard = action({
   args: { accountId: v.string(), cardKey: v.string() },
   handler: async (
     ctx,
     { accountId, cardKey },
   ): Promise<{ userCardId: Id<"userCards"> }> => {
-    // Popular keys pass outright; anything else must already be in cardCatalog
-    // (searchCards upserts every result it returns, so search picks qualify).
-    if (!POPULAR_CARD_KEYS.includes(cardKey)) {
-      const known: boolean = await ctx.runQuery(internal.catalog.hasCard, {
-        cardKey,
-      });
-      if (!known) throw new Error("Unknown card");
-    }
-    // Search-picked cards usually have no cached detail yet (name search
-    // returns only key/name/issuer), and benefits can't seed without one.
-    // Fetch it inline — we're in an action — so the card's benefits are
-    // tracked by the time this returns and the benefits page shows them
-    // immediately, matching a manual add from the wallet. It also lets
-    // linkAccountToCard's transaction re-classification below match the
-    // seeded benefits instead of waiting for the next sync. If the fetch
-    // fails, addCard still schedules the lazy fetch as the retry path.
-    const hasDetail: boolean = await ctx.runQuery(
-      internal.catalog.hasCardDetail,
-      { cardKey },
-    );
-    if (!hasDetail) await fetchAndSaveCardDetail(ctx, cardKey);
-    // Ownership of the account (and auth) is enforced inside each mutation.
-    const userCardId: Id<"userCards"> = await ctx.runMutation(
-      api.wallet.addCard,
-      { cardKey },
-    );
-    await ctx.runMutation(internal.benefits.seedCardBenefits, { userCardId });
-    await ctx.runMutation(api.plaid.linkAccountToCard, {
-      accountId,
-      userCardId,
-    });
+    const userCardId = await addAndLinkOne(ctx, accountId, cardKey);
     return { userCardId };
+  },
+});
+
+// Batch confirm from the review screen: each selection adds the card to the
+// wallet (idempotent) and links its bank account. Unselected accounts are
+// simply not passed — they stay connected but unlinked (fixable in Settings).
+export const confirmDetectedCards = action({
+  args: {
+    itemId: v.string(),
+    selections: v.array(
+      v.object({ accountId: v.string(), cardKey: v.string() }),
+    ),
+  },
+  handler: async (ctx, { itemId, selections }) => {
+    await requireUserId(ctx);
+    // One card ↔ one account: reject duplicate cardKeys or accountIds before
+    // any writes (the client prevents this, but don't trust it).
+    const keys = selections.map((s) => s.cardKey);
+    if (new Set(keys).size !== keys.length)
+      throw new Error("Each card can only be linked to one account");
+    const accountIds = selections.map((s) => s.accountId);
+    if (new Set(accountIds).size !== accountIds.length)
+      throw new Error("Each account can only be linked to one card");
+    // Validate every key up front so a bad selection can't leave the batch
+    // half-applied (each add+link is idempotent, but partial application with
+    // an opaque error would silently drop the trailing selections).
+    for (const s of selections) {
+      if (!POPULAR_CARD_KEYS.includes(s.cardKey)) {
+        const known: boolean = await ctx.runQuery(internal.catalog.hasCard, {
+          cardKey: s.cardKey,
+        });
+        if (!known) throw new Error("Unknown card");
+      }
+    }
+    for (const s of selections) {
+      await addAndLinkOne(ctx, s.accountId, s.cardKey);
+    }
+    // Re-run the item's sync so the suggestion pass sees the newly linked
+    // cards now instead of waiting for the 6-hour cron (cursor makes it cheap).
+    await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
   },
 });
 
