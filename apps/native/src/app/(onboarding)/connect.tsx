@@ -41,7 +41,7 @@ export default function OnboardingConnect() {
   const [result, setResult] = useState<DetectResult | null>(null);
 
   // Gate and wallet are both step 1 — same stepper position.
-  useEffect(() => setStep(1), [setStep]);
+  useEffect(() => setStep(2), [setStep]);
 
   const { startConnect, busy } = usePlaidCardLink({
     onDetected: (r) => {
@@ -100,7 +100,7 @@ export default function OnboardingConnect() {
   // only manual affordance; the gate never advances past step 1 by itself.
   return (
     <StepChrome
-      step={1}
+      step={2}
       title="Connect your bank"
       subtitle="We'll find your cards and track their credits automatically."
       hideBar

@@ -11,7 +11,8 @@ import {
 // The web wizard persists its progress here (debounced on every change) so a
 // user who leaves mid-flow resumes exactly where they stopped — on any device.
 
-const clampStep = (step: number) => Math.min(4, Math.max(1, Math.round(step)));
+// Steps 1-5: You (name) · Wallet · Spending · Reminders · Review.
+const clampStep = (step: number) => Math.min(5, Math.max(1, Math.round(step)));
 
 const validCardIds = (ids: string[]) =>
   [...new Set(ids)].filter((id) => ONBOARDING_CARDS_BY_ID.has(id));
@@ -137,7 +138,7 @@ export const completeOnboarding = mutation({
     }
 
     const patch = {
-      onboardingStep: 4,
+      onboardingStep: 5,
       onboardingCompletedAt: now,
       onboardingCards: selected.map((c) => c.id),
       spendingCategories: validCategories(categories),

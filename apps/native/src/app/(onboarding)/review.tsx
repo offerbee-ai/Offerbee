@@ -24,7 +24,7 @@ export default function OnboardingReview() {
   // onboarding selection — a Plaid-only user must still be able to finish.
   const { walletCards } = useCredits();
 
-  useEffect(() => setStep(4), [setStep]);
+  useEffect(() => setStep(5), [setStep]);
 
   const selected = useMemo(
     () =>
@@ -56,7 +56,7 @@ export default function OnboardingReview() {
 
   return (
     <StepChrome
-      step={4}
+      step={5}
       title=""
       continueLabel="Enter OfferBee →"
       continueLoading={completing}

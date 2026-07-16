@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserId, requireUserId } from "./auth";
 import { notificationCategoriesValidator, reminderPrefsValidator } from "./validators";
+import { normalizeProfileName, hasValidFirstName } from "./profileName";
 
 // Called by BOTH the web and native apps on login so the offer engine can
 // enumerate every user regardless of which app they signed up on.
@@ -75,6 +76,54 @@ export const getMe = query({
       .query("users")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .unique();
+  },
+});
+
+// Save the user's first/last name (onboarding name step + future Settings edit).
+// Mirrors the name into Convex so server-side consumers (welcome email, Brevo
+// marketing sync) and the native settings screen see it; the web/native UIs also
+// write it to Clerk so the identity provider stays the source of truth. Requires
+// a non-empty first name so no user is ever nameless.
+export const setProfileName = mutation({
+  args: {
+    firstName: v.string(),
+    lastName: v.optional(v.string()),
+  },
+  handler: async (ctx, { firstName, lastName }) => {
+    const userId = await requireUserId(ctx);
+    if (!hasValidFirstName(firstName)) {
+      throw new Error("First name is required");
+    }
+    const normalized = normalizeProfileName(firstName, lastName);
+    const patch = {
+      firstName: normalized.firstName,
+      lastName: normalized.lastName,
+      name: normalized.name,
+    };
+
+    const existing = await ctx.db
+      .query("users")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .unique();
+
+    const docId = existing
+      ? (await ctx.db.patch(existing._id, patch), existing._id)
+      : await ctx.db.insert("users", {
+          userId,
+          notificationsEnabled: true,
+          ...patch,
+        });
+
+    // Keep the Brevo marketing contact's first name in sync when we know the email.
+    const email = existing?.email ?? (await ctx.auth.getUserIdentity())?.email;
+    if (email) {
+      await ctx.scheduler.runAfter(0, internal.email.upsertBrevoContact, {
+        email,
+        attributes: { FIRSTNAME: normalized.firstName },
+      });
+    }
+
+    return docId;
   },
 });
 

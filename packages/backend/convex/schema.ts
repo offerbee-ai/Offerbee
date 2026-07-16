@@ -20,7 +20,9 @@ export default defineSchema({
   users: defineTable({
     userId: v.string(), // Clerk subject — same value used for ownership everywhere
     email: v.optional(v.string()),
-    name: v.optional(v.string()),
+    name: v.optional(v.string()), // combined "First Last" — display + server (Brevo/emails)
+    firstName: v.optional(v.string()), // captured in the onboarding name step
+    lastName: v.optional(v.string()),
     notificationsEnabled: v.boolean(),
     enabledOfferTypes: v.optional(v.array(v.string())), // undefined = all types on
     timeZone: v.optional(v.string()), // IANA; quiet hours + anniversary math

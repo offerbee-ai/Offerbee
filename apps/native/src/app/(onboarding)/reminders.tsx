@@ -23,7 +23,7 @@ export default function OnboardingReminders() {
   const { colors } = useTheme();
   const { cards, notificationCategories, setNotificationCategory, setStep } = useOnboarding();
 
-  useEffect(() => setStep(3), [setStep]);
+  useEffect(() => setStep(4), [setStep]);
 
   // Preview the soonest-expiring selected card; fall back to a sample.
   const preview = useMemo(() => {
@@ -45,7 +45,7 @@ export default function OnboardingReminders() {
 
   return (
     <StepChrome
-      step={3}
+      step={4}
       title="Never miss a reset."
       subtitle="Choose what OfferBee should nudge you about. You can change these anytime."
       onContinue={() => router.replace("/(onboarding)/primer")}

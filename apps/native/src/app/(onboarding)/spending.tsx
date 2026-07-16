@@ -12,7 +12,7 @@ export default function OnboardingSpending() {
   const { colors } = useTheme();
   const { categories, toggleCategory, setStep } = useOnboarding();
 
-  useEffect(() => setStep(2), [setStep]);
+  useEffect(() => setStep(3), [setStep]);
 
   const matching = useMemo(
     () =>
@@ -25,7 +25,7 @@ export default function OnboardingSpending() {
 
   return (
     <StepChrome
-      step={2}
+      step={3}
       title="What do you actually spend on?"
       subtitle="We'll surface the credits that match how you actually spend."
       onContinue={() => router.replace("/(onboarding)/reminders")}
