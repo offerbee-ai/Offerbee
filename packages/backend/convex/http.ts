@@ -26,6 +26,9 @@ http.route({
       return new Response("bad request", { status: 400 });
     }
 
+    // Log the full payload so we can see exactly what Plaid sends (convex logs).
+    console.log("[plaid webhook]", JSON.stringify(body));
+
     const type = body?.webhook_type;
     const code = body?.webhook_code;
     const itemId = body?.item_id ? String(body.item_id) : null;

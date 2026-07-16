@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePlaidLink } from "react-plaid-link";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
@@ -32,6 +33,16 @@ const isCreditAccount = (subtype: string | null | undefined) =>
 
 const connectedOn = (ms: number) =>
   new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+// Compact relative timestamp for the "Updated …" status line.
+function timeAgo(ts: number): string {
+  const mins = Math.max(0, Math.floor((Date.now() - ts) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
 
 export type WalletCard = {
   userCardId: Id<"userCards">;
@@ -334,9 +345,12 @@ export function PlaidConnect() {
   const connections = useQuery(api.plaid.listConnections);
   const wallet = useQuery(api.benefits.listMyCredits);
   const popular = useQuery(api.catalog.popularCards);
+  const createUpdateLinkToken = useAction(api.plaid.createUpdateLinkToken);
+  const reactivate = useMutation(api.plaid.reactivateItem);
   const linkAccount = useMutation(api.plaid.linkAccountToCard);
   const linkCatalogCard = useAction(api.plaid.linkAccountToCatalogCard);
   const removeConnection = useAction(api.plaid.removeConnection);
+  const refresh = useAction(api.plaid.refreshConnection);
 
   const cards = wallet?.cards ?? [];
   const [picking, setPicking] = useState(false);
@@ -350,6 +364,10 @@ export function PlaidConnect() {
     name: string;
     linkedCount: number;
   } | null>(null);
+  // Per-connection manual refresh + cooldown. `now` re-renders once when the
+  // earliest cooldown expires so the button re-enables without a reload.
+  const [refreshingItem, setRefreshingItem] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const popoverRef = useRef<HTMLDivElement | null>(null);
 
   const { startConnect, busy } = usePlaidCardLink({
@@ -369,6 +387,18 @@ export function PlaidConnect() {
     },
   });
 
+  useEffect(() => {
+    const cooldowns = (connections ?? [])
+      .map((c) => c.nextRefreshAt)
+      .filter((t): t is number => t != null && t > now);
+    if (cooldowns.length === 0) return;
+    const t = setTimeout(
+      () => setNow(Date.now()),
+      Math.min(...cooldowns) - now + 1000,
+    );
+    return () => clearTimeout(t);
+  }, [connections, now]);
+
   // Close the popover on outside click.
   useEffect(() => {
     if (!openFor) return;
@@ -378,6 +408,81 @@ export function PlaidConnect() {
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [openFor]);
+
+  // ── Re-auth (Plaid Link update mode) ──────────────────────────────────────
+  // The shared usePlaidCardLink hook only covers fresh connects (exchange →
+  // detect → review). Update mode repairs an existing item in place: its
+  // onSuccess must call reactivateItem, never exchange — so it gets its own
+  // minimal Link instance, scoped strictly to re-auth.
+  const [reauth, setReauth] = useState<{
+    itemId: string;
+    linkToken: string;
+  } | null>(null);
+  const [reauthBusy, setReauthBusy] = useState(false);
+  const reauthOpenedFor = useRef<string | null>(null);
+
+  const onReauthSuccess = useCallback(async () => {
+    try {
+      // Update mode: no public-token exchange — just mark the item healthy.
+      if (reauth) await reactivate({ itemId: reauth.itemId });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to reconnect");
+    } finally {
+      setReauthBusy(false);
+      setReauth(null);
+      reauthOpenedFor.current = null;
+    }
+  }, [reauth, reactivate]);
+
+  // User closed Link without finishing — reset so the button leaves its busy state.
+  const onReauthExit = useCallback(() => {
+    setReauthBusy(false);
+    setReauth(null);
+    reauthOpenedFor.current = null;
+  }, []);
+
+  const { open: openReauth, ready: reauthReady } = usePlaidLink({
+    token: reauth?.linkToken ?? null,
+    onSuccess: onReauthSuccess,
+    onExit: onReauthExit,
+  });
+
+  // usePlaidLink needs the token up front, so fetch it, then auto-open once ready.
+  useEffect(() => {
+    if (
+      reauth &&
+      reauthReady &&
+      reauthOpenedFor.current !== reauth.linkToken
+    ) {
+      reauthOpenedFor.current = reauth.linkToken;
+      openReauth();
+    }
+  }, [reauth, reauthReady, openReauth]);
+
+  // Re-authenticate an existing connection (Plaid Link update mode).
+  const startReauth = async (itemId: string) => {
+    setReauthBusy(true);
+    setError(null);
+    try {
+      const { linkToken } = await createUpdateLinkToken({ itemId });
+      setReauth({ itemId, linkToken });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to start reconnect");
+      setReauthBusy(false);
+    }
+  };
+
+  const doRefresh = async (itemId: string) => {
+    setRefreshingItem(itemId);
+    setError(null);
+    try {
+      await refresh({ itemId });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Refresh failed");
+    } finally {
+      setRefreshingItem(null);
+    }
+  };
 
   const setLink = async (
     accountId: string,
@@ -527,11 +632,17 @@ export function PlaidConnect() {
                   {conn.institutionName}
                 </div>
                 <div className="mt-px text-[12.5px] text-secondary">
-                  {conn.status === "login_required"
-                    ? "Reconnect needed"
-                    : conn.status === "error"
-                      ? "Connection error"
-                      : `${creditAccounts.length} account${creditAccounts.length === 1 ? "" : "s"} · connected ${connectedOn(conn.connectedAt)}`}
+                  {conn.status === "login_required" ? (
+                    <span className="text-alert">Reconnect needed</span>
+                  ) : conn.status === "error" ? (
+                    <span className="text-alert">Connection error</span>
+                  ) : (
+                    `${creditAccounts.length} account${creditAccounts.length === 1 ? "" : "s"} · connected ${connectedOn(conn.connectedAt)}${
+                      conn.lastSyncedAt
+                        ? ` · updated ${timeAgo(conn.lastSyncedAt)}`
+                        : ""
+                    }`
+                  )}
                   {conn.status === "active" && notLinked > 0 && (
                     <>
                       {" · "}
@@ -542,6 +653,33 @@ export function PlaidConnect() {
                   )}
                 </div>
               </div>
+              {conn.status === "active" ? (
+                <button
+                  type="button"
+                  onClick={() => void doRefresh(conn.itemId)}
+                  disabled={
+                    refreshingItem === conn.itemId ||
+                    (conn.nextRefreshAt != null && conn.nextRefreshAt > now)
+                  }
+                  title={
+                    conn.nextRefreshAt != null && conn.nextRefreshAt > now
+                      ? `Next refresh available at ${new Date(conn.nextRefreshAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
+                      : "Check for new transactions now"
+                  }
+                  className="shrink-0 rounded-[9px] border border-border px-3 py-[7px] text-[12.5px] font-semibold text-ink transition-colors hover:border-accent disabled:opacity-45"
+                >
+                  {refreshingItem === conn.itemId ? "Refreshing…" : "Refresh"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void startReauth(conn.itemId)}
+                  disabled={busy || reauthBusy}
+                  className="shrink-0 rounded-[9px] bg-accent px-3 py-[7px] text-[12.5px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-50"
+                >
+                  Reconnect
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() =>

@@ -135,6 +135,17 @@ export const exchangePublicToken = action({
       officialName: a.official_name ?? undefined,
       subtype: a.subtype ?? undefined,
     }));
+    console.log(
+      `[plaid exchange] item=${ex.item_id} institution="${institutionName ?? "?"}" accounts=` +
+        JSON.stringify(
+          accounts.map((a) => ({
+            name: a.name,
+            official: a.officialName,
+            mask: a.mask,
+            subtype: a.subtype,
+          })),
+        ),
+    );
     await ctx.runMutation(internal.plaid.savePlaidAccounts, {
       userId,
       itemId: ex.item_id,
@@ -700,9 +711,13 @@ export const syncItem = internalAction({
   handler: async (ctx, { itemId }) => {
     const item = await ctx.runQuery(internal.plaid.getItemForSync, { itemId });
     if (!item) return;
+    console.log(
+      `[plaid sync] start item=${itemId} cursor=${item.cursor ? "resume" : "initial"}`,
+    );
     let cursor = item.cursor ?? undefined;
     let hasMore = true;
     let guard = 0;
+    let totals = { added: 0, modified: 0, removed: 0 };
     while (hasMore && guard++ < 50) {
       const resp = await plaidRequest<{
         added: any[];
@@ -715,17 +730,34 @@ export const syncItem = internalAction({
         ...(cursor ? { cursor } : {}),
         count: 500,
       });
+      const added = resp.added ?? [];
+      const modified = resp.modified ?? [];
+      const removed = resp.removed ?? [];
+      totals = {
+        added: totals.added + added.length,
+        modified: totals.modified + modified.length,
+        removed: totals.removed + removed.length,
+      };
+      console.log(
+        `[plaid sync] item=${itemId} page added=${added.length} modified=${modified.length} removed=${removed.length} has_more=${resp.has_more}` +
+          (added[0]
+            ? ` sample="${added[0].merchant_name ?? added[0].name}" $${added[0].amount} [${added[0].personal_finance_category?.detailed ?? "?"}]`
+            : ""),
+      );
       await ctx.runMutation(internal.plaid.applySync, {
         itemId,
         userId: item.userId,
-        added: (resp.added ?? []).map(normalizeTxn),
-        modified: (resp.modified ?? []).map(normalizeTxn),
-        removed: (resp.removed ?? []).map((r) => String(r.transaction_id)),
+        added: added.map(normalizeTxn),
+        modified: modified.map(normalizeTxn),
+        removed: removed.map((r) => String(r.transaction_id)),
       });
       cursor = resp.next_cursor;
       hasMore = resp.has_more;
       await ctx.runMutation(internal.plaid.saveCursor, { itemId, cursor });
     }
+    console.log(
+      `[plaid sync] done item=${itemId} totals added=${totals.added} modified=${totals.modified} removed=${totals.removed}`,
+    );
 
     // Stage 2: LLM-filter this item's candidate transactions, batched per card.
     const cardIds = await ctx.runQuery(internal.plaid.getCandidateCardIds, {
@@ -1071,6 +1103,120 @@ export const removeConnection = action({
   },
 });
 
+// ── Re-auth (Plaid Link update mode) ─────────────────────────────────────────
+// When an Item goes login_required/error, re-authenticate it in place instead of
+// disconnecting + reconnecting. Passing access_token (and NO products) to
+// /link/token/create puts Link into update mode; on success the Item is repaired.
+
+export const createUpdateLinkToken = action({
+  args: { itemId: v.string() },
+  handler: async (ctx, { itemId }): Promise<{ linkToken: string }> => {
+    const userId = await requireUserId(ctx);
+    const accessToken = await ctx.runQuery(
+      internal.plaid.getAccessTokenForItem,
+      { itemId, userId },
+    );
+    if (!accessToken) throw new Error("Connection not found");
+    const site = process.env.CONVEX_SITE_URL;
+    const body: Record<string, unknown> = {
+      client_name: "OfferBee",
+      language: "en",
+      country_codes: ["US"],
+      user: { client_user_id: userId },
+      access_token: accessToken, // update mode — do NOT pass products
+    };
+    if (site) body.webhook = `${site}/plaid/webhook`;
+    const json = await plaidRequest<{ link_token: string }>(
+      "/link/token/create",
+      body,
+    );
+    return { linkToken: json.link_token };
+  },
+});
+
+// Called after a successful update-mode Link: mark the Item healthy and re-sync.
+export const reactivateItem = mutation({
+  args: { itemId: v.string() },
+  handler: async (ctx, { itemId }) => {
+    const userId = await requireUserId(ctx);
+    const item = await ctx.db
+      .query("plaidItems")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .unique();
+    if (!item || item.userId !== userId) throw new Error("Connection not found");
+    await ctx.db.patch(item._id, { status: "active" });
+    await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
+  },
+});
+
+// ── Manual refresh (user-requested, cooldown-limited) ────────────────────────
+// /transactions/refresh asks Plaid to re-poll the institution on demand (no
+// per-call fee — included in the Transactions subscription). The fresh data
+// lands minutes later via the SYNC_UPDATES_AVAILABLE webhook → syncItem; we
+// also sync immediately to surface anything Plaid already has cached. The
+// cooldown is enforced server-side; clients read nextRefreshAt off
+// listConnections to disable the button.
+
+const MANUAL_REFRESH_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+// Atomically check the cooldown and stamp lastManualRefreshAt (stamp-first, so
+// two rapid requests can't double-fire the refresh). Returns the previous stamp
+// so a failed Plaid call can roll back instead of consuming the window.
+export const beginManualRefresh = internalMutation({
+  args: { itemId: v.string(), userId: v.string() },
+  handler: async (ctx, { itemId, userId }) => {
+    const item = await ctx.db
+      .query("plaidItems")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .unique();
+    if (!item || item.userId !== userId) throw new Error("Connection not found");
+    const now = Date.now();
+    const prev = item.lastManualRefreshAt;
+    if (prev && now < prev + MANUAL_REFRESH_COOLDOWN_MS) {
+      const mins = Math.ceil((prev + MANUAL_REFRESH_COOLDOWN_MS - now) / 60000);
+      throw new Error(`Refresh available again in ${mins} min`);
+    }
+    await ctx.db.patch(item._id, { lastManualRefreshAt: now });
+    return { accessToken: item.accessToken, prevRefreshAt: prev ?? null };
+  },
+});
+
+// Restore/clear the cooldown stamp (rollback when the Plaid call fails).
+export const setManualRefreshAt = internalMutation({
+  args: { itemId: v.string(), value: v.optional(v.number()) },
+  handler: async (ctx, { itemId, value }) => {
+    const item = await ctx.db
+      .query("plaidItems")
+      .withIndex("by_itemId", (q) => q.eq("itemId", itemId))
+      .unique();
+    if (item) await ctx.db.patch(item._id, { lastManualRefreshAt: value });
+  },
+});
+
+export const refreshConnection = action({
+  args: { itemId: v.string() },
+  handler: async (ctx, { itemId }): Promise<void> => {
+    const userId = await requireUserId(ctx);
+    const { accessToken, prevRefreshAt } = await ctx.runMutation(
+      internal.plaid.beginManualRefresh,
+      { itemId, userId },
+    );
+    try {
+      await plaidRequest("/transactions/refresh", {
+        access_token: accessToken,
+      });
+    } catch (e) {
+      await ctx.runMutation(internal.plaid.setManualRefreshAt, {
+        itemId,
+        value: prevRefreshAt ?? undefined,
+      });
+      throw e;
+    }
+    console.log(`[plaid refresh] item=${itemId} requested`);
+    await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
+  },
+});
+
 // ── Read: connected institutions + accounts (never returns accessToken) ───────
 
 export const listConnections = query({
@@ -1110,11 +1256,23 @@ export const listConnections = query({
           institutionName: item.institutionName ?? "Bank",
           status: item.status,
           lastSyncedAt: item.lastSyncedAt ?? null,
+          // When the next manual refresh unlocks (null ⇒ available now). The
+          // cooldown constant stays server-side; clients just compare to now.
+          nextRefreshAt: item.lastManualRefreshAt
+            ? item.lastManualRefreshAt + MANUAL_REFRESH_COOLDOWN_MS
+            : null,
           connectedAt: item._creationTime,
           accounts: accounts.map((a) => ({
             accountId: a.accountId,
             mask: a.mask ?? null,
-            name: a.name ?? a.officialName ?? "Account",
+            // Prefer the descriptive official name when the plain name is generic
+            // (Chase returns "CREDIT CARD" for every card; the product is in
+            // officialName, e.g. "Ultimate Rewards®"). Lets the user tell
+            // duplicate accounts apart and map each one correctly.
+            name:
+              a.officialName && a.officialName !== a.name
+                ? a.officialName
+                : (a.name ?? a.officialName ?? "Account"),
             subtype: a.subtype ?? null,
             userCardId: a.userCardId ?? null,
             linkedCardName: a.userCardId
