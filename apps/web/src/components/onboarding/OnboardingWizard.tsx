@@ -16,13 +16,25 @@ import { BeeLogo } from "@/components/landing/BrandMark";
 import { Spinner } from "@/components/app/ui";
 import { creditsInPlay, selectedCards } from "./derive";
 import { StepAccount } from "./StepAccount";
+import { StepName } from "./StepName";
 import { StepConnect } from "./StepConnect";
 import { StepSpending } from "./StepSpending";
 import { StepReminders } from "./StepReminders";
 import { StepReview } from "./StepReview";
 
-const STEPS = ["Account", "Wallet", "Spending", "Reminders", "Review"];
+// The visible steps (viewStep 1-5). Step 0 is Clerk's account screen, never
+// shown once signed in, so it stays out of this rail.
+const REAL_STEPS = ["You", "Wallet", "Spending", "Reminders", "Review"];
+const LAST_STEP = REAL_STEPS.length; // 5 — Review
 const PERSIST_DEBOUNCE_MS = 500;
+
+// Split a Clerk `fullName` into first + rest, used to prefill the name step
+// when the provider gave a combined name but no structured first/last.
+function splitFullName(full?: string | null): { first: string; last: string } {
+  const parts = (full ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: "", last: "" };
+  return { first: parts[0], last: parts.slice(1).join(" ") };
+}
 
 /**
  * First-run onboarding wizard (design_handoff_onboarding, web option 1a).
@@ -48,8 +60,12 @@ export function OnboardingWizard() {
   const ensureUser = useMutation(api.users.ensureUser);
   const updateOnboarding = useMutation(api.onboarding.updateOnboarding);
   const completeOnboarding = useMutation(api.onboarding.completeOnboarding);
+  const setProfileName = useMutation(api.users.setProfileName);
 
   const [step, setStep] = useState(0);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [savingName, setSavingName] = useState(false);
   const [cards, setCards] = useState<ReadonlySet<string>>(new Set());
   const [cats, setCats] = useState<ReadonlySet<string>>(new Set());
   const [prefs, setPrefs] = useState<NotificationCategories>(DEFAULT_NOTIFICATION_CATEGORIES);
@@ -62,8 +78,15 @@ export function OnboardingWizard() {
   const [plaidDone, setPlaidDone] = useState(false);
 
   const hydrated = useRef(false);
+  const nameHydrated = useRef(false);
   const ensured = useRef(false);
   const lastPersisted = useRef<string | null>(null);
+
+  // Does the user already have a name (from Clerk or a prior save)? If so the
+  // name step is skipped and the mock fallbacks never show.
+  const knownFirst =
+    me?.firstName ?? user?.firstName ?? splitFullName(user?.fullName).first;
+  const hasName = Boolean(knownFirst?.trim());
 
   const completed = Boolean(me?.onboardingCompletedAt);
   // Once signed in, the account step is done — never show it (mounting Clerk's
@@ -86,8 +109,9 @@ export function OnboardingWizard() {
   }, [isAuthenticated, user, ensureUser]);
 
   // Hydrate local state from the server once per session — this is the resume.
+  // Waits for the Clerk `user` too so the name-step auto-skip sees the real name.
   useEffect(() => {
-    if (hydrated.current || !isAuthenticated || me === undefined || completed)
+    if (hydrated.current || !isAuthenticated || me === undefined || completed || !user)
       return;
     hydrated.current = true;
     if (me) {
@@ -95,17 +119,32 @@ export function OnboardingWizard() {
       if (me.spendingCategories) setCats(new Set(me.spendingCategories));
       if (me.notificationCategories) setPrefs(me.notificationCategories);
     }
-    setStep(Math.min(4, Math.max(1, me?.onboardingStep ?? 1)));
-  }, [isAuthenticated, me, completed]);
+    const initial = Math.min(LAST_STEP, Math.max(1, me?.onboardingStep ?? 1));
+    // Skip the name step when we already have a name (returning user, or a
+    // Google/Apple signup that supplied one).
+    setStep(initial === 1 && hasName ? 2 : initial);
+  }, [isAuthenticated, me, completed, user, hasName]);
+
+  // Prefill the name inputs once, from Convex or Clerk, without clobbering typing.
+  useEffect(() => {
+    if (nameHydrated.current || me === undefined || !user) return;
+    nameHydrated.current = true;
+    const split = splitFullName(user.fullName);
+    setFirstName(me?.firstName ?? user.firstName ?? split.first ?? "");
+    setLastName(me?.lastName ?? user.lastName ?? split.last ?? "");
+  }, [me, user]);
 
   // Signed out (or switched accounts) mid-wizard: back to square one and stop
   // persisting until a session exists again.
   useEffect(() => {
     if (!clerkLoaded || isSignedIn) return;
     hydrated.current = false;
+    nameHydrated.current = false;
     ensured.current = false;
     lastPersisted.current = null;
     setStep(0);
+    setFirstName("");
+    setLastName("");
     setCards(new Set());
     setCats(new Set());
     setPrefs(DEFAULT_NOTIFICATION_CATEGORIES);
@@ -206,11 +245,36 @@ export function OnboardingWizard() {
     (target: number) => {
       // Step 0 belongs to Clerk; it's unreachable once the account exists.
       if (!isSignedIn || target < 1) return;
-      setStep(Math.min(4, target));
+      setStep(Math.min(LAST_STEP, target));
       setError(null);
     },
     [isSignedIn],
   );
+
+  // Name step (1): validate + dual-write to Clerk and Convex, then advance.
+  const submitName = useCallback(async () => {
+    if (savingName) return;
+    const first = firstName.trim();
+    const last = lastName.trim();
+    if (!first) {
+      setError("Please enter your first name.");
+      return;
+    }
+    setSavingName(true);
+    setError(null);
+    try {
+      // Clerk is the identity source the app's render sites read from.
+      if (user) await user.update({ firstName: first, lastName: last });
+      // Mirror to Convex for server-side use (welcome email, Brevo, native).
+      await setProfileName({ firstName: first, lastName: last || undefined });
+      goTo(2);
+    } catch (e) {
+      console.error("saveProfileName failed", e);
+      setError("Couldn't save your name — please try again.");
+    } finally {
+      setSavingName(false);
+    }
+  }, [savingName, firstName, lastName, user, setProfileName, goTo]);
 
   const finish = useCallback(async () => {
     if (completing) return;
@@ -260,16 +324,21 @@ export function OnboardingWizard() {
         </div>
 
         <nav className="flex flex-col gap-[2px]" aria-label="Setup steps">
-          {STEPS.map((label, i) => (
-            <StepRow
-              key={label}
-              index={i}
-              label={label}
-              state={i < viewStep ? "done" : i === viewStep ? "current" : "todo"}
-              disabled={!isSignedIn || i === 0}
-              onClick={() => goTo(i)}
-            />
-          ))}
+          {REAL_STEPS.map((label, i) => {
+            const num = i + 1;
+            return (
+              <StepRow
+                key={label}
+                index={i}
+                label={label}
+                state={
+                  num < viewStep ? "done" : num === viewStep ? "current" : "todo"
+                }
+                disabled={!isSignedIn}
+                onClick={() => goTo(num)}
+              />
+            );
+          })}
         </nav>
 
         <div className="mt-auto rounded-[16px] border border-border bg-surface-2 p-4">
@@ -297,19 +366,20 @@ export function OnboardingWizard() {
               </span>
             </div>
             <span className="font-mono text-[11px] text-tertiary">
-              Step {viewStep + 1} of 5
+              Step {viewStep} of {LAST_STEP}
             </span>
           </div>
           <div className="mt-3 flex">
-            {STEPS.map((label, i) => {
+            {REAL_STEPS.map((label, i) => {
+              const num = i + 1;
               const state =
-                i < viewStep ? "done" : i === viewStep ? "current" : "todo";
+                num < viewStep ? "done" : num === viewStep ? "current" : "todo";
               return (
                 <button
                   key={label}
                   type="button"
-                  disabled={!isSignedIn || i === 0}
-                  onClick={() => goTo(i)}
+                  disabled={!isSignedIn}
+                  onClick={() => goTo(num)}
                   className="flex flex-1 flex-col items-center gap-1"
                 >
                   <StepCircle index={i} state={state} size={24} />
@@ -331,30 +401,39 @@ export function OnboardingWizard() {
           <div key={viewStep} className="min-h-full animate-obfade">
             {viewStep === 0 && <StepAccount />}
             {viewStep === 1 && (
+              <StepName
+                firstName={firstName}
+                lastName={lastName}
+                onFirstName={setFirstName}
+                onLastName={setLastName}
+                onSubmit={() => void submitName()}
+              />
+            )}
+            {viewStep === 2 && (
               <StepConnect
                 selected={cards}
                 onToggle={toggleCard}
                 onPlaidDone={() => {
                   setPlaidDone(true);
-                  goTo(2);
+                  goTo(3);
                 }}
                 onReviewingChange={setReviewing}
               />
             )}
-            {viewStep === 2 && (
+            {viewStep === 3 && (
               <StepSpending selected={cats} onToggle={toggleCat} />
             )}
-            {viewStep === 3 && (
+            {viewStep === 4 && (
               <StepReminders cards={selected} prefs={prefs} onToggle={setPref} />
             )}
-            {viewStep === 4 && <StepReview cards={selected} prefs={prefs} />}
+            {viewStep === 5 && <StepReview cards={selected} prefs={prefs} />}
           </div>
         </main>
 
         {/* Footer bar — hidden on the Clerk step (Clerk owns that CTA) and
-            while the detected-cards review is showing on step 2 (Continue
-            must not bypass the review's confirm). */}
-        {viewStep > 0 && !(viewStep === 1 && reviewing) && (
+            while the detected-cards review is showing on the Wallet step
+            (Continue must not bypass the review's confirm). */}
+        {viewStep > 0 && !(viewStep === 2 && reviewing) && (
           <footer className="flex items-center justify-between gap-3 border-t border-border bg-surface px-5 py-4 lg:px-[54px]">
             <div className="lg:hidden">
               <div className="tabular font-mono text-[15px] font-semibold text-accent">
@@ -363,7 +442,7 @@ export function OnboardingWizard() {
               <div className="text-[10px] text-secondary">credits in play</div>
             </div>
             <div className="hidden font-mono text-[12px] text-tertiary lg:block">
-              Step {viewStep + 1} of 5
+              Step {viewStep} of {LAST_STEP}
             </div>
             <div className="flex items-center gap-3">
               {error && (
@@ -371,7 +450,7 @@ export function OnboardingWizard() {
                   {error}
                 </span>
               )}
-              {viewStep > 1 && viewStep < 4 && (
+              {viewStep > 1 && viewStep < LAST_STEP && (
                 <button
                   type="button"
                   onClick={() => goTo(viewStep - 1)}
@@ -382,17 +461,25 @@ export function OnboardingWizard() {
               )}
               <button
                 type="button"
-                disabled={completing}
-                onClick={() =>
-                  viewStep === 4 ? void finish() : goTo(viewStep + 1)
+                disabled={
+                  completing ||
+                  savingName ||
+                  (viewStep === 1 && !firstName.trim())
                 }
+                onClick={() => {
+                  if (viewStep === 1) void submitName();
+                  else if (viewStep === LAST_STEP) void finish();
+                  else goTo(viewStep + 1);
+                }}
                 className="rounded-[11px] bg-accent px-[22px] py-[11px] text-[14px] font-semibold text-on-accent shadow-[0_6px_16px_rgba(232,104,14,.22)] transition-colors hover:bg-accent-strong disabled:opacity-60"
               >
-                {viewStep === 4
+                {viewStep === LAST_STEP
                   ? completing
                     ? "Setting up…"
                     : "Enter OfferBee →"
-                  : "Continue"}
+                  : viewStep === 1 && savingName
+                    ? "Saving…"
+                    : "Continue"}
               </button>
             </div>
           </footer>

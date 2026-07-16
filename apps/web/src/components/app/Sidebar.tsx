@@ -102,8 +102,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const amAdmin = useQuery(api.review.amIAdmin) ?? false;
   const pendingReviews = useQuery(api.review.pendingReviewCount) ?? 0;
 
-  const name = user?.firstName ?? user?.fullName ?? "Maya";
-  const initial = (name[0] ?? "M").toUpperCase();
+  const name =
+    user?.firstName ??
+    user?.fullName ??
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ??
+    "there";
+  const initial = (name[0] ?? "U").toUpperCase();
   const photo = user?.hasImage ? clerkImageUrl(user.imageUrl, 34) : null;
   const cardCount = derived.cards.length;
 

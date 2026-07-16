@@ -39,7 +39,7 @@ export default function OnboardingWallet() {
   const win = useWindowDimensions();
   const [query, setQuery] = useState("");
 
-  useEffect(() => setStep(1), [setStep]);
+  useEffect(() => setStep(2), [setStep]);
 
   const popular = useMemo(() => ONBOARDING_CARDS.filter((c) => c.popular), []);
   const tileWidth = (win.width - spacing.screenInset * 2 - spacing.md) / 2;
@@ -55,7 +55,7 @@ export default function OnboardingWallet() {
 
   return (
     <StepChrome
-      step={1}
+      step={2}
       title="Which cards are in your wallet?"
       subtitle="No bank logins — just pick the cards you hold. You can add more later."
       continueDisabled={cards.length === 0 && walletCards.length === 0}

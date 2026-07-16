@@ -8,13 +8,14 @@ import { usd } from "@/features/credits/derive";
 import { useOnboarding } from "./OnboardingProvider";
 
 export const STEP_ROUTES = [
+  "/(onboarding)/name",
   "/(onboarding)/wallet",
   "/(onboarding)/spending",
   "/(onboarding)/reminders",
   "/(onboarding)/review",
 ] as const satisfies readonly Href[];
 
-const STEP_LABELS = ["Wallet", "Spending", "Reminders", "Review"];
+const STEP_LABELS = ["You", "Wallet", "Spending", "Reminders", "Review"];
 
 /**
  * Shared onboarding chrome: brand row + numbered-circle stepper header (tap a
@@ -90,7 +91,7 @@ export function StepChrome({
             style={{ fontSize: 11 }}
             color="tertiary"
           >
-            Step {step} of 4
+            Step {step} of {STEP_LABELS.length}
           </Text>
         </View>
 
