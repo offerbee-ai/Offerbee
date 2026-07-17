@@ -332,3 +332,113 @@ export function MonoLabel({
     </div>
   );
 }
+
+// ── Circle-check claim toggle (28px inside a 44px hit zone) ──────────────────
+export function CircleCheck({
+  claimed,
+  onClick,
+  disabled,
+}: {
+  claimed: boolean;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={claimed}
+      aria-label={claimed ? "Claimed — tap to undo" : "Mark claimed"}
+      className="group flex size-11 shrink-0 items-center justify-center disabled:opacity-50"
+    >
+      <span
+        className={cn(
+          "flex size-7 items-center justify-center rounded-full border-2 transition-colors",
+          claimed
+            ? "border-transparent bg-accent text-on-accent group-hover:bg-accent-strong"
+            : "border-[#D8CFBC] bg-surface text-transparent group-hover:border-accent",
+        )}
+      >
+        <svg
+          width="15"
+          height="15"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m5 12.5 4.5 4.5L19 7" />
+        </svg>
+      </span>
+    </button>
+  );
+}
+
+// ── Row overflow: partial-log + snooze, revealed on demand (web). ───────────
+export function RowOverflow({
+  onLogPartial,
+  onSnooze,
+  disabled,
+}: {
+  onLogPartial: (amount: number) => void;
+  onSnooze: () => void;
+  disabled?: boolean;
+}) {
+  const [val, setVal] = useState("");
+  const submit = () => {
+    if (disabled) return;
+    const n = parseFloat(val);
+    if (Number.isFinite(n) && n > 0) {
+      onLogPartial(n);
+      setVal("");
+    }
+  };
+  return (
+    <details className="relative">
+      <summary
+        aria-label="More actions"
+        className="flex size-8 cursor-pointer list-none items-center justify-center rounded-[8px] text-secondary transition-colors hover:text-ink [&::-webkit-details-marker]:hidden"
+      >
+        ⋯
+      </summary>
+      <div className="absolute right-0 z-10 mt-1 flex w-[190px] flex-col gap-2 rounded-[12px] border border-border bg-surface p-3 shadow-ob">
+        <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-tertiary">
+          Log partial
+        </label>
+        <div className="flex items-center gap-1">
+          <input
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="0.01"
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit()}
+            placeholder="$"
+            disabled={disabled}
+            className="w-full rounded-[8px] border border-border bg-surface px-2 py-[6px] text-[13px] text-ink outline-none focus:border-accent"
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={disabled}
+            className="rounded-[8px] bg-accent px-[9px] py-[6px] text-[12.5px] font-semibold text-on-accent hover:bg-accent-strong disabled:opacity-50"
+          >
+            ✓
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={onSnooze}
+          disabled={disabled}
+          className="rounded-[8px] border border-border px-3 py-[7px] text-[12.5px] font-semibold text-secondary hover:text-ink disabled:opacity-50"
+        >
+          Snooze
+        </button>
+      </div>
+    </details>
+  );
+}
