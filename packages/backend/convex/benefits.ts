@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getUserId, requireUserId } from "./auth";
 import {
+  PERIODS_PER_YEAR,
   capturedThisYear,
   periodEnd,
   periodKey,
@@ -512,6 +513,51 @@ export const seedOwnersForCard = internalMutation({
     for (const uc of owners) {
       if (uc.benefitsSeededAt === undefined) await seedForUserCard(ctx, uc);
     }
+  },
+});
+
+// One-shot repair for seeded amounts that captured a YEAR TOTAL as the
+// per-period amount (parser bug: "Up to $300 annually in monthly DoorDash
+// promos" seeded $300/monthly instead of $25/monthly). Re-parses each
+// suggested benefit from its card's current detail and patches the amount
+// ONLY when the stored value is exactly the new parse × periods/year with the
+// same cycle — the bug's precise signature, so user-customized amounts are
+// never touched. Run: `convex run benefits:repairSeededAmounts '{}'`.
+export const repairSeededAmounts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const parsedByCard = new Map<
+      string,
+      Map<string, { amount: number; cycle: Doc<"userBenefits">["cycle"] }>
+    >();
+    const benefits = await ctx.db.query("userBenefits").take(5000);
+    let scanned = 0;
+    const patched: string[] = [];
+    for (const b of benefits) {
+      if (b.source !== "suggested" || !b.benefitTitle) continue;
+      scanned += 1;
+      let parsed = parsedByCard.get(b.cardKey);
+      if (!parsed) {
+        const detail = await ctx.db
+          .query("cardDetails")
+          .withIndex("by_cardKey", (q) => q.eq("cardKey", b.cardKey))
+          .unique();
+        parsed = new Map(
+          suggestCredits(detail?.benefit ?? []).map((s) => [
+            s.benefitTitle,
+            { amount: roundCents(s.amount), cycle: s.cycle },
+          ]),
+        );
+        parsedByCard.set(b.cardKey, parsed);
+      }
+      const s = parsed.get(b.benefitTitle);
+      if (!s || s.cycle !== b.cycle || s.amount === b.amount) continue;
+      if (b.amount === roundCents(s.amount * PERIODS_PER_YEAR[s.cycle])) {
+        await ctx.db.patch(b._id, { amount: s.amount });
+        patched.push(`${b.cardKey}/${b.benefitTitle}: ${b.amount}→${s.amount}`);
+      }
+    }
+    return { scanned, patched };
   },
 });
 
