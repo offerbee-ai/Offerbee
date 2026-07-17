@@ -125,6 +125,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         amount: c.amount,
         cycle: c.cycle,
         usedAmount: c.usedAmount,
+        // Fall back to current-period captured if a not-yet-deployed backend
+        // omits capturedYtd, so aggregates never go NaN mid-rollout.
+        capturedYtd: c.capturedYtd ?? Math.min(c.usedAmount, c.amount),
         used: c.usedAmount >= c.amount,
         days: Math.max(0, Math.ceil((c.resetAt - now) / DAY_MS)),
         resetAt: c.resetAt,

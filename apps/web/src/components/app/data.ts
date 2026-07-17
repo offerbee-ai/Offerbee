@@ -10,6 +10,16 @@ export type Cycle = "monthly" | "quarterly" | "semiannual" | "annual";
 
 export type PeriodStatus = "elapsed" | "current" | "upcoming";
 
+// Periods a cycle has in one calendar year. Mirrors the backend
+// benefitCycles.PERIODS_PER_YEAR; used to turn a per-period amount into an
+// annual value (a $10/mo credit is worth $120/yr).
+export const PERIODS_PER_YEAR: Record<Cycle, number> = {
+  monthly: 12,
+  quarterly: 4,
+  semiannual: 2,
+  annual: 1,
+};
+
 // One cell of a credit's per-period grid (this calendar year). Server-computed
 // in benefits.listMyCredits; annual → 1 cell (a checkbox), quarterly → 4,
 // semiannual → 2. Monthly credits have no grid (periods undefined).
@@ -31,6 +41,10 @@ export interface Credit {
   amount: number; // dollars per cycle period
   cycle: Cycle;
   usedAmount: number; // dollars logged in the current period
+  // Year-to-date captured: usage summed across ALL of this year's periods, each
+  // capped at `amount` (server-computed). This — not current-period usedAmount —
+  // is what fee-vs-value ROI is measured against. Always <= annualValue.
+  capturedYtd: number;
   used: boolean; // materialized: usedAmount >= amount
   days: number; // whole days until reset (client-computed from resetAt)
   resetAt: number; // ms; period end
@@ -78,9 +92,13 @@ export const usd = (n: number): string => "$" + Math.round(n).toLocaleString("en
 /** Signed net string with the design's minus glyph, e.g. "+$120" / "−$40". */
 export const netStr = (n: number): string => (n >= 0 ? "+$" : "−$") + Math.abs(n).toLocaleString("en-US");
 
-/** Captured (clamped) and remaining dollars for a credit's current period. */
-const captured = (c: Credit): number => Math.min(c.usedAmount, c.amount);
+// Remaining dollars in a credit's CURRENT period (drives "use before reset",
+// "still available", "left this month" — all current-period metrics).
 const remaining = (c: Credit): number => roundCents(Math.max(0, c.amount - c.usedAmount));
+
+// Full-year dollar value of a credit (per-period amount × periods/year). The
+// denominator for annual captured-vs-total ROI.
+const annualValue = (c: Credit): number => c.amount * PERIODS_PER_YEAR[c.cycle];
 
 export interface DerivedCard {
   id: string;
@@ -145,10 +163,14 @@ function decorate(c: Credit): DerivedCredit {
   };
 }
 
-/** All wallet-level + per-card totals, derived from the current credits + cards. */
+/** All wallet-level + per-card totals, derived from the current credits + cards.
+ *  Captured/net/verdict are YEAR-TO-DATE (all periods of the year, via
+ *  capturedYtd); remainMonth/atRisk stay CURRENT-period (what to use now). */
 export function derive(credits: Credit[], cards: CardBase[]): Derived {
-  const total = credits.reduce((a, c) => a + c.amount, 0);
-  const cap = credits.reduce((a, c) => a + captured(c), 0);
+  // Annual value is the ROI denominator (matches captured's year scope), so pct
+  // is bounded 0–100: capturedYtd <= annualValue for every credit.
+  const total = credits.reduce((a, c) => a + annualValue(c), 0);
+  const cap = credits.reduce((a, c) => a + c.capturedYtd, 0);
   const pct = total ? Math.round((cap / total) * 100) : 0;
   const fees = cards.reduce((a, c) => a + c.fee, 0);
   const net = cap - fees;
@@ -161,7 +183,7 @@ export function derive(credits: Credit[], cards: CardBase[]): Derived {
   const derivedCards: DerivedCard[] = cards.map((cb) => {
     const capCard = credits
       .filter((c) => c.cardId === cb.id)
-      .reduce((a, c) => a + captured(c), 0);
+      .reduce((a, c) => a + c.capturedYtd, 0);
     const cnet = capCard - cb.fee;
     const keep = cnet >= 0;
     return {

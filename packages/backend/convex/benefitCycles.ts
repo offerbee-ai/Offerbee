@@ -11,6 +11,8 @@ export const PERIODS_PER_YEAR: Record<BenefitCycle, number> = {
   annual: 1,
 };
 
+const roundCents = (n: number) => Math.round(n * 100) / 100;
+
 function parts(now: number) {
   const d = new Date(now);
   return { y: d.getUTCFullYear(), m: d.getUTCMonth() }; // m: 0-11
@@ -78,6 +80,53 @@ export function periodsForYear(
     label: d.label,
     status: i < currentIdx ? "elapsed" : i === currentIdx ? "current" : "upcoming",
   }));
+}
+
+// Every periodKey of `cycle` within the calendar year containing `now`, in
+// chronological order — including all 12 months for monthly (unlike
+// `periodsForYear`, which returns [] for monthly because the UI never grids 12
+// cells). Keys match `periodKey` exactly, so this is the join set for
+// year-to-date usage rollups. Restricting to the current cycle's keys means
+// stale usage rows from a pre-`updateBenefit` cycle change are naturally
+// excluded — same "cycle change restarts clean" semantic as the grid.
+export function periodKeysForYear(cycle: BenefitCycle, now: number): string[] {
+  const { y } = parts(now);
+  switch (cycle) {
+    case "monthly":
+      return Array.from({ length: 12 }, (_, i) => `${y}-${String(i + 1).padStart(2, "0")}`);
+    case "quarterly":
+      return [1, 2, 3, 4].map((q) => `${y}-Q${q}`);
+    case "semiannual":
+      return [`${y}-H1`, `${y}-H2`];
+    case "annual":
+      return [`${y}`];
+  }
+}
+
+// Year-to-date captured dollars for one credit: the sum, over every period of
+// this calendar year, of that period's usage capped at the per-period `amount`.
+// This — not the current period's usage alone — is what an annual-fee ROI must
+// compare against (a $10/mo credit used all year captured $120, not $0–$10).
+//
+// The current period reuses the authoritative `currentUsedAmount` (same value
+// the mark-used UI shows) so the aggregate and the per-period grid can never
+// disagree; all other periods read from `usageByKey` (see `yearPeriodUsage`).
+// Result is <= amount * PERIODS_PER_YEAR[cycle] by construction, so any
+// captured/annual-value percentage derived from it stays within 0–100%.
+export function capturedThisYear(
+  cycle: BenefitCycle,
+  now: number,
+  amount: number,
+  currentUsedAmount: number,
+  usageByKey: Map<string, number>,
+): number {
+  const currentKey = periodKey(cycle, now);
+  let ytd = 0;
+  for (const key of periodKeysForYear(cycle, now)) {
+    const used = key === currentKey ? currentUsedAmount : (usageByKey.get(key) ?? 0);
+    ytd += Math.min(used, amount);
+  }
+  return roundCents(ytd);
 }
 
 // v2 timezone upgrade path: `users.timeZone` (optional, IANA) is unset for most
