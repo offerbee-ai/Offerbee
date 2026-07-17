@@ -64,17 +64,28 @@ function maskSpendRequirements(text: string): string {
   );
 }
 
-// All $amounts in text with their positions.
-function dollarsWithIndex(text: string): Array<{ amount: number; index: number }> {
-  const out: Array<{ amount: number; index: number }> = [];
+// All $amounts in text with their positions (end = index just past the match).
+function dollarsWithIndex(
+  text: string,
+): Array<{ amount: number; index: number; end: number }> {
+  const out: Array<{ amount: number; index: number; end: number }> = [];
   const re = /\$\s?([\d,]+(?:\.\d{2})?)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(text)) !== null) {
     const amt = toAmount(m[1]);
-    if (Number.isFinite(amt) && amt > 0) out.push({ amount: amt, index: m.index });
+    if (Number.isFinite(amt) && amt > 0)
+      out.push({ amount: amt, index: m.index, end: m.index + m[0].length });
   }
   return out;
 }
+
+// "$300 annually", "$300 per year", "$300/yr" — the figure is the YEAR TOTAL,
+// not the per-period amount ("Up to $300 annually in monthly DoorDash promos.
+// Get up to $25 each month…" must parse as $25/monthly, never $300/monthly).
+const ANNUAL_TOTAL_AFTER =
+  /^\s?(?:annually|(?:per|each|a)\s+(?:calendar\s+)?year|\/\s?(?:yr|year))\b/i;
+const annualMarked = (text: string, d: { end: number }): boolean =>
+  ANNUAL_TOTAL_AFTER.test(text.slice(d.end));
 
 function firstDollar(text: string): number | undefined {
   return dollarsWithIndex(text)[0]?.amount;
@@ -113,15 +124,27 @@ export function parseBenefitCredit(b: Benefit): ParsedCredit | null {
   // 6. amount closest to the cycle phrase (same-sentence-ish window), else
   //    first $ in title, else first $ in desc. Spend requirements are masked so
   //    "$250 credit after you spend $75,000/year" never yields $75,000.
+  //    For sub-annual cycles, a figure written as a year total ("$300 annually")
+  //    is skipped in favor of the per-period figure — or divided by the number
+  //    of periods when it's the only figure around.
   let amount: number | undefined;
-  const near = dollarsWithIndex(maskSpendRequirements(text))
+  const masked = maskSpendRequirements(text);
+  const near = dollarsWithIndex(masked)
     .map((d) => ({ ...d, dist: Math.abs(d.index - index) }))
     .filter((d) => d.dist <= 120)
     .sort((a, b2) => a.dist - b2.dist);
-  amount =
-    near[0]?.amount ??
-    firstDollar(title) ??
-    firstDollar(maskSpendRequirements(desc));
+  if (cycle !== "annual") {
+    const perPeriod = near.find((d) => !annualMarked(masked, d));
+    const yearTotal = near.find((d) => annualMarked(masked, d));
+    amount =
+      perPeriod?.amount ??
+      (yearTotal
+        ? Math.round((yearTotal.amount / PERIODS_PER_YEAR[cycle]) * 100) / 100
+        : undefined);
+  } else {
+    amount = near[0]?.amount;
+  }
+  amount ??= firstDollar(title) ?? firstDollar(maskSpendRequirements(desc));
   if (amount === undefined || amount <= 0) return null;
 
   // 7. confidence
