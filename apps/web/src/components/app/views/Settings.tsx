@@ -111,12 +111,15 @@ export function Settings() {
     );
   };
 
-  const name = user?.fullName ?? user?.firstName ?? "Maya Okafor";
-  const email = user?.primaryEmailAddress?.emailAddress ?? "maya@example.com";
+  const email = user?.primaryEmailAddress?.emailAddress ?? "";
+  const name =
+    user?.fullName ??
+    user?.firstName ??
+    (email.split("@")[0] || "Your profile");
   const memberSince = user?.createdAt
     ? new Date(user.createdAt).getFullYear()
-    : 2024;
-  const initial = (name[0] ?? "M").toUpperCase();
+    : new Date().getFullYear();
+  const initial = (name[0] ?? email[0] ?? "U").toUpperCase();
   const photo = user?.hasImage ? clerkImageUrl(user.imageUrl, 64) : null;
 
   return (

@@ -50,7 +50,11 @@ function useTitle(pathname: string, name: string): { eyebrow: string; title: str
 export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
   const pathname = usePathname();
   const { user } = useUser();
-  const name = user?.firstName ?? user?.fullName ?? "Maya";
+  const name =
+    user?.firstName ??
+    user?.fullName ??
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ??
+    "there";
   const { eyebrow, title } = useTitle(pathname, name);
 
   return (

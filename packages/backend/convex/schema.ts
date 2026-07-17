@@ -20,7 +20,9 @@ export default defineSchema({
   users: defineTable({
     userId: v.string(), // Clerk subject — same value used for ownership everywhere
     email: v.optional(v.string()),
-    name: v.optional(v.string()),
+    name: v.optional(v.string()), // combined "First Last" — display + server (Brevo/emails)
+    firstName: v.optional(v.string()), // captured in the onboarding name step
+    lastName: v.optional(v.string()),
     notificationsEnabled: v.boolean(),
     enabledOfferTypes: v.optional(v.array(v.string())), // undefined = all types on
     timeZone: v.optional(v.string()), // IANA; quiet hours + anniversary math
@@ -247,7 +249,8 @@ export default defineSchema({
     name: v.optional(v.string()),
     originalDescription: v.optional(v.string()), // raw statement text — keeps credit wording Plaid's cleaning strips
     amount: v.number(), // dollars; positive = spend (outflow)
-    date: v.number(), // ms, from the transaction date
+    date: v.number(), // ms — effective/statement date (authorized_date ?? posting date)
+    postedDate: v.optional(v.number()), // ms — raw posting date (can lag `date` by days)
     pfcPrimary: v.optional(v.string()), // personal_finance_category.primary
     pfcDetailed: v.optional(v.string()), // personal_finance_category.detailed
     pending: v.boolean(),
