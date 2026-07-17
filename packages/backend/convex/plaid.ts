@@ -11,7 +11,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { getUserId, requireUserId } from "./auth";
-import { periodKey } from "./benefitCycles";
+import { periodKey, postingLagPeriodKey } from "./benefitCycles";
 import {
   COVERED_RATIO,
   cappedUsageAmount,
@@ -386,14 +386,17 @@ export const confirmDetectedCards = action({
 // ── Matching + auto-log helpers (shared by applySync + linkAccountToCard) ──────
 
 // One auto usage per transaction, kept in sync on modify. Idempotent.
-// amountOverride lets cap-aware callers log less than the txn magnitude.
+// amountOverride lets cap-aware callers log less than the txn magnitude;
+// periodKeyOverride lets them attribute to a lag-adjusted period (see
+// attributionPeriodKey) instead of the raw posting-date period.
 async function ensureAutoUsage(
   ctx: MutationCtx,
   txn: Doc<"plaidTransactions">,
   benefit: Doc<"userBenefits">,
   amountOverride?: number,
+  periodKeyOverride?: string,
 ) {
-  const pk = periodKey(benefit.cycle, txn.date); // attribute to the txn's period
+  const pk = periodKeyOverride ?? periodKey(benefit.cycle, txn.date);
   const amt = amountOverride ?? Math.abs(txn.amount); // credit postings are negative; log magnitude
   const existing = (
     await ctx.db
@@ -488,13 +491,39 @@ async function periodUsageExcluding(
 const currentYearStart = () =>
   Date.UTC(new Date(Date.now()).getUTCFullYear(), 0, 1);
 
+// Which period a credit posting belongs to. Normally the posting date's period,
+// but a credit landing within the grace window after a period boundary
+// reimburses usage from the tail of the PREVIOUS period (the user dined June
+// 29; Chase posted "DINING CREDIT $300/YEAR" July 1) — attribute it there when
+// the full amount still fits, else fall back to the posting period. Purchases
+// never shift: only issuer credits lag.
+async function attributionPeriodKey(
+  ctx: QueryCtx,
+  benefit: Doc<"userBenefits">,
+  txn: Doc<"plaidTransactions">,
+): Promise<string> {
+  const pk = periodKey(benefit.cycle, txn.date);
+  if (txn.amount >= 0) return pk;
+  const prevKey = postingLagPeriodKey(benefit.cycle, txn.date);
+  if (!prevKey) return pk;
+  const prevUsed = await periodUsageExcluding(
+    ctx,
+    benefit._id,
+    prevKey,
+    txn.transactionId,
+  );
+  return prevUsed + Math.abs(txn.amount) <= benefit.amount + 0.005
+    ? prevKey
+    : pk;
+}
+
 // Auto-log a benefit for a transaction, respecting the per-period cap.
 async function autoLogWithCap(
   ctx: MutationCtx,
   txn: Doc<"plaidTransactions">,
   benefit: Doc<"userBenefits">,
 ) {
-  const pk = periodKey(benefit.cycle, txn.date);
+  const pk = await attributionPeriodKey(ctx, benefit, txn);
   const other = await periodUsageExcluding(
     ctx,
     benefit._id,
@@ -509,7 +538,7 @@ async function autoLogWithCap(
     });
     return;
   }
-  await ensureAutoUsage(ctx, txn, benefit);
+  await ensureAutoUsage(ctx, txn, benefit, undefined, pk);
   await ctx.db.patch(txn._id, {
     matchStatus: "auto",
     matchedBenefitId: benefit._id,

@@ -47,6 +47,46 @@ export function periodEnd(cycle: BenefitCycle, now: number): number {
   }
 }
 
+// Inclusive start of the period containing `now`, ms UTC.
+export function periodStart(cycle: BenefitCycle, now: number): number {
+  const { y, m } = parts(now);
+  switch (cycle) {
+    case "monthly":
+      return Date.UTC(y, m, 1);
+    case "quarterly":
+      return Date.UTC(y, Math.floor(m / 3) * 3, 1);
+    case "semiannual":
+      return Date.UTC(y, m < 6 ? 0 : 6, 1);
+    case "annual":
+      return Date.UTC(y, 0, 1);
+  }
+}
+
+// Issuers post statement credits a few days after the qualifying purchase
+// (Chase posts "DINING CREDIT $300/YEAR" reimbursements 1–3 business days
+// later), so a credit posting inside this window after a period boundary
+// usually reimburses usage from the PREVIOUS period.
+export const POSTING_LAG_GRACE_MS = 7 * 24 * 60 * 60 * 1000;
+
+// The previous period's key when `now` falls within the posting-lag grace
+// window after a period start — the calendar half of lag attribution; whether
+// the previous period can still absorb the amount is the caller's check.
+// Returns null outside the window, and never crosses a calendar-year boundary
+// (the tracker only shows the current year, so a Jan 3 credit stays in the new
+// year rather than vanishing into last year's grid). Annual benefits therefore
+// always return null.
+export function postingLagPeriodKey(
+  cycle: BenefitCycle,
+  now: number,
+): string | null {
+  const start = periodStart(cycle, now);
+  if (now - start >= POSTING_LAG_GRACE_MS) return null;
+  const prev = start - 1; // last instant of the previous period
+  if (new Date(prev).getUTCFullYear() !== new Date(now).getUTCFullYear())
+    return null;
+  return periodKey(cycle, prev);
+}
+
 // The N periods of `cycle` for the calendar year containing `now`, in
 // chronological order, each tagged relative to the current period. Drives the
 // per-period grid UI (annual → 1 cell = a checkbox; quarterly → 4; semiannual
