@@ -22,6 +22,7 @@ import {
   resolveSuggestion,
 } from "./plaidMatch";
 import { llmClassify } from "./plaidLlm";
+import { normalizeTxn } from "./plaidNormalize";
 import { deriveDetected, type DetectedAccount } from "./plaidDetect";
 import { POPULAR_CARD_KEYS } from "./catalog";
 import { fetchAndSaveCardDetail } from "./rapidapi";
@@ -683,27 +684,12 @@ const normalizedTxnValidator = v.object({
   name: v.optional(v.string()),
   originalDescription: v.optional(v.string()),
   amount: v.number(),
-  date: v.number(),
+  date: v.number(), // effective/statement date (authorized_date ?? posting date)
+  postedDate: v.optional(v.number()),
   pfcPrimary: v.optional(v.string()),
   pfcDetailed: v.optional(v.string()),
   pending: v.boolean(),
 });
-
-// Map a raw Plaid transaction to our normalized, validated shape.
-function normalizeTxn(t: any) {
-  return {
-    transactionId: String(t.transaction_id),
-    accountId: String(t.account_id),
-    merchantName: t.merchant_name ?? undefined,
-    name: t.name ?? undefined,
-    originalDescription: t.original_description ?? undefined,
-    amount: typeof t.amount === "number" ? t.amount : Number(t.amount) || 0,
-    date: Date.parse(`${t.date}T00:00:00Z`) || Date.now(),
-    pfcPrimary: t.personal_finance_category?.primary ?? undefined,
-    pfcDetailed: t.personal_finance_category?.detailed ?? undefined,
-    pending: Boolean(t.pending),
-  };
-}
 
 export const getItemForSync = internalQuery({
   args: { itemId: v.string() },
@@ -773,6 +759,7 @@ export const applySync = internalMutation({
         originalDescription: t.originalDescription,
         amount: t.amount,
         date: t.date,
+        postedDate: t.postedDate,
         pfcPrimary: t.pfcPrimary,
         pfcDetailed: t.pfcDetailed,
         pending: t.pending,
