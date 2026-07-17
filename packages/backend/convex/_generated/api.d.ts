@@ -27,6 +27,7 @@ import type * as plaidCardMap from "../plaidCardMap.js";
 import type * as plaidDetect from "../plaidDetect.js";
 import type * as plaidLlm from "../plaidLlm.js";
 import type * as plaidMatch from "../plaidMatch.js";
+import type * as plaidNormalize from "../plaidNormalize.js";
 import type * as profileName from "../profileName.js";
 import type * as push from "../push.js";
 import type * as pushQuietHours from "../pushQuietHours.js";
@@ -67,6 +68,7 @@ declare const fullApi: ApiFromModules<{
   plaidDetect: typeof plaidDetect;
   plaidLlm: typeof plaidLlm;
   plaidMatch: typeof plaidMatch;
+  plaidNormalize: typeof plaidNormalize;
   profileName: typeof profileName;
   push: typeof push;
   pushQuietHours: typeof pushQuietHours;
