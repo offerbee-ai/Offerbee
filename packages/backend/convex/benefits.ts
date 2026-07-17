@@ -3,7 +3,12 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getUserId, requireUserId } from "./auth";
-import { periodEnd, periodKey, periodsForYear } from "./benefitCycles";
+import {
+  capturedThisYear,
+  periodEnd,
+  periodKey,
+  periodsForYear,
+} from "./benefitCycles";
 import { suggestCredits } from "./benefitParser";
 import { benefitSourceValidator, cycleValidator } from "./validators";
 
@@ -176,6 +181,17 @@ export const listMyCredits = query({
       const pk = periodKey(b.cycle, now);
       const usedAmount = await currentPeriodUsage(ctx, b._id, pk);
 
+      // One year-of-usage read powers both the per-period grid and the
+      // year-to-date captured total (below), for every cycle.
+      const sums = await yearPeriodUsage(ctx, b._id, now);
+
+      // Year-to-date captured: usage summed across ALL of this year's periods
+      // (each capped at the per-period amount), not just the current one — so a
+      // credit used in an elapsed period (last month, H1, an earlier quarter)
+      // still counts toward the card's annual-fee ROI. The client derives every
+      // captured/net/verdict aggregate from this.
+      const capturedYtd = capturedThisYear(b.cycle, now, b.amount, usedAmount, sums);
+
       // Per-period grid cells for non-monthly credits (annual → 1 cell = a
       // checkbox; quarterly → 4; semiannual → 2). Monthly stays ungridded.
       let periods:
@@ -188,7 +204,6 @@ export const listMyCredits = query({
           }[]
         | undefined;
       if (b.cycle !== "monthly") {
-        const sums = await yearPeriodUsage(ctx, b._id, now);
         periods = periodsForYear(b.cycle, now).map((p) => {
           // Current cell reuses the authoritative currentPeriodUsage so the grid
           // and the top-level usedAmount/aggregates can never disagree.
@@ -213,6 +228,7 @@ export const listMyCredits = query({
         cycle: b.cycle,
         source: b.source,
         usedAmount,
+        capturedYtd,
         periodKey: pk,
         resetAt: periodEnd(b.cycle, now),
         snoozedUntil: b.snoozedUntil ?? null,

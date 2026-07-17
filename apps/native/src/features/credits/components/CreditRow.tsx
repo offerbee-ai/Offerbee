@@ -2,7 +2,7 @@ import { View } from "react-native";
 
 import { CardArt, ListRow, PillButton, Text } from "@/components/ui";
 import { spacing } from "@/theme";
-import { hasGrid, type DerivedCredit } from "../derive";
+import { hasGrid, usd, type DerivedCredit } from "../derive";
 import { DaysTile } from "./DaysTile";
 import { PeriodGrid } from "./PeriodGrid";
 
@@ -81,6 +81,13 @@ export function CreditRow({
       >
         {credit.sub} · {credit.reset}
       </Text>
+      {/* Monthly credits have no period grid; surface year-to-date captured so
+          prior-month usage isn't invisible. Non-monthly show it in the grid. */}
+      {!hasGrid(credit.cycle) && credit.capturedYtd > 0 ? (
+        <Text variant="subtext" color="accent" numberOfLines={1} style={{ marginTop: 1 }}>
+          {usd(credit.capturedYtd)} captured this year
+        </Text>
+      ) : null}
       {showGrid && credit.periods ? (
         <View style={{ marginTop: spacing.sm }}>
           <PeriodGrid
