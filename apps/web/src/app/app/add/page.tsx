@@ -58,9 +58,6 @@ export default function AddCardChooserPage() {
 
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="font-display text-[24px] font-semibold tracking-[-0.01em] text-ink">
-        Add a card
-      </h1>
       <p className="text-[14px] text-secondary">
         Two ways in — both end with every credit tracked.
       </p>
