@@ -89,6 +89,7 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         // Fall back to current-period captured if a not-yet-deployed backend
         // omits capturedYtd, so aggregates never go NaN mid-rollout.
         capturedYtd: c.capturedYtd ?? Math.min(c.usedAmount, c.amount),
+        claimedAt: c.claimedAt ?? null,
         used: c.usedAmount >= c.amount,
         days: Math.max(0, Math.ceil((c.resetAt - now) / DAY_MS)),
         resetAt: c.resetAt,

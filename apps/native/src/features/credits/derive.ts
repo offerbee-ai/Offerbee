@@ -45,11 +45,12 @@ export interface Credit {
   // capped at `amount` (server-computed). Fee-vs-value ROI measures against
   // this, not current-period usedAmount. Always <= annualValue.
   capturedYtd: number;
+  claimedAt: number | null; // ms of the latest current-period usage, else null
   used: boolean; // materialized: usedAmount >= amount
   days: number; // whole days until reset (client-computed from resetAt)
   resetAt: number; // ms; period end
   snoozed: boolean; // snoozedUntil > now
-  periods?: PeriodCell[]; // per-period cells (non-monthly cycles only)
+  periods?: PeriodCell[]; // per-period cells for the year (all cycles; monthly = 12)
 }
 
 // Credits render as a per-period grid unless monthly (12 cells is too busy — it
@@ -84,6 +85,13 @@ export const CYCLE_LABEL: Record<Cycle, string> = {
   annual: "Annual",
 };
 
+const PERIOD_NOUN: Record<Cycle, string> = {
+  monthly: "month",
+  quarterly: "quarter",
+  semiannual: "half-year",
+  annual: "year",
+};
+
 const roundCents = (n: number): number => Math.round(n * 100) / 100;
 
 export const usd = (n: number): string => "$" + Math.round(n).toLocaleString("en-US");
@@ -91,6 +99,16 @@ export const usd = (n: number): string => "$" + Math.round(n).toLocaleString("en
 /** Signed net string with the design's minus glyph, e.g. "+$120" / "−$40". */
 export const netStr = (n: number): string =>
   (n >= 0 ? "+$" : "−$") + Math.abs(Math.round(n)).toLocaleString("en-US");
+
+const MONTH_ABBR = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+// "Oct 1" / "Jul 5" — UTC to match the backend's period math.
+const shortDate = (ms: number): string => {
+  const d = new Date(ms);
+  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
+};
 
 // Remaining dollars in a credit's CURRENT period (drives current-period metrics).
 const remaining = (c: Credit): number => roundCents(Math.max(0, c.amount - c.usedAmount));
@@ -119,6 +137,16 @@ export interface DerivedCredit extends Credit {
   reset: string; // status/reset line
   urgentReset: boolean;
   cycleLabel: string;
+  annualValue: number; // amount × periods/yr — the year-bar denominator
+  yearBarLabel: string; // "$91 of $155/yr"
+  yearBarPct: number; // 0–100, clamped
+  periodsClaimed: number; // periods claimed this year
+  periodsTotal: number; // periods/yr for the cycle
+  periodsSummary: string; // "6 of 12 months" | "1 of 4 quarters"
+  cadence: string; // "monthly · resets in 15d" | "quarterly · resets Oct 1"
+  resetShort: string; // "resets in 15d" | "resets Oct 1"
+  cadenceAlert: boolean; // render the reset countdown in alert color
+  claimedLabel: string | null; // "claimed Jul 5" when claimed, else null
 }
 
 export interface ExpiringGroup {
@@ -143,12 +171,38 @@ export interface Derived {
 
 function decorate(c: Credit): DerivedCredit {
   const rem = remaining(c);
+  const av = annualValue(c);
+  const yearBarPct =
+    av > 0 ? Math.min(100, Math.max(0, Math.round((c.capturedYtd / av) * 100))) : 0;
+  const periodsTotal = PERIODS_PER_YEAR[c.cycle];
+  const periodsClaimed = c.periods
+    ? c.periods.filter((p) => p.used).length
+    : c.used
+      ? 1
+      : 0;
+  const periodNoun = PERIOD_NOUN[c.cycle];
+  const periodsSummary = `${periodsClaimed} of ${periodsTotal} ${periodsTotal === 1 ? periodNoun : periodNoun + "s"}`;
+  const resetShort =
+    c.cycle === "monthly" ? `resets in ${c.days}d` : `resets ${shortDate(c.resetAt)}`;
+  const cadence = `${CYCLE_LABEL[c.cycle].toLowerCase()} · ${resetShort}`;
+  // Handoff reds the monthly countdown always; non-monthly only when near reset.
+  const cadenceAlert = !c.used && !c.snoozed && (c.cycle === "monthly" || c.days <= 7);
   return {
     ...c,
     amountStr: usd(c.amount),
     remaining: rem,
     sub: `${c.card} · ${usd(c.amount)}`,
     cycleLabel: CYCLE_LABEL[c.cycle],
+    annualValue: av,
+    yearBarLabel: `${usd(c.capturedYtd)} of ${usd(av)}/yr`,
+    yearBarPct,
+    periodsClaimed,
+    periodsTotal,
+    periodsSummary,
+    cadence,
+    resetShort,
+    cadenceAlert,
+    claimedLabel: c.used && c.claimedAt != null ? `claimed ${shortDate(c.claimedAt)}` : null,
     reset: c.used
       ? "Used this cycle"
       : c.usedAmount > 0
