@@ -103,6 +103,25 @@ export function periodKeysForYear(cycle: BenefitCycle, now: number): string[] {
   }
 }
 
+const MONTH_LABELS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+
+// All 12 months of the calendar year containing `now`, tagged relative to the
+// current month. Keys match `periodKey("monthly", …)`. Powers the credit-detail
+// "This year" strip (the list never grids 12 cells — see `periodsForYear`).
+export function monthlyPeriodsForYear(
+  now: number,
+): { key: string; label: string; status: PeriodStatus }[] {
+  const { y, m } = parts(now);
+  return Array.from({ length: 12 }, (_, i) => ({
+    key: `${y}-${String(i + 1).padStart(2, "0")}`,
+    label: MONTH_LABELS[i],
+    status: i < m ? "elapsed" : i === m ? "current" : "upcoming",
+  }));
+}
+
 // Year-to-date captured dollars for one credit: the sum, over every period of
 // this calendar year, of that period's usage capped at the per-period `amount`.
 // This — not the current period's usage alone — is what an annual-fee ROI must
