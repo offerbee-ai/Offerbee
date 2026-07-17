@@ -86,6 +86,8 @@ export function CreditsProvider({ children }: { children: ReactNode }) {
         amount: c.amount,
         cycle: c.cycle,
         usedAmount: c.usedAmount,
+        capturedYear: c.capturedYear,
+        annualValue: c.annualValue,
         used: c.usedAmount >= c.amount,
         days: Math.max(0, Math.ceil((c.resetAt - now) / DAY_MS)),
         resetAt: c.resetAt,

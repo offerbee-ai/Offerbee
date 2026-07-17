@@ -3,7 +3,12 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getUserId, requireUserId } from "./auth";
-import { periodEnd, periodKey, periodsForYear } from "./benefitCycles";
+import {
+  PERIODS_PER_YEAR,
+  periodEnd,
+  periodKey,
+  periodsForYear,
+} from "./benefitCycles";
 import { suggestCredits } from "./benefitParser";
 import { benefitSourceValidator, cycleValidator } from "./validators";
 
@@ -176,6 +181,22 @@ export const listMyCredits = query({
       const pk = periodKey(b.cycle, now);
       const usedAmount = await currentPeriodUsage(ctx, b._id, pk);
 
+      // Whole-year usage per period — fetched for every cycle (monthly has no
+      // on-screen grid, but its past months still count toward the YTD totals).
+      const sums = await yearPeriodUsage(ctx, b._id, now);
+      // Current period reuses the authoritative currentPeriodUsage so the
+      // grid, capturedYear, and the top-level usedAmount can never disagree.
+      sums.set(pk, usedAmount);
+
+      // Year-to-date capture, clamped per period at the credit's amount (a
+      // $170 refund against a $150 half still captures $150), and the credit's
+      // full-year value — the dashboard's "captured of total" pair.
+      let capturedYear = 0;
+      for (const val of sums.values())
+        capturedYear += Math.min(val, b.amount);
+      capturedYear = roundCents(capturedYear);
+      const annualValue = roundCents(b.amount * PERIODS_PER_YEAR[b.cycle]);
+
       // Per-period grid cells for non-monthly credits (annual → 1 cell = a
       // checkbox; quarterly → 4; semiannual → 2). Monthly stays ungridded.
       let periods:
@@ -188,11 +209,8 @@ export const listMyCredits = query({
           }[]
         | undefined;
       if (b.cycle !== "monthly") {
-        const sums = await yearPeriodUsage(ctx, b._id, now);
         periods = periodsForYear(b.cycle, now).map((p) => {
-          // Current cell reuses the authoritative currentPeriodUsage so the grid
-          // and the top-level usedAmount/aggregates can never disagree.
-          const cellUsed = p.status === "current" ? usedAmount : (sums.get(p.key) ?? 0);
+          const cellUsed = sums.get(p.key) ?? 0;
           return {
             key: p.key,
             label: p.label,
@@ -213,6 +231,8 @@ export const listMyCredits = query({
         cycle: b.cycle,
         source: b.source,
         usedAmount,
+        capturedYear,
+        annualValue,
         periodKey: pk,
         resetAt: periodEnd(b.cycle, now),
         snoozedUntil: b.snoozedUntil ?? null,

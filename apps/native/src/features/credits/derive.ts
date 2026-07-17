@@ -31,6 +31,8 @@ export interface Credit {
   amount: number; // dollars per cycle period
   cycle: Cycle;
   usedAmount: number; // dollars logged in the current period
+  capturedYear: number; // YTD dollars captured across ALL periods (clamped per period)
+  annualValue: number; // amount × periods per year (full-year value)
   used: boolean; // materialized: usedAmount >= amount
   days: number; // whole days until reset (client-computed from resetAt)
   resetAt: number; // ms; period end
@@ -78,7 +80,8 @@ export const usd = (n: number): string => "$" + Math.round(n).toLocaleString("en
 export const netStr = (n: number): string =>
   (n >= 0 ? "+$" : "−$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 
-const captured = (c: Credit): number => Math.min(c.usedAmount, c.amount);
+/** Remaining dollars for a credit's current period (year totals use
+ * capturedYear/annualValue straight off the credit). */
 const remaining = (c: Credit): number => roundCents(Math.max(0, c.amount - c.usedAmount));
 
 export interface DerivedCard {
@@ -143,9 +146,13 @@ function decorate(c: Credit): DerivedCredit {
   };
 }
 
+// captured/total are YEAR-scoped ("Captured value · 2026"): capturedYear counts
+// every period of the year — including a monthly credit's past months and an
+// elapsed H1 — and annualValue is the credit's full-year value, so a semiannual
+// $150 counts as $300 and a monthly $25 as $300 in the denominator.
 export function derive(credits: Credit[], cards: CardBase[]): Derived {
-  const total = credits.reduce((a, c) => a + c.amount, 0);
-  const cap = credits.reduce((a, c) => a + captured(c), 0);
+  const total = credits.reduce((a, c) => a + c.annualValue, 0);
+  const cap = credits.reduce((a, c) => a + c.capturedYear, 0);
   const pct = total ? Math.round((cap / total) * 100) : 0;
   const fees = cards.reduce((a, c) => a + c.fee, 0);
   const net = cap - fees;
@@ -158,7 +165,7 @@ export function derive(credits: Credit[], cards: CardBase[]): Derived {
   const derivedCards: DerivedCard[] = cards.map((cb) => {
     const capCard = credits
       .filter((c) => c.cardId === cb.id)
-      .reduce((a, c) => a + captured(c), 0);
+      .reduce((a, c) => a + c.capturedYear, 0);
     const cnet = capCard - cb.fee;
     const keep = cnet >= 0;
     return {
