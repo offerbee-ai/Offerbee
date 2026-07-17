@@ -244,6 +244,14 @@ export function Benefits() {
                     >
                       {c.reset}
                     </div>
+                    {/* Monthly credits have no period grid, so prior-month usage
+                        would otherwise be invisible — surface the year-to-date
+                        captured total. Non-monthly show their history in the grid. */}
+                    {!hasGrid(c.cycle) && c.capturedYtd > 0 && (
+                      <div className="truncate text-[11.5px] text-accent">
+                        {usd(c.capturedYtd)} captured this year
+                      </div>
+                    )}
                     <div className="truncate text-[11.5px] text-tertiary md:hidden">
                       {c.card}
                     </div>
