@@ -202,7 +202,7 @@ export function DetectedCardsReview({
     accountId: string,
     currentCardId: WalletCard["userCardId"] | null,
   ) => (
-    <div className="absolute right-0 top-[calc(100%+6px)] z-20 max-h-[min(420px,60vh)] w-[300px] overflow-y-auto rounded-[14px] border border-border bg-surface p-[6px] shadow-[0_16px_48px_rgba(33,29,22,.18)]">
+    <div className="absolute right-0 top-[calc(100%+6px)] z-20 max-h-[min(420px,60vh)] w-[calc(100vw-72px)] max-w-[300px] overflow-y-auto rounded-[14px] border border-border bg-surface p-[6px] shadow-[0_16px_48px_rgba(33,29,22,.18)]">
       <LinkOptions
         currentCardId={currentCardId}
         cards={cards}
@@ -222,7 +222,7 @@ export function DetectedCardsReview({
   );
 
   return (
-    <Panel className="overflow-visible p-8">
+    <Panel className="overflow-visible p-5 sm:p-8">
       <h2 className="font-display text-[24px] font-semibold tracking-[-0.01em] text-ink">
         We found your cards
       </h2>
@@ -258,29 +258,31 @@ export function DetectedCardsReview({
             return (
               <div
                 key={acct.accountId}
-                className="relative mx-4 my-3 flex items-center gap-[13px] rounded-[12px] border border-warning/45 bg-warning-soft px-[14px] py-3"
+                className="relative mx-4 my-3 rounded-[12px] border border-warning/45 bg-warning-soft px-[14px] py-3 sm:flex sm:items-center sm:gap-[13px]"
               >
-                <span className="h-[22px] w-[22px] shrink-0 rounded-full border-[1.5px] border-warning/45" />
-                <span className="flex h-6 w-9 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-dashed border-warning/45 text-[13px] font-semibold text-warning">
-                  ?
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline gap-2">
-                    <span className="truncate text-[14.5px] font-semibold text-warning">
-                      {acct.name ?? acct.officialName ?? "Credit card"}
-                    </span>
-                    {acct.mask && (
-                      <span className="font-mono text-[12.5px] text-warning">
-                        ····{acct.mask}
+                <div className="flex items-center gap-[13px] sm:min-w-0 sm:flex-1">
+                  <span className="h-[22px] w-[22px] shrink-0 rounded-full border-[1.5px] border-warning/45" />
+                  <span className="flex h-6 w-9 shrink-0 items-center justify-center rounded-[4px] border-[1.5px] border-dashed border-warning/45 text-[13px] font-semibold text-warning">
+                    ?
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="truncate text-[14.5px] font-semibold text-warning">
+                        {acct.name ?? acct.officialName ?? "Credit card"}
                       </span>
-                    )}
-                  </div>
-                  <div className="mt-px text-[12.5px] text-warning">
-                    {institutionName} didn&apos;t say which card this is.
+                      {acct.mask && (
+                        <span className="font-mono text-[12.5px] text-warning">
+                          ····{acct.mask}
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-px text-[12.5px] text-warning">
+                      {institutionName} didn&apos;t say which card this is.
+                    </div>
                   </div>
                 </div>
                 <div
-                  className="relative shrink-0"
+                  className="relative mt-2.5 flex justify-end sm:mt-0 sm:block sm:shrink-0"
                   ref={isOpen ? popoverRef : undefined}
                 >
                   <button
