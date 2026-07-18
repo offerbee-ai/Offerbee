@@ -406,6 +406,7 @@ export function RowOverflow({
   const snooze = () => {
     if (disabled) return;
     onSnooze();
+    setVal("");
     close();
   };
   return (
