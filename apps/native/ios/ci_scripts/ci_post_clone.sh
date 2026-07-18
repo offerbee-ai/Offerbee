@@ -21,9 +21,9 @@ if ! command -v node >/dev/null 2>&1; then
 fi
 echo "▶︎ node $(node -v)"
 
-# pnpm (pinned) via corepack.
-corepack enable
-corepack prepare pnpm@10.33.0 --activate
+# pnpm (pinned). Installed via npm global — corepack's signed fetch of pnpm is
+# flaky on fresh CI runners ("cannot find matching keyid"), so avoid it.
+npm install -g pnpm@10.33.0
 echo "▶︎ pnpm $(pnpm -v)"
 
 # Install the workspace (full, so the workspace:* link to @packages/backend resolves).
