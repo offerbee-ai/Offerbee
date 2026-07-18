@@ -18,3 +18,4 @@ export { EmptyState } from "./EmptyState";
 export { SectionLabel } from "./SectionLabel";
 export { NotificationPreview } from "./NotificationPreview";
 export { BeeLogo } from "./BeeLogo";
+export { CircleCheck } from "./CircleCheck";
