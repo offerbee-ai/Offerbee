@@ -34,7 +34,7 @@ scheme `offerbee`); they differ only by backend env.
   - project / workspace / scheme: **`OfferBee`**
   - bundle id `ai.offerbee.app`, display name `OfferBee`
   - `Podfile.lock` committed; `ios/Pods/`, `ios/build/`, xcuserdata stay gitignored.
-- `apps/native/ios/ci_scripts/ci_post_clone.sh` — installs Node 22 + pnpm 10.33.0, `pnpm install --frozen-lockfile` at repo root, then `pod install`. Lets Xcode Cloud build a pnpm-monorepo Expo app.
+- `ci_scripts/ci_post_clone.sh` (**repo root**, not inside `ios/`) — installs Node 22 + pnpm 10.33.0, `pnpm install --frozen-lockfile` at repo root, then `pod install`. Lets Xcode Cloud build a pnpm-monorepo Expo app. It must live at the repo root because `expo prebuild --clean` wipes all of `apps/native/ios/` (a script placed there is deleted on every regeneration).
 - `eas.json` has a `testflight` profile — **unused** (we build via Xcode Cloud).
 
 ### Staging workflow env vars (⚠️ required — this is the beta/prod switch)
