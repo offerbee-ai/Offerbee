@@ -10,9 +10,13 @@ const APP_ENV: AppEnv = (() => {
   return value;
 })();
 
-// Per-environment identity. Distinct bundle ids let dev/preview/production
-// builds install side by side on one device; distinct schemes keep deep links
-// from colliding.
+// Identity model:
+// - `development` is isolated (`.dev` bundle + own scheme) so a local dev build
+//   installs side by side with the shipping app on one device.
+// - `preview` and `production` are the SAME shipping app (`ai.offerbee.app`,
+//   scheme `offerbee`). They differ only by BACKEND, chosen at build time via the
+//   EXPO_PUBLIC_* env (staging Convex/Clerk for TestFlight beta, prod for release).
+//   One App Store Connect record carries the app from beta all the way to launch.
 const ENV = {
   development: {
     name: "OfferBee (Dev)",
@@ -20,9 +24,9 @@ const ENV = {
     scheme: "offerbee-dev",
   },
   preview: {
-    name: "OfferBee (Preview)",
-    bundleId: "ai.offerbee.app.preview",
-    scheme: "offerbee-preview",
+    name: "OfferBee",
+    bundleId: "ai.offerbee.app",
+    scheme: "offerbee",
   },
   production: {
     name: "OfferBee",

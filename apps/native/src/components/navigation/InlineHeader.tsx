@@ -33,11 +33,12 @@ export function InlineHeader({
         minHeight: 44,
       }}
     >
-      {/* Sides grow (never shrink) so they keep their natural width — the back
-          label and trailing action stay fully visible, and equal grow keeps a
-          short title centered. A long title truncates in the middle instead of
-          collapsing the sides. */}
-      <View style={{ flexGrow: 1, flexShrink: 0, alignItems: "flex-start" }}>
+      {/* Sides grow equally from a zero basis (flexBasis 0) so both columns end
+          up the SAME width regardless of their content — that's what keeps the
+          title truly centered even though the left side has a back label and the
+          right is often empty. flexShrink 0 keeps the back label / trailing action
+          fully visible; a long title truncates in the middle instead. */}
+      <View style={{ flexGrow: 1, flexShrink: 0, flexBasis: 0, alignItems: "flex-start" }}>
         <Pressable
           accessibilityRole="button"
           onPress={onBack}
@@ -71,7 +72,7 @@ export function InlineHeader({
         {title}
       </Text>
 
-      <View style={{ flexGrow: 1, flexShrink: 0, alignItems: "flex-end" }}>
+      <View style={{ flexGrow: 1, flexShrink: 0, flexBasis: 0, alignItems: "flex-end" }}>
         {trailing}
       </View>
     </View>

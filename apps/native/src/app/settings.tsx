@@ -12,7 +12,6 @@ import {
   Avatar,
   Button,
   Card,
-  PillButton,
   Screen,
   SectionLabel,
   SegmentedControl,
@@ -101,8 +100,6 @@ export default function SettingsScreen() {
 
   const onEdit = () =>
     Alert.alert("Edit profile", "Profile editing is coming soon.");
-  const onManage = () =>
-    Alert.alert("Manage plan", "Subscription management is coming soon.");
   const onExport = () =>
     Alert.alert("Export data", "CSV export is coming soon.");
 
@@ -164,18 +161,6 @@ export default function SettingsScreen() {
 
       {/* Connected accounts (Plaid) */}
       <PlaidConnectSection />
-
-      {/* Plan */}
-      <SectionLabel>Plan</SectionLabel>
-      <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.base }}>
-        <View style={{ flex: 1 }}>
-          <Text variant="body">OfferBee Pro</Text>
-          <Text variant="subtext" color="secondary" style={{ marginTop: 2 }}>
-            $4/mo · unlimited cards · renews Aug 12
-          </Text>
-        </View>
-        <PillButton label="Manage" tone="soft" onPress={onManage} />
-      </Card>
 
       {/* Account actions */}
       <View style={{ marginTop: spacing.xl, gap: spacing.md }}>
