@@ -24,7 +24,7 @@ import { DetectedSection } from "@/features/plaid/DetectedSection";
 type Segment = Extract<Cycle, "monthly" | "quarterly" | "annual">;
 
 export default function BenefitsScreen() {
-  const { credits, isLoading, markUsed, logPartial, pending, now } = useCredits();
+  const { credits, isLoading, markUsed, pending, now } = useCredits();
   const [segment, setSegment] = useState<Segment>("monthly");
   const [search, setSearch] = useState("");
 
@@ -118,10 +118,8 @@ export default function BenefitsScreen() {
                 <CreditRow
                   key={c.id}
                   credit={c}
-                  leading="art"
                   pending={pending.has(c.id)}
                   onMarkUsed={() => markUsed(c.id)}
-                  onLogPartial={(amt) => logPartial(c.id, amt)}
                   onPress={() => router.push(`/credit/${c.id}?from=Benefits`)}
                   separator={i < visible.length - 1}
                 />

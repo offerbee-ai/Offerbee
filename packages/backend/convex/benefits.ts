@@ -6,6 +6,7 @@ import { getUserId, requireUserId } from "./auth";
 import {
   PERIODS_PER_YEAR,
   capturedThisYear,
+  monthlyPeriodsForYear,
   periodEnd,
   periodKey,
   periodsForYear,
@@ -180,7 +181,17 @@ export const listMyCredits = query({
       const meta = cardMeta.get(b.userCardId);
       if (!meta) continue; // orphan guard (card removed mid-flight)
       const pk = periodKey(b.cycle, now);
-      const usedAmount = await currentPeriodUsage(ctx, b._id, pk);
+      const currentRows = await ctx.db
+        .query("benefitUsages")
+        .withIndex("by_userBenefitId_and_periodKey", (q) =>
+          q.eq("userBenefitId", b._id).eq("periodKey", pk),
+        )
+        .take(50);
+      const usedAmount = roundCents(currentRows.reduce((a, r) => a + r.amount, 0));
+      // Latest usage instant in the current period → "claimed Jul 5" on the client.
+      // Only meaningful when the period is fully claimed; the client gates on `used`.
+      const claimedAt =
+        currentRows.length > 0 ? Math.max(...currentRows.map((r) => r.usedAt)) : null;
 
       // One year-of-usage read powers both the per-period grid and the
       // year-to-date captured total (below), for every cycle.
@@ -193,31 +204,29 @@ export const listMyCredits = query({
       // captured/net/verdict aggregate from this.
       const capturedYtd = capturedThisYear(b.cycle, now, b.amount, usedAmount, sums);
 
-      // Per-period grid cells for non-monthly credits (annual → 1 cell = a
-      // checkbox; quarterly → 4; semiannual → 2). Monthly stays ungridded.
-      let periods:
-        | {
-            key: string;
-            label: string;
-            usedAmount: number;
-            used: boolean;
-            status: "elapsed" | "current" | "upcoming";
-          }[]
-        | undefined;
-      if (b.cycle !== "monthly") {
-        periods = periodsForYear(b.cycle, now).map((p) => {
-          // Current cell reuses the authoritative currentPeriodUsage so the grid
-          // and the top-level usedAmount/aggregates can never disagree.
-          const cellUsed = p.status === "current" ? usedAmount : (sums.get(p.key) ?? 0);
-          return {
-            key: p.key,
-            label: p.label,
-            usedAmount: cellUsed,
-            used: cellUsed >= b.amount,
-            status: p.status,
-          };
-        });
-      }
+      // Per-period grid cells (annual → 1 cell = a checkbox; quarterly → 4;
+      // semiannual → 2; monthly → 12, ungridded in the list but used by the
+      // credit-detail "This year" strip).
+      let periods: {
+        key: string;
+        label: string;
+        usedAmount: number;
+        used: boolean;
+        status: "elapsed" | "current" | "upcoming";
+      }[];
+      const cellDefs =
+        b.cycle === "monthly" ? monthlyPeriodsForYear(now) : periodsForYear(b.cycle, now);
+      periods = cellDefs.map((p) => {
+        // Current cell reuses the authoritative usedAmount so grid + aggregates agree.
+        const cellUsed = p.status === "current" ? usedAmount : (sums.get(p.key) ?? 0);
+        return {
+          key: p.key,
+          label: p.label,
+          usedAmount: cellUsed,
+          used: cellUsed >= b.amount,
+          status: p.status,
+        };
+      });
 
       credits.push({
         id: b._id,
@@ -230,6 +239,7 @@ export const listMyCredits = query({
         source: b.source,
         usedAmount,
         capturedYtd,
+        claimedAt,
         periodKey: pk,
         resetAt: periodEnd(b.cycle, now),
         snoozedUntil: b.snoozedUntil ?? null,

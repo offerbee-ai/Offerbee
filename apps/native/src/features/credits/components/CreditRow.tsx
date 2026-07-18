@@ -1,104 +1,79 @@
 import { View } from "react-native";
 
-import { CardArt, ListRow, PillButton, Text } from "@/components/ui";
+import { CardArt, CircleCheck, ListRow, Text } from "@/components/ui";
 import { spacing } from "@/theme";
-import { hasGrid, usd, type DerivedCredit } from "../derive";
-import { DaysTile } from "./DaysTile";
-import { PeriodGrid } from "./PeriodGrid";
+import { type DerivedCredit } from "../derive";
 
 type CreditRowProps = {
   credit: DerivedCredit;
-  /** days = countdown tile (Review/Expiring); art = card art (Benefits). */
-  leading?: "days" | "art";
   pending?: boolean;
   onMarkUsed?: () => void;
-  onLogPartial?: (amount: number) => void;
-  onSnooze?: () => void;
-  /** Row tap → Credit detail. The action pill stays a separate press target. */
+  /** Row tap → Credit detail. The circle stays a separate press target. */
   onPress?: () => void;
-  /** Override the mark-used pill label/tone (e.g. "Use" accent on Expiring). */
-  markLabel?: string;
-  markTone?: "accent" | "soft" | "neutral";
   separator?: boolean;
 };
 
 export function CreditRow({
   credit,
-  leading = "art",
   pending = false,
   onMarkUsed,
-  onLogPartial,
-  onSnooze,
   onPress,
-  markLabel,
-  markTone,
   separator = true,
 }: CreditRowProps) {
-  // Non-monthly credits render a per-period grid (annual → checkbox) inline
-  // instead of the single mark-used pill; the grid's current cell is the
-  // interactive control. Monthly keeps the pill.
-  const showGrid = hasGrid(credit.cycle) && !!credit.periods && !!onMarkUsed;
-
   return (
     <ListRow
       separator={separator}
       onPress={onPress}
       left={
-        leading === "days" ? (
-          <DaysTile days={credit.days} urgent={credit.urgentReset} />
-        ) : (
-          <CardArt cardKey={credit.cardId} imageUrl={credit.image} color={credit.color} width={44} />
-        )
+        <CardArt
+          cardKey={credit.cardId}
+          imageUrl={credit.image}
+          color={credit.color}
+          width={34}
+        />
       }
       right={
-        <>
-          {onSnooze && !credit.used ? (
-            <PillButton label="Snooze" tone="neutral" onPress={onSnooze} disabled={pending} />
-          ) : null}
-          {onMarkUsed && !showGrid ? (
-            credit.used ? (
-              <PillButton label="Used ✓" tone="neutral" onPress={onMarkUsed} disabled={pending} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <View style={{ alignItems: "flex-end" }}>
+            {credit.used ? (
+              <>
+                <Text
+                  variant="mono"
+                  color="tertiary"
+                  style={{ textDecorationLine: "line-through" }}
+                >
+                  {credit.amountStr}
+                </Text>
+                {credit.claimedLabel ? (
+                  <Text variant="caption" color="secondary">
+                    {credit.claimedLabel}
+                  </Text>
+                ) : null}
+              </>
             ) : (
-              <PillButton
-                label={markLabel ?? (onSnooze ? "Use" : "Mark used")}
-                tone={markTone ?? (onSnooze ? "accent" : "soft")}
-                onPress={onMarkUsed}
-                disabled={pending}
-              />
-            )
+              <>
+                <Text variant="mono">{credit.amountStr}</Text>
+                <Text
+                  variant="caption"
+                  color={credit.cadenceAlert ? "alert" : "secondary"}
+                >
+                  {credit.resetShort}
+                </Text>
+              </>
+            )}
+          </View>
+          {onMarkUsed ? (
+            <CircleCheck claimed={credit.used} onPress={onMarkUsed} disabled={pending} />
           ) : null}
-        </>
+        </View>
       }
     >
       <Text variant="body" numberOfLines={1}>
         {credit.name}
       </Text>
-      <Text
-        variant="subtext"
-        color={credit.urgentReset ? "alert" : "secondary"}
-        numberOfLines={1}
-        style={{ marginTop: 1 }}
-      >
-        {credit.sub} · {credit.reset}
+      <Text variant="subtext" color="secondary" numberOfLines={1} style={{ marginTop: 1 }}>
+        {credit.card}
       </Text>
-      {/* Monthly credits have no period grid; surface year-to-date captured so
-          prior-month usage isn't invisible. Non-monthly show it in the grid. */}
-      {!hasGrid(credit.cycle) && credit.capturedYtd > 0 ? (
-        <Text variant="subtext" color="accent" numberOfLines={1} style={{ marginTop: 1 }}>
-          {usd(credit.capturedYtd)} captured this year
-        </Text>
-      ) : null}
-      {showGrid && credit.periods ? (
-        <View style={{ marginTop: spacing.sm }}>
-          <PeriodGrid
-            periods={credit.periods}
-            amount={credit.amount}
-            onMarkCurrent={onMarkUsed!}
-            onLogPartial={onLogPartial}
-            pending={pending}
-          />
-        </View>
-      ) : null}
     </ListRow>
   );
 }

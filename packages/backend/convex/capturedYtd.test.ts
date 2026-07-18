@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capturedThisYear, periodKeysForYear } from "./benefitCycles";
+import { capturedThisYear, monthlyPeriodsForYear, periodKeysForYear } from "./benefitCycles";
 
 // 2026-07-15 — matches the app's "today" for these fixtures. Current periods:
 // monthly 2026-07, quarterly 2026-Q3, semiannual 2026-H2, annual 2026.
@@ -71,5 +71,32 @@ describe("capturedThisYear", () => {
 
   it("is zero when nothing has been used", () => {
     expect(capturedThisYear("monthly", JUL, 10, 0, new Map())).toBe(0);
+  });
+});
+
+describe("monthlyPeriodsForYear", () => {
+  it("returns 12 chronological month cells with correct keys/labels", () => {
+    const cells = monthlyPeriodsForYear(JUL);
+    expect(cells).toHaveLength(12);
+    expect(cells[0]).toEqual({ key: "2026-01", label: "Jan", status: "elapsed" });
+    expect(cells[11]).toEqual({ key: "2026-12", label: "Dec", status: "upcoming" });
+  });
+  it("marks the current month current, earlier elapsed, later upcoming", () => {
+    const cells = monthlyPeriodsForYear(JUL);
+    expect(cells[5].status).toBe("elapsed");   // Jun
+    expect(cells[6].status).toBe("current");   // Jul
+    expect(cells[7].status).toBe("upcoming");  // Aug
+  });
+  it("January: current month has no elapsed months before it", () => {
+    const cells = monthlyPeriodsForYear(Date.UTC(2026, 0, 15));
+    expect(cells[0].status).toBe("current");
+    expect(cells[1].status).toBe("upcoming");
+    expect(cells.some((c) => c.status === "elapsed")).toBe(false);
+  });
+  it("December: current month has no upcoming months after it", () => {
+    const cells = monthlyPeriodsForYear(Date.UTC(2026, 11, 15));
+    expect(cells[11].status).toBe("current");
+    expect(cells[10].status).toBe("elapsed");
+    expect(cells.some((c) => c.status === "upcoming")).toBe(false);
   });
 });
