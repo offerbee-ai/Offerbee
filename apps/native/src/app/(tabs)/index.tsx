@@ -176,7 +176,6 @@ export default function ReviewScreen() {
                   <CreditRow
                     key={c.id}
                     credit={c}
-                    leading="days"
                     pending={pending.has(c.id)}
                     onMarkUsed={() => markUsed(c.id)}
                     onPress={() => router.push(`/credit/${c.id}?from=Review`)}

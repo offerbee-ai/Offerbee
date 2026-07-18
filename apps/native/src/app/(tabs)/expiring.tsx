@@ -19,7 +19,7 @@ import { expiringGroups } from "@/features/credits/derive";
 import { CreditRow } from "@/features/credits/components/CreditRow";
 
 export default function ExpiringScreen() {
-  const { credits, derived, isLoading, markUsed, snooze, pending } = useCredits();
+  const { credits, derived, isLoading, markUsed, pending } = useCredits();
   const [range, setRange] = useState<"week" | "month">("week");
   const { groups } = expiringGroups(credits, range);
 
@@ -85,31 +85,16 @@ export default function ExpiringScreen() {
                 {group.urgent ? "This week" : "Later this month"}
               </SectionLabel>
               <Card padded={false}>
-                {group.items.map((c, i) =>
-                  group.urgent ? (
-                    <CreditRow
-                      key={c.id}
-                      credit={c}
-                      leading="days"
-                      pending={pending.has(c.id)}
-                      onMarkUsed={() => markUsed(c.id)}
-                      markLabel="Use"
-                      markTone="accent"
-                      onPress={() => router.push(`/credit/${c.id}?from=Expiring`)}
-                      separator={i < group.items.length - 1}
-                    />
-                  ) : (
-                    <CreditRow
-                      key={c.id}
-                      credit={c}
-                      leading="days"
-                      pending={pending.has(c.id)}
-                      onSnooze={() => snooze(c.id)}
-                      onPress={() => router.push(`/credit/${c.id}?from=Expiring`)}
-                      separator={i < group.items.length - 1}
-                    />
-                  ),
-                )}
+                {group.items.map((c, i) => (
+                  <CreditRow
+                    key={c.id}
+                    credit={c}
+                    pending={pending.has(c.id)}
+                    onMarkUsed={() => markUsed(c.id)}
+                    onPress={() => router.push(`/credit/${c.id}?from=Expiring`)}
+                    separator={i < group.items.length - 1}
+                  />
+                ))}
               </Card>
             </View>
           ))}
