@@ -2,9 +2,20 @@ node_modules/
 .expo/
 dist/
 
-# Native projects — generated on demand by `expo prebuild` (CNG). Do not commit.
-/ios/
+# Android stays CNG-generated (not shipped). iOS IS committed for Xcode Cloud —
+# it needs a real workspace + scheme in the repo. The ios/ project is the shipping
+# app (OfferBee / ai.offerbee.app); regenerate with
+# `APP_ENV=production npx expo prebuild -p ios --clean` and re-commit only when
+# app.config.ts or the config plugins change. Do NOT commit dev-config churn from
+# a local `expo run:ios`.
 /android/
+
+# Generated inside ios/ — never commit these (CI regenerates via ci_post_clone).
+/ios/Pods/
+/ios/build/
+/ios/.xcode.env.local
+/ios/**/xcuserdata/
+/ios/DerivedData/
 
 npm-debug.*
 *.jks

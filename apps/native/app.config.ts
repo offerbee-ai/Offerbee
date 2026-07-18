@@ -10,9 +10,13 @@ const APP_ENV: AppEnv = (() => {
   return value;
 })();
 
-// Per-environment identity. Distinct bundle ids let dev/preview/production
-// builds install side by side on one device; distinct schemes keep deep links
-// from colliding.
+// Identity model:
+// - `development` is isolated (`.dev` bundle + own scheme) so a local dev build
+//   installs side by side with the shipping app on one device.
+// - `preview` and `production` are the SAME shipping app (`ai.offerbee.app`,
+//   scheme `offerbee`). They differ only by BACKEND, chosen at build time via the
+//   EXPO_PUBLIC_* env (staging Convex/Clerk for TestFlight beta, prod for release).
+//   One App Store Connect record carries the app from beta all the way to launch.
 const ENV = {
   development: {
     name: "OfferBee (Dev)",
@@ -20,9 +24,9 @@ const ENV = {
     scheme: "offerbee-dev",
   },
   preview: {
-    name: "OfferBee (Preview)",
-    bundleId: "ai.offerbee.app.preview",
-    scheme: "offerbee-preview",
+    name: "OfferBee",
+    bundleId: "ai.offerbee.app",
+    scheme: "offerbee",
   },
   production: {
     name: "OfferBee",
@@ -45,6 +49,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier: ENV.bundleId,
+    infoPlist: {
+      // App uses only standard/exempt encryption (HTTPS). Declaring this here
+      // skips the manual export-compliance prompt on every App Store Connect
+      // upload, so Xcode Cloud → TestFlight is fully automated.
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
     package: ENV.bundleId,
@@ -81,6 +91,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "./plugins/with-ios-scene-lifecycle",
     // Local iOS dev-build fixes (Debug only): on-device Metro host/port + script sandbox.
     "./plugins/with-ios-dev-build",
+    // Bake the Apple Developer Team + automatic signing into the project so it
+    // survives `expo prebuild --clean` (manual Xcode team selection does not).
+    "./plugins/with-ios-signing",
+    // Non-development builds only: aps-environment=production + strip Expo
+    // dev-client local-network keys. Must stay LAST so it overrides the above.
+    "./plugins/with-ios-release-hardening",
   ],
   experiments: {
     typedRoutes: true,
