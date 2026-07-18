@@ -54,7 +54,7 @@ const RANGES: { value: ExpiringRange; label: string }[] = [
 // 4-column table: Benefit (chip+name+card) / To claim / Year so far / Done.
 // fr tracks truncate; Year-so-far + Done are fixed so the circle right-aligns.
 const GRID =
-  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1.2fr)_60px]";
+  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1.2fr)_84px]";
 const HEAD =
   "font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary";
 
@@ -141,11 +141,11 @@ export function Benefits() {
                 </span>
               </div>
 
-              <Panel className="overflow-hidden">
+              <Panel>
                 {group.items.map((c) => (
                   <div
                     key={c.id}
-                    className="grid items-center gap-3 border-t border-separator px-4 py-4 first:border-t-0 sm:px-5 grid-cols-[minmax(0,1fr)_auto_60px]"
+                    className="grid items-center gap-3 border-t border-separator px-4 py-4 first:border-t-0 sm:px-5 grid-cols-[minmax(0,1fr)_auto_84px]"
                   >
                     <div className="flex min-w-0 items-center gap-3">
                       <CardMark credit={c} width={34} height={23} />
@@ -207,7 +207,7 @@ export function Benefits() {
           </div>
         </div>
 
-        <Panel className="overflow-hidden">
+        <Panel>
           <div className={`hidden md:grid ${GRID} border-b border-separator py-3`}>
             <div className={HEAD}>Benefit</div>
             <div className={HEAD}>To claim</div>
@@ -282,15 +282,18 @@ export function Benefits() {
                   )}
                 </div>
 
-                {/* Year so far: bar + "$X of $Y/yr" */}
-                <div className="hidden min-w-0 md:block">
-                  <div className="mb-[5px] h-[6px] overflow-hidden rounded-[4px] bg-track">
+                {/* Year so far: bar is vertically centered so it sits level
+                    with the Done circle; the "$X of $Y/yr" caption is pinned
+                    just below (absolute) so it doesn't push the bar above the
+                    row's center line. */}
+                <div className="relative hidden min-w-0 md:block">
+                  <div className="h-[6px] overflow-hidden rounded-[4px] bg-track">
                     <div
                       className="h-full bg-accent transition-[width] duration-500"
                       style={{ width: `${c.yearBarPct}%` }}
                     />
                   </div>
-                  <div className="truncate text-[11.5px] text-secondary">
+                  <div className="absolute inset-x-0 top-full mt-[5px] truncate text-[11.5px] text-secondary">
                     <span className="tabular font-mono font-semibold text-ink">
                       {usd(c.capturedYtd)}
                     </span>{" "}

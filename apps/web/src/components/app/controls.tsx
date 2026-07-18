@@ -400,9 +400,13 @@ export function RowOverflow({
     <details className="relative">
       <summary
         aria-label="More actions"
-        className="flex size-8 cursor-pointer list-none items-center justify-center rounded-[8px] text-secondary transition-colors hover:text-ink [&::-webkit-details-marker]:hidden"
+        className="flex size-8 cursor-pointer list-none items-center justify-center rounded-[8px] border border-border text-secondary transition-colors hover:bg-track hover:text-ink [&::-webkit-details-marker]:hidden"
       >
-        ⋯
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <circle cx="5" cy="12" r="1.8" />
+          <circle cx="12" cy="12" r="1.8" />
+          <circle cx="19" cy="12" r="1.8" />
+        </svg>
       </summary>
       <div className="absolute right-0 z-10 mt-1 flex w-[190px] flex-col gap-2 rounded-[12px] border border-border bg-surface p-3 shadow-ob">
         <label className="text-[11px] font-semibold uppercase tracking-[0.05em] text-tertiary">
