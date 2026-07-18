@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -388,16 +388,28 @@ export function RowOverflow({
   disabled?: boolean;
 }) {
   const [val, setVal] = useState("");
+  const ref = useRef<HTMLDetailsElement>(null);
+  // Close the popover after an action fires — otherwise nothing visibly happens
+  // on click (the row itself doesn't change), so it reads as a dead button.
+  const close = () => {
+    if (ref.current) ref.current.open = false;
+  };
   const submit = () => {
     if (disabled) return;
     const n = parseFloat(val);
     if (Number.isFinite(n) && n > 0) {
       onLogPartial(n);
       setVal("");
+      close();
     }
   };
+  const snooze = () => {
+    if (disabled) return;
+    onSnooze();
+    close();
+  };
   return (
-    <details className="relative">
+    <details ref={ref} className="relative">
       <summary
         aria-label="More actions"
         className="flex size-8 cursor-pointer list-none items-center justify-center rounded-[8px] border border-border text-secondary transition-colors hover:bg-track hover:text-ink [&::-webkit-details-marker]:hidden"
@@ -436,7 +448,7 @@ export function RowOverflow({
         </div>
         <button
           type="button"
-          onClick={onSnooze}
+          onClick={snooze}
           disabled={disabled}
           className="rounded-[8px] border border-border px-3 py-[7px] text-[12.5px] font-semibold text-secondary hover:text-ink disabled:opacity-50"
         >

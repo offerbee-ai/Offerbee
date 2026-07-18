@@ -224,10 +224,12 @@ export function Benefits() {
               <div
                 key={c.id}
                 className={`grid ${GRID} border-t border-separator py-[15px] first:border-t-0`}
-                style={c.used ? { opacity: 0.65 } : undefined}
               >
-                {/* Benefit: chip + name + card */}
-                <div className="flex min-w-0 items-center gap-3">
+                {/* Benefit: chip + name + card. Claimed rows dim only the
+                    identity + to-claim info — the Year-so-far bar and Done
+                    circle stay full-strength so completed progress reads at a
+                    glance instead of looking disabled. */}
+                <div className={`flex min-w-0 items-center gap-3${c.used ? " opacity-[0.55]" : ""}`}>
                   <CardMark credit={c} width={34} height={23} />
                   <div className="min-w-0">
                     <div className="truncate text-[14.5px] font-semibold text-ink">
@@ -244,9 +246,9 @@ export function Benefits() {
                           {c.claimedLabel ? ` · ${c.claimedLabel}` : ""}
                         </span>
                       ) : (
-                        <span style={{ color: c.cadenceAlert ? "var(--ob-alert)" : "var(--ob-secondary)" }}>
+                        <span style={{ color: c.snoozed ? "var(--ob-tertiary)" : c.cadenceAlert ? "var(--ob-alert)" : "var(--ob-secondary)" }}>
                           <span className="font-mono font-semibold text-ink">{c.amountStr}</span>{" "}
-                          to claim · {c.cadence}
+                          {c.snoozed ? `Snoozed · ${c.resetShort}` : `to claim · ${c.cadence}`}
                         </span>
                       )}
                     </div>
@@ -254,7 +256,7 @@ export function Benefits() {
                 </div>
 
                 {/* To claim: amount + cadence, or struck + claimed date */}
-                <div className="hidden min-w-0 md:block">
+                <div className={`hidden min-w-0 md:block${c.used ? " opacity-[0.55]" : ""}`}>
                   {c.used ? (
                     <>
                       <div className="tabular font-mono text-[14px] font-semibold text-tertiary line-through">
@@ -274,9 +276,9 @@ export function Benefits() {
                       </div>
                       <div
                         className="truncate text-[11.5px]"
-                        style={{ color: c.cadenceAlert ? "var(--ob-alert)" : "var(--ob-secondary)" }}
+                        style={{ color: c.snoozed ? "var(--ob-tertiary)" : c.cadenceAlert ? "var(--ob-alert)" : "var(--ob-secondary)" }}
                       >
-                        {c.cadence}
+                        {c.snoozed ? `Snoozed · ${c.resetShort}` : c.cadence}
                       </div>
                     </>
                   )}
