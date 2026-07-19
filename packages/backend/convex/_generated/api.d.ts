@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as benefitCycles from "../benefitCycles.js";
+import type * as benefitOverrides from "../benefitOverrides.js";
 import type * as benefitParser from "../benefitParser.js";
 import type * as benefits from "../benefits.js";
 import type * as catalog from "../catalog.js";
@@ -51,6 +52,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   benefitCycles: typeof benefitCycles;
+  benefitOverrides: typeof benefitOverrides;
   benefitParser: typeof benefitParser;
   benefits: typeof benefits;
   catalog: typeof catalog;

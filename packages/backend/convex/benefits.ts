@@ -110,7 +110,7 @@ export const suggestionsForCard = query({
       tracked.map((b) => b.benefitTitle).filter(Boolean),
     );
 
-    return suggestCredits(detail?.benefit ?? []).map((s) => ({
+    return suggestCredits(detail?.benefit ?? [], cardKey).map((s) => ({
       ...s,
       alreadyTracked: trackedTitles.has(s.benefitTitle),
     }));
@@ -478,7 +478,7 @@ async function seedForUserCard(
   ).filter((b) => b.archivedAt === undefined);
   let budget = MAX_BENEFITS_PER_USER - allActive.length;
 
-  for (const s of suggestCredits(detail.benefit ?? [])) {
+  for (const s of suggestCredits(detail.benefit ?? [], userCard.cardKey)) {
     if (budget <= 0) break;
     if (seenTitles.has(s.benefitTitle)) continue;
     seenTitles.add(s.benefitTitle);
@@ -526,45 +526,83 @@ export const seedOwnersForCard = internalMutation({
   },
 });
 
-// One-shot repair for seeded amounts that captured a YEAR TOTAL as the
-// per-period amount (parser bug: "Up to $300 annually in monthly DoorDash
-// promos" seeded $300/monthly instead of $25/monthly). Re-parses each
-// suggested benefit from its card's current detail and patches the amount
-// ONLY when the stored value is exactly the new parse × periods/year with the
-// same cycle — the bug's precise signature, so user-customized amounts are
-// never touched. Run: `convex run benefits:repairSeededAmounts '{}'`.
+// One-shot reconcile of seeded benefits against the CURRENT parse (incl.
+// curated overrides). Patches a row only when its stored values are something
+// the system itself would have seeded — never a user-customized value:
+//   1. Annual-total parser bug: same cycle, stored amount == new parse ×
+//      periods/year ("$300/monthly" for a $25/monthly DoorDash) → fix amount.
+//   2. Curated override: stored (amount, cycle) == the RAW text parse (what
+//      pre-override seeding produced) and an override now differs → apply the
+//      override's amount/cycle. On a cycle change, this year's usage rows are
+//      re-keyed by their usedAt date so captured history stays visible (old
+//      cycle-format periodKeys would otherwise be excluded from the grid/YTD).
+// Run after deploys that change the parser or overrides:
+// `convex run benefits:repairSeededAmounts '{}'`.
 export const repairSeededAmounts = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const parsedByCard = new Map<
-      string,
-      Map<string, { amount: number; cycle: Doc<"userBenefits">["cycle"] }>
-    >();
+    type Parsed = { amount: number; cycle: Doc<"userBenefits">["cycle"] };
+    const byCard = new Map<string, { raw: Map<string, Parsed>; final: Map<string, Parsed> }>();
+    const toMap = (list: { benefitTitle: string; amount: number; cycle: Doc<"userBenefits">["cycle"] }[]) =>
+      new Map(list.map((s) => [s.benefitTitle, { amount: roundCents(s.amount), cycle: s.cycle }]));
+
     const benefits = await ctx.db.query("userBenefits").take(5000);
     let scanned = 0;
     const patched: string[] = [];
     for (const b of benefits) {
       if (b.source !== "suggested" || !b.benefitTitle) continue;
       scanned += 1;
-      let parsed = parsedByCard.get(b.cardKey);
-      if (!parsed) {
+      let maps = byCard.get(b.cardKey);
+      if (!maps) {
         const detail = await ctx.db
           .query("cardDetails")
           .withIndex("by_cardKey", (q) => q.eq("cardKey", b.cardKey))
           .unique();
-        parsed = new Map(
-          suggestCredits(detail?.benefit ?? []).map((s) => [
-            s.benefitTitle,
-            { amount: roundCents(s.amount), cycle: s.cycle },
-          ]),
-        );
-        parsedByCard.set(b.cardKey, parsed);
+        maps = {
+          raw: toMap(suggestCredits(detail?.benefit ?? [])),
+          final: toMap(suggestCredits(detail?.benefit ?? [], b.cardKey)),
+        };
+        byCard.set(b.cardKey, maps);
       }
-      const s = parsed.get(b.benefitTitle);
-      if (!s || s.cycle !== b.cycle || s.amount === b.amount) continue;
-      if (b.amount === roundCents(s.amount * PERIODS_PER_YEAR[s.cycle])) {
+      const s = maps.final.get(b.benefitTitle);
+      if (!s || (s.cycle === b.cycle && s.amount === b.amount)) continue;
+
+      // Case 1: annual-total parser bug (amount only, same cycle).
+      if (
+        s.cycle === b.cycle &&
+        b.amount === roundCents(s.amount * PERIODS_PER_YEAR[s.cycle])
+      ) {
         await ctx.db.patch(b._id, { amount: s.amount });
         patched.push(`${b.cardKey}/${b.benefitTitle}: ${b.amount}→${s.amount}`);
+        continue;
+      }
+
+      // Case 2: stored row still matches the raw text parse → untouched by the
+      // user; safe to converge onto the curated override.
+      const raw = maps.raw.get(b.benefitTitle);
+      if (raw && b.cycle === raw.cycle && b.amount === raw.amount) {
+        await ctx.db.patch(b._id, { amount: s.amount, cycle: s.cycle });
+        if (s.cycle !== b.cycle) {
+          // Re-key this year's usage into the new cycle's periods by usage
+          // date, so already-captured value stays on the grid and in YTD.
+          const y = new Date(Date.now()).getUTCFullYear();
+          const rows = await ctx.db
+            .query("benefitUsages")
+            .withIndex("by_userBenefitId_and_periodKey", (q) =>
+              q
+                .eq("userBenefitId", b._id)
+                .gte("periodKey", `${y}`)
+                .lt("periodKey", `${y + 1}`),
+            )
+            .take(200);
+          for (const r of rows) {
+            const pk = periodKey(s.cycle, r.usedAt);
+            if (pk !== r.periodKey) await ctx.db.patch(r._id, { periodKey: pk });
+          }
+        }
+        patched.push(
+          `${b.cardKey}/${b.benefitTitle}: ${b.amount}/${b.cycle}→${s.amount}/${s.cycle}`,
+        );
       }
     }
     return { scanned, patched };

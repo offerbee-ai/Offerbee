@@ -8,6 +8,7 @@
 // confidence high ($300 === $75 x 4).
 
 import { PERIODS_PER_YEAR } from "./benefitCycles";
+import { applyBenefitOverride } from "./benefitOverrides";
 import type { BenefitCycle } from "./validators";
 
 export interface ParsedCredit {
@@ -159,8 +160,16 @@ export function parseBenefitCredit(b: Benefit): ParsedCredit | null {
   return { benefitTitle: title, title, amount, cycle, confidence };
 }
 
-export function suggestCredits(benefits: Benefit[]): ParsedCredit[] {
+// Parse a card's benefits into suggested credits. Pass the cardKey so curated
+// overrides (benefitOverrides.ts — issuer facts the catalog text gets wrong)
+// apply; every consumer (seeding, suggestions UI, reconcile repair) goes
+// through here, so the corrected values are consistent everywhere.
+export function suggestCredits(
+  benefits: Benefit[],
+  cardKey?: string,
+): ParsedCredit[] {
   return benefits
     .map((b) => parseBenefitCredit(b))
-    .filter((p): p is ParsedCredit => p !== null);
+    .filter((p): p is ParsedCredit => p !== null)
+    .map((p) => applyBenefitOverride(cardKey, p));
 }
