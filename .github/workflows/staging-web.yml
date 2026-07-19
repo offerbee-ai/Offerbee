@@ -91,3 +91,8 @@ jobs:
           # (https://<slug>.clerk.accounts.dev), or JWT validation fails.
           NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY_PREVIEW || secrets.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY_PREVIEW || secrets.CLERK_SECRET_KEY }}
+          # Staging publishes to the --alias staging subdomain, but the Netlify CLI
+          # sets DEPLOY_PRIME_URL to the branch URL (preview--*.netlify.app), which
+          # is not served and 404s. Pin the metadata origin (og:image/og:url in
+          # apps/web/src/app/layout.tsx) to the real alias URL.
+          NEXT_PUBLIC_SITE_URL: https://staging--offerbee-web.netlify.app

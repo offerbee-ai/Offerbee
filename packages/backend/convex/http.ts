@@ -35,8 +35,14 @@ http.route({
     if (!itemId) return new Response("ok", { status: 200 });
 
     if (type === "TRANSACTIONS") {
-      // SYNC_UPDATES_AVAILABLE (and the legacy *_UPDATE codes) → pull deltas.
-      await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
+      // Only SYNC_UPDATES_AVAILABLE — Plaid also sends the legacy
+      // INITIAL/HISTORICAL/DEFAULT_UPDATE codes for the same event, and
+      // scheduling on all of them ran 3 concurrent syncs of one item (seen in
+      // prod logs). /transactions/sync consumers only need this one code; the
+      // first sync after connect is scheduled by exchangePublicToken.
+      if (code === "SYNC_UPDATES_AVAILABLE") {
+        await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
+      }
     } else if (type === "ITEM") {
       if (code === "ERROR" || code === "USER_PERMISSION_REVOKED") {
         await ctx.runMutation(internal.plaid.setItemStatus, {

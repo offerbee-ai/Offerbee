@@ -9,6 +9,16 @@ export type Cycle = "monthly" | "quarterly" | "semiannual" | "annual";
 
 export type PeriodStatus = "elapsed" | "current" | "upcoming";
 
+// Periods a cycle has in one calendar year. Mirrors the backend
+// benefitCycles.PERIODS_PER_YEAR; turns a per-period amount into an annual value
+// (a $10/mo credit is worth $120/yr).
+export const PERIODS_PER_YEAR: Record<Cycle, number> = {
+  monthly: 12,
+  quarterly: 4,
+  semiannual: 2,
+  annual: 1,
+};
+
 // One cell of a credit's per-period grid (this calendar year). Server-computed
 // in benefits.listMyCredits; annual → 1 cell (a checkbox), quarterly → 4,
 // semiannual → 2. Monthly credits have no grid (periods undefined). Mirrors the
@@ -31,11 +41,16 @@ export interface Credit {
   amount: number; // dollars per cycle period
   cycle: Cycle;
   usedAmount: number; // dollars logged in the current period
+  // Year-to-date captured: usage summed across ALL of this year's periods, each
+  // capped at `amount` (server-computed). Fee-vs-value ROI measures against
+  // this, not current-period usedAmount. Always <= annualValue.
+  capturedYtd: number;
+  claimedAt: number | null; // ms of the latest current-period usage, else null
   used: boolean; // materialized: usedAmount >= amount
   days: number; // whole days until reset (client-computed from resetAt)
   resetAt: number; // ms; period end
   snoozed: boolean; // snoozedUntil > now
-  periods?: PeriodCell[]; // per-period cells (non-monthly cycles only)
+  periods?: PeriodCell[]; // per-period cells for the year (all cycles; monthly = 12)
 }
 
 // Credits render as a per-period grid unless monthly (12 cells is too busy — it
@@ -70,6 +85,13 @@ export const CYCLE_LABEL: Record<Cycle, string> = {
   annual: "Annual",
 };
 
+const PERIOD_NOUN: Record<Cycle, string> = {
+  monthly: "month",
+  quarterly: "quarter",
+  semiannual: "half-year",
+  annual: "year",
+};
+
 const roundCents = (n: number): number => Math.round(n * 100) / 100;
 
 export const usd = (n: number): string => "$" + Math.round(n).toLocaleString("en-US");
@@ -78,8 +100,21 @@ export const usd = (n: number): string => "$" + Math.round(n).toLocaleString("en
 export const netStr = (n: number): string =>
   (n >= 0 ? "+$" : "−$") + Math.abs(Math.round(n)).toLocaleString("en-US");
 
-const captured = (c: Credit): number => Math.min(c.usedAmount, c.amount);
+const MONTH_ABBR = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+];
+// "Oct 1" / "Jul 5" — UTC to match the backend's period math.
+const shortDate = (ms: number): string => {
+  const d = new Date(ms);
+  return `${MONTH_ABBR[d.getUTCMonth()]} ${d.getUTCDate()}`;
+};
+
+// Remaining dollars in a credit's CURRENT period (drives current-period metrics).
 const remaining = (c: Credit): number => roundCents(Math.max(0, c.amount - c.usedAmount));
+
+// Full-year dollar value of a credit — the denominator for annual ROI.
+const annualValue = (c: Credit): number => c.amount * PERIODS_PER_YEAR[c.cycle];
 
 export interface DerivedCard {
   id: string;
@@ -102,6 +137,16 @@ export interface DerivedCredit extends Credit {
   reset: string; // status/reset line
   urgentReset: boolean;
   cycleLabel: string;
+  annualValue: number; // amount × periods/yr — the year-bar denominator
+  yearBarLabel: string; // "$91 of $155/yr"
+  yearBarPct: number; // 0–100, clamped
+  periodsClaimed: number; // periods claimed this year
+  periodsTotal: number; // periods/yr for the cycle
+  periodsSummary: string; // "6 of 12 months" | "1 of 4 quarters"
+  cadence: string; // "monthly · resets in 15d" | "quarterly · resets Oct 1"
+  resetShort: string; // "resets in 15d" | "resets Oct 1"
+  cadenceAlert: boolean; // render the reset countdown in alert color
+  claimedLabel: string | null; // "claimed Jul 5" when claimed, else null
 }
 
 export interface ExpiringGroup {
@@ -126,12 +171,38 @@ export interface Derived {
 
 function decorate(c: Credit): DerivedCredit {
   const rem = remaining(c);
+  const av = annualValue(c);
+  const yearBarPct =
+    av > 0 ? Math.min(100, Math.max(0, Math.round((c.capturedYtd / av) * 100))) : 0;
+  const periodsTotal = PERIODS_PER_YEAR[c.cycle];
+  const periodsClaimed = c.periods
+    ? c.periods.filter((p) => p.used).length
+    : c.used
+      ? 1
+      : 0;
+  const periodNoun = PERIOD_NOUN[c.cycle];
+  const periodsSummary = `${periodsClaimed} of ${periodsTotal} ${periodsTotal === 1 ? periodNoun : periodNoun + "s"}`;
+  const resetShort =
+    c.cycle === "monthly" ? `resets in ${c.days}d` : `resets ${shortDate(c.resetAt)}`;
+  const cadence = `${CYCLE_LABEL[c.cycle].toLowerCase()} · ${resetShort}`;
+  // Handoff reds the monthly countdown always; non-monthly only when near reset.
+  const cadenceAlert = !c.used && !c.snoozed && (c.cycle === "monthly" || c.days <= 7);
   return {
     ...c,
     amountStr: usd(c.amount),
     remaining: rem,
     sub: `${c.card} · ${usd(c.amount)}`,
     cycleLabel: CYCLE_LABEL[c.cycle],
+    annualValue: av,
+    yearBarLabel: `${usd(c.capturedYtd)} of ${usd(av)}/yr`,
+    yearBarPct,
+    periodsClaimed,
+    periodsTotal,
+    periodsSummary,
+    cadence,
+    resetShort,
+    cadenceAlert,
+    claimedLabel: c.used && c.claimedAt != null ? `claimed ${shortDate(c.claimedAt)}` : null,
     reset: c.used
       ? "Used this cycle"
       : c.usedAmount > 0
@@ -144,8 +215,10 @@ function decorate(c: Credit): DerivedCredit {
 }
 
 export function derive(credits: Credit[], cards: CardBase[]): Derived {
-  const total = credits.reduce((a, c) => a + c.amount, 0);
-  const cap = credits.reduce((a, c) => a + captured(c), 0);
+  // Captured/net/verdict are YEAR-TO-DATE (capturedYtd); remainMonth/atRisk stay
+  // CURRENT-period. Annual value is the ROI denominator so pct stays 0–100.
+  const total = credits.reduce((a, c) => a + annualValue(c), 0);
+  const cap = credits.reduce((a, c) => a + c.capturedYtd, 0);
   const pct = total ? Math.round((cap / total) * 100) : 0;
   const fees = cards.reduce((a, c) => a + c.fee, 0);
   const net = cap - fees;
@@ -158,7 +231,7 @@ export function derive(credits: Credit[], cards: CardBase[]): Derived {
   const derivedCards: DerivedCard[] = cards.map((cb) => {
     const capCard = credits
       .filter((c) => c.cardId === cb.id)
-      .reduce((a, c) => a + captured(c), 0);
+      .reduce((a, c) => a + c.capturedYtd, 0);
     const cnet = capCard - cb.fee;
     const keep = cnet >= 0;
     return {

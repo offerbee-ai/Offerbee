@@ -1,0 +1,45 @@
+#!/bin/sh
+set -eu
+
+# Xcode Cloud post-clone step. Xcode Cloud runs ci_scripts located NEXT TO the
+# built workspace — for this monorepo that is apps/native/ios/ci_scripts.
+#
+# Managed Expo + pnpm monorepo: install JS + native deps so xcodebuild finds Pods.
+#
+# ⚠️ `expo prebuild --clean` wipes all of apps/native/ios, including this file. A
+# copy also lives at the repo root (ci_scripts/) as insurance; if you re-prebuild,
+# restore this one (or add a config plugin that regenerates it).
+#
+# 🎯 Trigger scope: the workflow only starts on commits that touch `apps/native/`.
+# This is enforced by the workflow's Start Condition → Branch Changes → Files and
+# Folders = "apps/native" (set in App Store Connect, NOT version-controlled here).
+# Web-only / backend-only commits never build. Backend changes hit hosted Convex at
+# runtime, so no native rebuild is needed. If this filter goes missing (workflow
+# recreated), re-add `apps/native` under Files and Folders.
+
+REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/../../../.." && pwd)}"
+echo "▶︎ repo root: $REPO_ROOT"
+
+# Node (match local: 22). Homebrew is preinstalled on Xcode Cloud runners.
+if ! command -v node >/dev/null 2>&1; then
+  echo "▶︎ installing Node via Homebrew"
+  brew install node@22
+  brew link --overwrite --force node@22
+fi
+echo "▶︎ node $(node -v)"
+
+# pnpm (pinned). Installed via npm global — corepack's signed fetch of pnpm is
+# flaky on fresh CI runners ("cannot find matching keyid"), so avoid it.
+npm install -g pnpm@10.33.0
+echo "▶︎ pnpm $(pnpm -v)"
+
+# Install the workspace (full, so the workspace:* link to @packages/backend resolves).
+cd "$REPO_ROOT"
+pnpm install --frozen-lockfile
+
+# CocoaPods for the iOS project.
+cd "$REPO_ROOT/apps/native/ios"
+command -v pod >/dev/null 2>&1 || brew install cocoapods
+pod install --repo-update
+
+echo "✅ ci_post_clone complete"

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { TextInput, View, type TextInputProps } from "react-native";
 import { router } from "expo-router";
 import { useMutation, useQuery } from "convex/react";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/expo";
 import { api } from "@packages/backend/convex/_generated/api";
 
 import { Button, Text } from "@/components/ui";

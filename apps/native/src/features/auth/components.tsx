@@ -1,12 +1,14 @@
 import { useCallback, useState } from "react";
-import { Image, Pressable, TextInput, View, type TextInputProps } from "react-native";
+import { Image, Platform, Pressable, TextInput, View, type TextInputProps } from "react-native";
 import { AntDesign } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
-import { useSSO } from "@clerk/clerk-expo";
+import { useSSO } from "@clerk/expo";
+import { useSignInWithApple } from "@clerk/expo/apple";
 
 import { Text } from "@/components/ui";
 import { radius, spacing, useTheme } from "@/theme";
 import { fontFamilies } from "@/theme/typography";
+import { clerkError } from "@/features/auth/errors";
 
 // Warm up the browser for a snappier OAuth handoff (Expo/Clerk recommendation).
 WebBrowser.maybeCompleteAuthSession();
@@ -63,7 +65,7 @@ export function OrDivider() {
   );
 }
 
-type Strategy = "oauth_google" | "oauth_apple";
+type Provider = "google" | "apple";
 
 function OAuthButton({
   label,
@@ -104,47 +106,65 @@ function OAuthButton({
 }
 
 /**
- * Google + Apple OAuth buttons wired to Clerk SSO. On success setActive flips
- * the root Stack.Protected gate to onboarding/tabs — no manual navigation.
+ * Google (browser SSO) + Apple (native sheet, iOS only) buttons wired to
+ * Clerk. On success setActive flips the root Stack.Protected gate to
+ * onboarding/tabs — no manual navigation.
  * (Design shows Google only; Apple is kept per product decision.)
  */
 export function OAuthButtons() {
   const { colors } = useTheme();
   const { startSSOFlow } = useSSO();
-  const [pending, setPending] = useState<Strategy | null>(null);
+  const { startAppleAuthenticationFlow } = useSignInWithApple();
+  const [pending, setPending] = useState<Provider | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const run = useCallback(
-    async (strategy: Strategy) => {
+    async (provider: Provider) => {
       if (pending) return;
-      setPending(strategy);
+      setPending(provider);
+      setError(null);
       try {
-        const { createdSessionId, setActive } = await startSSOFlow({ strategy });
+        const { createdSessionId, setActive } =
+          provider === "apple"
+            ? await startAppleAuthenticationFlow()
+            : await startSSOFlow({ strategy: "oauth_google" });
         if (createdSessionId && setActive) await setActive({ session: createdSessionId });
       } catch (err) {
-        if (!String(err).includes("already signed in")) console.error("OAuth error", err);
+        // User dismissed the native Apple sheet — not an error.
+        if ((err as { code?: string })?.code === "ERR_REQUEST_CANCELED") return;
+        if (!String(err).includes("already signed in")) {
+          setError(clerkError(err, "Couldn't sign in. Try again."));
+        }
       } finally {
         setPending(null);
       }
     },
-    [pending, startSSOFlow],
+    [pending, startSSOFlow, startAppleAuthenticationFlow],
   );
 
   return (
     <View style={{ gap: spacing.md }}>
       <OAuthButton
         label="Continue with Google"
-        pending={pending === "oauth_google"}
+        pending={pending === "google"}
         disabled={pending !== null}
-        onPress={() => run("oauth_google")}
+        onPress={() => run("google")}
         icon={<Image source={require("../../assets/icons/google.png")} style={{ width: 18, height: 18 }} />}
       />
-      <OAuthButton
-        label="Continue with Apple"
-        pending={pending === "oauth_apple"}
-        disabled={pending !== null}
-        onPress={() => run("oauth_apple")}
-        icon={<AntDesign name="apple" size={20} color={colors.ink} />}
-      />
+      {Platform.OS === "ios" ? (
+        <OAuthButton
+          label="Continue with Apple"
+          pending={pending === "apple"}
+          disabled={pending !== null}
+          onPress={() => run("apple")}
+          icon={<AntDesign name="apple" size={20} color={colors.ink} />}
+        />
+      ) : null}
+      {error ? (
+        <Text variant="subtext" color="alert" style={{ textAlign: "center" }}>
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }

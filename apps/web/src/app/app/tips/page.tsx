@@ -24,12 +24,6 @@ export default function TipsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="font-display text-[28px] font-semibold text-ink">
-          Tips & Offers
-        </h1>
-      </div>
-
       <div className="flex flex-col gap-2">
         {tips.map((tip, i) => (
           <Card key={`${tip.type}-${tip.cardKey ?? "x"}-${i}`}>

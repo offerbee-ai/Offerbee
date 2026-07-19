@@ -2,17 +2,13 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useSignUp } from "@clerk/clerk-expo";
+import { useSignUp } from "@clerk/expo/legacy";
 
 import { Button, Card, Icon, Screen, Text } from "@/components/ui";
 import { spacing } from "@/theme";
 import { fontFamilies } from "@/theme/typography";
 import { AuthField, OAuthButtons, OrDivider } from "@/features/auth/components";
-
-function clerkError(err: unknown): string {
-  const e = err as { errors?: { message?: string; longMessage?: string }[] };
-  return e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Something went wrong. Try again.";
-}
+import { clerkError } from "@/features/auth/errors";
 
 export default function SignUp() {
   const { isLoaded, signUp, setActive } = useSignUp();

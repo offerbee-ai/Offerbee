@@ -28,9 +28,15 @@
       "env": {
         "APP_ENV": "production"
       }
+    },
+    "testflight": {
+      "extends": "preview",
+      "distribution": "store",
+      "autoIncrement": true
     }
   },
   "submit": {
-    "production": {}
+    "production": {},
+    "testflight": {}
   }
 }

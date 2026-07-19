@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/expo";
 
 import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import {
@@ -176,7 +176,6 @@ export default function ReviewScreen() {
                   <CreditRow
                     key={c.id}
                     credit={c}
-                    leading="days"
                     pending={pending.has(c.id)}
                     onMarkUsed={() => markUsed(c.id)}
                     onPress={() => router.push(`/credit/${c.id}?from=Review`)}

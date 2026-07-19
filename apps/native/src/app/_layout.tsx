@@ -5,7 +5,7 @@ import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useConvexAuth, useMutation, useQuery } from "convex/react";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/expo";
 import { api } from "@packages/backend/convex/_generated/api";
 
 import Providers from "@/lib/providers";

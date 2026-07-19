@@ -2,16 +2,14 @@
 
 import Link from "next/link";
 import { useApp, type BenefitFilter, type ExpiringRange } from "../AppProvider";
-import { expiringGroups, filterBenefits, hasGrid, usd } from "../data";
+import { expiringGroups, filterBenefits, usd } from "../data";
 import {
   BrandChip,
-  DaysTile,
-  LogPartialButton,
-  MarkUsedButton,
+  CircleCheck,
+  RowOverflow,
   Segmented,
   Panel,
 } from "../controls";
-import { PeriodGrid } from "../PeriodGrid";
 import { DetectedCredits } from "../DetectedCredits";
 import { EmptyState, Spinner } from "../ui";
 import type { DerivedCredit } from "../data";
@@ -53,14 +51,10 @@ const RANGES: { value: ExpiringRange; label: string }[] = [
   { value: "month", label: "This month" },
 ];
 
-// Each row is its own grid, so tracks must be content-independent to line up
-// across rows + header: minmax(0,fr) columns truncate instead of pushing, and
-// the amount/status columns are fixed-width (status content varies per row).
-// Mobile drops the standalone Amount column (redundant — the reset line already
-// shows the dollar figure) so the credit text isn't starved: just credit +
-// actions. md+ restores the full Credit/Card/Amount/Status table.
+// 4-column table: Benefit (chip+name+card) / To claim / Year so far / Done.
+// fr tracks truncate; Year-so-far + Done are fixed so the circle right-aligns.
 const GRID =
-  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.8fr)_minmax(0,1.2fr)_88px_188px]";
+  "items-center gap-3 px-4 sm:px-6 md:gap-[14px] grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1.2fr)_84px]";
 const HEAD =
   "font-mono text-[10.5px] font-semibold uppercase tracking-[0.06em] text-tertiary";
 
@@ -147,48 +141,47 @@ export function Benefits() {
                 </span>
               </div>
 
-              <Panel className="overflow-hidden">
+              <Panel>
                 {group.items.map((c) => (
                   <div
                     key={c.id}
-                    className="flex flex-wrap items-center gap-x-3 gap-y-3 border-t border-separator px-4 py-4 first:border-t-0 sm:px-5"
+                    className="grid items-center gap-3 border-t border-separator px-4 py-4 first:border-t-0 sm:px-5 grid-cols-[minmax(0,1fr)_auto_84px]"
                   >
-                    <DaysTile days={c.days} size={48} urgent={c.days <= 7} />
-                    <CardMark credit={c} width={38} height={25} />
-                    <div className="min-w-0 flex-1 basis-[120px]">
-                      <div className="truncate text-[15px] font-semibold text-ink">
-                        {c.name}
-                      </div>
-                      <div className="truncate text-[12.5px] text-secondary">
-                        {c.sub}
+                    <div className="flex min-w-0 items-center gap-3">
+                      <CardMark credit={c} width={34} height={23} />
+                      <div className="min-w-0">
+                        <div className="truncate text-[14.5px] font-semibold text-ink">
+                          {c.name}
+                        </div>
+                        <div className="truncate text-[12px] text-secondary">
+                          {c.card}
+                        </div>
                       </div>
                     </div>
-                    <div className="ml-auto flex items-center gap-2">
-                      {hasGrid(c.cycle) && c.periods ? (
-                        <PeriodGrid
-                          periods={c.periods}
-                          amount={c.amount}
-                          onMarkCurrent={() => markUsed(c.id)}
-                          onLogPartial={(amt) => logPartial(c.id, amt)}
-                          pending={pending.has(c.id)}
-                        />
-                      ) : (
-                        <>
-                          <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
-                          <LogPartialButton
-                            onLog={(amt) => logPartial(c.id, amt)}
-                            disabled={pending.has(c.id)}
-                          />
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => snooze(c.id)}
-                        disabled={pending.has(c.id)}
-                        className="rounded-[9px] border border-border px-[13px] py-2 text-[12.5px] font-semibold text-secondary transition-colors hover:text-ink disabled:opacity-50"
+                    <div className="min-w-0 text-right">
+                      <div className="tabular font-mono text-[14px] font-semibold text-ink">
+                        {c.amountStr}
+                      </div>
+                      <div
+                        className="truncate text-[11.5px]"
+                        style={{ color: c.cadenceAlert ? "var(--ob-alert)" : "var(--ob-secondary)" }}
                       >
-                        Snooze
-                      </button>
+                        {c.resetShort}
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-end gap-1">
+                      <div className="hidden md:block">
+                        <RowOverflow
+                          onLogPartial={(amt) => logPartial(c.id, amt)}
+                          onSnooze={() => snooze(c.id)}
+                          disabled={pending.has(c.id)}
+                        />
+                      </div>
+                      <CircleCheck
+                        claimed={c.used}
+                        onClick={() => markUsed(c.id)}
+                        disabled={pending.has(c.id)}
+                      />
                     </div>
                   </div>
                 ))}
@@ -198,7 +191,7 @@ export function Benefits() {
         </section>
       )}
 
-      {/* ── Full credits ledger ── */}
+      {/* ── Full credits ledger (screen 4a) ── */}
       <section className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Segmented
@@ -214,12 +207,12 @@ export function Benefits() {
           </div>
         </div>
 
-        <Panel className="overflow-hidden">
+        <Panel>
           <div className={`hidden md:grid ${GRID} border-b border-separator py-3`}>
-            <div className={HEAD}>Credit</div>
-            <div className={HEAD}>Card</div>
-            <div className={HEAD}>Amount</div>
-            <div className={`${HEAD} text-right`}>Status</div>
+            <div className={HEAD}>Benefit</div>
+            <div className={HEAD}>To claim</div>
+            <div className={HEAD}>Year so far</div>
+            <div className={`${HEAD} text-right`}>Done</div>
           </div>
 
           {visible.length === 0 ? (
@@ -230,51 +223,102 @@ export function Benefits() {
             visible.map((c) => (
               <div
                 key={c.id}
-                className={`grid ${GRID} border-t border-separator py-[14px] first:border-t-0`}
+                className={`grid ${GRID} border-t border-separator py-[15px] first:border-t-0`}
               >
-                <div className="flex min-w-0 items-center gap-3">
-                  <CardMark credit={c} width={32} height={22} />
+                {/* Benefit: chip + name + card. Claimed rows dim only the
+                    identity + to-claim info — the Year-so-far bar and Done
+                    circle stay full-strength so completed progress reads at a
+                    glance instead of looking disabled. */}
+                <div className={`flex min-w-0 items-center gap-3${c.used ? " opacity-[0.55]" : ""}`}>
+                  <CardMark credit={c} width={34} height={23} />
                   <div className="min-w-0">
                     <div className="truncate text-[14.5px] font-semibold text-ink">
                       {c.name}
                     </div>
-                    <div
-                      className="truncate text-[12px]"
-                      style={{ color: c.urgentReset ? "var(--ob-alert)" : "var(--ob-secondary)" }}
-                    >
-                      {c.reset}
-                    </div>
-                    <div className="truncate text-[11.5px] text-tertiary md:hidden">
+                    <div className="truncate text-[12px] text-secondary">
                       {c.card}
+                    </div>
+                    {/* mobile-only: amount + cadence (To-claim/Year cols are md+ only) */}
+                    <div className="mt-0.5 truncate text-[11.5px] md:hidden">
+                      {c.used ? (
+                        <span className="text-secondary">
+                          <span className="font-mono text-tertiary line-through">{c.amountStr}</span>
+                          {c.claimedLabel ? ` · ${c.claimedLabel}` : ""}
+                        </span>
+                      ) : (
+                        <span style={{ color: c.snoozed ? "var(--ob-tertiary)" : c.cadenceAlert ? "var(--ob-alert)" : "var(--ob-secondary)" }}>
+                          <span className="font-mono font-semibold text-ink">{c.amountStr}</span>{" "}
+                          {c.snoozed ? `Snoozed · ${c.resetShort}` : `to claim · ${c.cadence}`}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
-                <div className="hidden truncate text-[13.5px] text-secondary md:block">
-                  {c.card}
-                </div>
-                <div className="hidden tabular font-mono text-[13px] font-semibold text-ink md:block">
-                  {c.amountStr}
-                </div>
-                <div className="flex items-center justify-end gap-2">
-                  {hasGrid(c.cycle) && c.periods ? (
-                    <PeriodGrid
-                      periods={c.periods}
-                      amount={c.amount}
-                      onMarkCurrent={() => markUsed(c.id)}
-                      onLogPartial={(amt) => logPartial(c.id, amt)}
-                      pending={pending.has(c.id)}
-                    />
+
+                {/* To claim: amount + cadence, or struck + claimed date */}
+                <div className={`hidden min-w-0 md:block${c.used ? " opacity-[0.55]" : ""}`}>
+                  {c.used ? (
+                    <>
+                      <div className="tabular font-mono text-[14px] font-semibold text-tertiary line-through">
+                        {c.amountStr}
+                      </div>
+                      {c.claimedLabel && (
+                        <div className="truncate text-[11.5px] text-secondary">
+                          {c.claimedLabel}
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <>
-                      {!c.used && (
-                        <LogPartialButton
-                          onLog={(amt) => logPartial(c.id, amt)}
-                          disabled={pending.has(c.id)}
-                        />
-                      )}
-                      <MarkUsedButton used={c.used} onClick={() => markUsed(c.id)} />
+                      <div className="tabular font-mono text-[14px] font-semibold text-ink">
+                        {c.amountStr}{" "}
+                        <span className="text-[11px] font-normal text-tertiary">to claim</span>
+                      </div>
+                      <div
+                        className="truncate text-[11.5px]"
+                        style={{ color: c.snoozed ? "var(--ob-tertiary)" : c.cadenceAlert ? "var(--ob-alert)" : "var(--ob-secondary)" }}
+                      >
+                        {c.snoozed ? `Snoozed · ${c.resetShort}` : c.cadence}
+                      </div>
                     </>
                   )}
+                </div>
+
+                {/* Year so far: bar is vertically centered so it sits level
+                    with the Done circle; the "$X of $Y/yr" caption is pinned
+                    just below (absolute) so it doesn't push the bar above the
+                    row's center line. */}
+                <div className="relative hidden min-w-0 md:block">
+                  <div className="h-[6px] overflow-hidden rounded-[4px] bg-track">
+                    <div
+                      className="h-full bg-accent transition-[width] duration-500"
+                      style={{ width: `${c.yearBarPct}%` }}
+                    />
+                  </div>
+                  <div className="absolute inset-x-0 top-full mt-[5px] truncate text-[11.5px] text-secondary">
+                    <span className="tabular font-mono font-semibold text-ink">
+                      {usd(c.capturedYtd)}
+                    </span>{" "}
+                    of {usd(c.annualValue)}/yr
+                  </div>
+                </div>
+
+                {/* Done: overflow (hover) + circle-check */}
+                <div className="flex items-center justify-end gap-1">
+                  {!c.used && (
+                    <div className="hidden md:block">
+                      <RowOverflow
+                        onLogPartial={(amt) => logPartial(c.id, amt)}
+                        onSnooze={() => snooze(c.id)}
+                        disabled={pending.has(c.id)}
+                      />
+                    </div>
+                  )}
+                  <CircleCheck
+                    claimed={c.used}
+                    onClick={() => markUsed(c.id)}
+                    disabled={pending.has(c.id)}
+                  />
                 </div>
               </div>
             ))

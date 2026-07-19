@@ -3,7 +3,14 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getUserId, requireUserId } from "./auth";
-import { periodEnd, periodKey, periodsForYear } from "./benefitCycles";
+import {
+  PERIODS_PER_YEAR,
+  capturedThisYear,
+  monthlyPeriodsForYear,
+  periodEnd,
+  periodKey,
+  periodsForYear,
+} from "./benefitCycles";
 import { suggestCredits } from "./benefitParser";
 import { benefitSourceValidator, cycleValidator } from "./validators";
 
@@ -174,34 +181,52 @@ export const listMyCredits = query({
       const meta = cardMeta.get(b.userCardId);
       if (!meta) continue; // orphan guard (card removed mid-flight)
       const pk = periodKey(b.cycle, now);
-      const usedAmount = await currentPeriodUsage(ctx, b._id, pk);
+      const currentRows = await ctx.db
+        .query("benefitUsages")
+        .withIndex("by_userBenefitId_and_periodKey", (q) =>
+          q.eq("userBenefitId", b._id).eq("periodKey", pk),
+        )
+        .take(50);
+      const usedAmount = roundCents(currentRows.reduce((a, r) => a + r.amount, 0));
+      // Latest usage instant in the current period → "claimed Jul 5" on the client.
+      // Only meaningful when the period is fully claimed; the client gates on `used`.
+      const claimedAt =
+        currentRows.length > 0 ? Math.max(...currentRows.map((r) => r.usedAt)) : null;
 
-      // Per-period grid cells for non-monthly credits (annual → 1 cell = a
-      // checkbox; quarterly → 4; semiannual → 2). Monthly stays ungridded.
-      let periods:
-        | {
-            key: string;
-            label: string;
-            usedAmount: number;
-            used: boolean;
-            status: "elapsed" | "current" | "upcoming";
-          }[]
-        | undefined;
-      if (b.cycle !== "monthly") {
-        const sums = await yearPeriodUsage(ctx, b._id, now);
-        periods = periodsForYear(b.cycle, now).map((p) => {
-          // Current cell reuses the authoritative currentPeriodUsage so the grid
-          // and the top-level usedAmount/aggregates can never disagree.
-          const cellUsed = p.status === "current" ? usedAmount : (sums.get(p.key) ?? 0);
-          return {
-            key: p.key,
-            label: p.label,
-            usedAmount: cellUsed,
-            used: cellUsed >= b.amount,
-            status: p.status,
-          };
-        });
-      }
+      // One year-of-usage read powers both the per-period grid and the
+      // year-to-date captured total (below), for every cycle.
+      const sums = await yearPeriodUsage(ctx, b._id, now);
+
+      // Year-to-date captured: usage summed across ALL of this year's periods
+      // (each capped at the per-period amount), not just the current one — so a
+      // credit used in an elapsed period (last month, H1, an earlier quarter)
+      // still counts toward the card's annual-fee ROI. The client derives every
+      // captured/net/verdict aggregate from this.
+      const capturedYtd = capturedThisYear(b.cycle, now, b.amount, usedAmount, sums);
+
+      // Per-period grid cells (annual → 1 cell = a checkbox; quarterly → 4;
+      // semiannual → 2; monthly → 12, ungridded in the list but used by the
+      // credit-detail "This year" strip).
+      let periods: {
+        key: string;
+        label: string;
+        usedAmount: number;
+        used: boolean;
+        status: "elapsed" | "current" | "upcoming";
+      }[];
+      const cellDefs =
+        b.cycle === "monthly" ? monthlyPeriodsForYear(now) : periodsForYear(b.cycle, now);
+      periods = cellDefs.map((p) => {
+        // Current cell reuses the authoritative usedAmount so grid + aggregates agree.
+        const cellUsed = p.status === "current" ? usedAmount : (sums.get(p.key) ?? 0);
+        return {
+          key: p.key,
+          label: p.label,
+          usedAmount: cellUsed,
+          used: cellUsed >= b.amount,
+          status: p.status,
+        };
+      });
 
       credits.push({
         id: b._id,
@@ -213,6 +238,8 @@ export const listMyCredits = query({
         cycle: b.cycle,
         source: b.source,
         usedAmount,
+        capturedYtd,
+        claimedAt,
         periodKey: pk,
         resetAt: periodEnd(b.cycle, now),
         snoozedUntil: b.snoozedUntil ?? null,
@@ -496,6 +523,51 @@ export const seedOwnersForCard = internalMutation({
     for (const uc of owners) {
       if (uc.benefitsSeededAt === undefined) await seedForUserCard(ctx, uc);
     }
+  },
+});
+
+// One-shot repair for seeded amounts that captured a YEAR TOTAL as the
+// per-period amount (parser bug: "Up to $300 annually in monthly DoorDash
+// promos" seeded $300/monthly instead of $25/monthly). Re-parses each
+// suggested benefit from its card's current detail and patches the amount
+// ONLY when the stored value is exactly the new parse × periods/year with the
+// same cycle — the bug's precise signature, so user-customized amounts are
+// never touched. Run: `convex run benefits:repairSeededAmounts '{}'`.
+export const repairSeededAmounts = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const parsedByCard = new Map<
+      string,
+      Map<string, { amount: number; cycle: Doc<"userBenefits">["cycle"] }>
+    >();
+    const benefits = await ctx.db.query("userBenefits").take(5000);
+    let scanned = 0;
+    const patched: string[] = [];
+    for (const b of benefits) {
+      if (b.source !== "suggested" || !b.benefitTitle) continue;
+      scanned += 1;
+      let parsed = parsedByCard.get(b.cardKey);
+      if (!parsed) {
+        const detail = await ctx.db
+          .query("cardDetails")
+          .withIndex("by_cardKey", (q) => q.eq("cardKey", b.cardKey))
+          .unique();
+        parsed = new Map(
+          suggestCredits(detail?.benefit ?? []).map((s) => [
+            s.benefitTitle,
+            { amount: roundCents(s.amount), cycle: s.cycle },
+          ]),
+        );
+        parsedByCard.set(b.cardKey, parsed);
+      }
+      const s = parsed.get(b.benefitTitle);
+      if (!s || s.cycle !== b.cycle || s.amount === b.amount) continue;
+      if (b.amount === roundCents(s.amount * PERIODS_PER_YEAR[s.cycle])) {
+        await ctx.db.patch(b._id, { amount: s.amount });
+        patched.push(`${b.cardKey}/${b.benefitTitle}: ${b.amount}→${s.amount}`);
+      }
+    }
+    return { scanned, patched };
   },
 });
 

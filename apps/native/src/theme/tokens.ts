@@ -26,6 +26,8 @@ export type ThemeColors = {
   tabUnselected: string;
   glass: string;
   navButton: string;
+  /** Border for the unclaimed CircleCheck state. */
+  circleEmpty: string;
 };
 
 export const themes: Record<ThemeName, ThemeColors> = {
@@ -50,6 +52,7 @@ export const themes: Record<ThemeName, ThemeColors> = {
     tabUnselected: "#A69C86",
     glass: "rgba(251,248,240,0.60)",
     navButton: "rgba(255,254,251,0.75)",
+    circleEmpty: "#D8CFBC",
   },
   onyx: {
     background: "#17181B",
@@ -72,6 +75,7 @@ export const themes: Record<ThemeName, ThemeColors> = {
     tabUnselected: "#6E6C67",
     glass: "rgba(22,23,26,0.62)",
     navButton: "rgba(255,255,255,0.08)",
+    circleEmpty: "#4A4A44",
   },
 };
 

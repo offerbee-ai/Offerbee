@@ -1,18 +1,14 @@
 import { useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useSignIn } from "@clerk/clerk-expo";
+import { useSignIn } from "@clerk/expo/legacy";
 
 import { Button, Card, Icon, Screen, Text } from "@/components/ui";
 import { spacing } from "@/theme";
 import { fontFamilies } from "@/theme/typography";
 import { AuthField, OAuthButtons, OrDivider } from "@/features/auth/components";
-
-function clerkError(err: unknown): string {
-  const e = err as { errors?: { message?: string; longMessage?: string }[] };
-  return e?.errors?.[0]?.longMessage ?? e?.errors?.[0]?.message ?? "Couldn't sign in. Try again.";
-}
+import { clerkError } from "@/features/auth/errors";
 
 export default function SignIn() {
   const { isLoaded, signIn, setActive } = useSignIn();
@@ -35,17 +31,14 @@ export default function SignIn() {
         setError("Additional verification is required for this account.");
       }
     } catch (err) {
-      setError(clerkError(err));
+      setError(clerkError(err, "Couldn't sign in. Try again."));
     } finally {
       setBusy(false);
     }
   };
 
   const onForgot = () =>
-    Alert.alert(
-      "Reset password",
-      "Enter your email above, then contact support to reset — self-serve reset is coming soon.",
-    );
+    router.push({ pathname: "/forgot-password", params: { email: email.trim() } });
 
   return (
     <Screen keyboardShouldPersistTaps="handled">

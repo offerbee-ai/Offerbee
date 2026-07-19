@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@400;600&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  body { margin: 0; background: #E8E3D5; }
+  a { color: #E8680E; text-decoration: none; }
+  a:hover { color: #B4550B; }
+</style>
+</helmet>
+
+<section style="padding:48px 56px 96px;font-family:'Public Sans',Helvetica,Arial,sans-serif;color:#211D16;">
+  <div style="margin-bottom:28px;">
+    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.07em;color:#6F6757;text-transform:uppercase;">OfferBee · Unified card-add flow</div>
+    <div style="font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-.01em;margin-top:6px;">Plaid first, manual fallback, confirm on review — 8 states</div>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:44px;align-items:flex-start;">
+
+    <!-- ═══════ 1a Mobile · Onboarding gate ═══════ -->
+    <div id="1a" style="width:390px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1a</span><span style="font-size:13px;color:#6F6757;">Mobile · Onboarding gate — Step 02 becomes Plaid-first</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:34px;box-shadow:0 18px 50px rgba(33,29,22,.14);overflow:hidden;">
+        <!-- stepper header -->
+        <div style="padding:26px 20px 12px;border-bottom:1px solid #ECE5D6;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <svg width="24" height="24" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberCA1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeCA1"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberCA1)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeCA1)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+              <span style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A927F;">Step 02 / 05</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;margin-top:14px;">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div><span style="font-size:9.5px;font-weight:600;color:#6F6757;">Account</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8680E;color:#E8680E;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">2</div><span style="font-size:9.5px;font-weight:600;color:#211D16;">Wallet</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">3</div><span style="font-size:9.5px;font-weight:600;color:#9A927F;">Spending</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">4</div><span style="font-size:9.5px;font-weight:600;color:#9A927F;">Reminders</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">5</div><span style="font-size:9.5px;font-weight:600;color:#9A927F;">Review</span></div>
+          </div>
+        </div>
+        <!-- gate content -->
+        <div style="padding:56px 24px 60px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+          <div style="width:48px;height:48px;border-radius:50%;background:#FBEAD5;display:flex;align-items:center;justify-content:center;color:#E8680E;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"></path><path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"></path></svg>
+          </div>
+          <h1 style="font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1;margin:16px 0 0;">Connect your bank</h1>
+          <p style="font-size:13.5px;line-height:1.55;color:#6F6757;margin:8px 0 0;max-width:280px;">We'll find your cards and track their credits automatically.</p>
+          <div style="align-self:stretch;background:#E8680E;color:#FFFFFF;font-size:15px;font-weight:600;text-align:center;padding:14px;border-radius:12px;cursor:pointer;margin-top:24px;">Connect with Plaid</div>
+          <a href="#1c" style="font-size:13.5px;font-weight:600;color:#6F6757;margin-top:16px;">I'll add my cards manually →</a>
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;margin-top:22px;">Read-only access · Disconnect anytime</div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">Skip goes to the manual picker (<a href="#1c">1c</a> without the toast). The floating action bar hides on this step, like the Clerk step.</div>
+    </div>
+
+    <!-- ═══════ 1c Mobile · Onboarding fallback ═══════ -->
+    <div id="1c" style="width:390px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1c</span><span style="font-size:13px;color:#6F6757;">Mobile · Fallback — Plaid failed, manual picker + toast</span></div>
+      <div style="position:relative;background:#FBF8F0;border:1px solid #E8E1D2;border-radius:34px;box-shadow:0 18px 50px rgba(33,29,22,.14);overflow:hidden;">
+        <!-- toast -->
+        <div style="position:absolute;top:14px;left:16px;right:16px;z-index:20;display:flex;align-items:center;gap:10px;background:rgba(33,29,22,.95);color:#FBF8F0;font-size:13px;line-height:1.4;padding:12px 14px;border-radius:13px;box-shadow:0 10px 30px rgba(33,29,22,.3);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F5B14D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 8v5"></path><circle cx="12" cy="16.5" r="0.5" fill="#F5B14D"></circle><circle cx="12" cy="12" r="9.2"></circle></svg>
+          Couldn't connect — pick your cards manually instead.
+        </div>
+        <!-- stepper header (compact, dimmed under toast is fine) -->
+        <div style="padding:26px 20px 12px;border-bottom:1px solid #ECE5D6;">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <svg width="24" height="24" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberCA2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeCA2"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberCA2)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeCA2)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+              <span style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A927F;">Step 02 / 05</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;margin-top:14px;">
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div><span style="font-size:9.5px;font-weight:600;color:#6F6757;">Account</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8680E;color:#E8680E;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">2</div><span style="font-size:9.5px;font-weight:600;color:#211D16;">Wallet</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">3</div><span style="font-size:9.5px;font-weight:600;color:#9A927F;">Spending</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">4</div><span style="font-size:9.5px;font-weight:600;color:#9A927F;">Reminders</span></div>
+            <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;display:flex;align-items:center;justify-content:center;">5</div><span style="font-size:9.5px;font-weight:600;color:#9A927F;">Review</span></div>
+          </div>
+        </div>
+        <!-- manual picker -->
+        <div style="padding:20px 20px 26px;">
+          <h1 style="font-family:'Source Serif 4',Georgia,serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.1;margin:0;">Which cards are in your wallet?</h1>
+          <p style="font-size:13.5px;line-height:1.5;color:#6F6757;margin:8px 0 16px;">Tap the ones you carry, or search 65+ cards.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="background:#FFFEFB;border:1px solid #E8680E;border-radius:13px;padding:9px;cursor:pointer;box-shadow:0 0 0 3px #FBEAD5;">
+              <div style="position:relative;height:62px;border-radius:9px;background:#1A4B8F;overflow:hidden;">
+                <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div>
+                <div style="position:absolute;top:10px;left:10px;width:22px;height:15px;border-radius:3px;background:rgba(255,255,255,.3);"></div>
+                <div style="position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+              </div>
+              <div style="margin-top:8px;font-size:13px;font-weight:600;">Sapphire Preferred®</div>
+              <div style="font-size:11px;color:#6F6757;margin-top:1px;">$95/yr · 3 credits</div>
+            </div>
+            <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:13px;padding:9px;cursor:pointer;">
+              <div style="position:relative;height:62px;border-radius:9px;background:#B49A5A;overflow:hidden;">
+                <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div>
+                <div style="position:absolute;top:10px;left:10px;width:22px;height:15px;border-radius:3px;background:rgba(255,255,255,.3);"></div>
+              </div>
+              <div style="margin-top:8px;font-size:13px;font-weight:600;">Amex Gold</div>
+              <div style="font-size:11px;color:#6F6757;margin-top:1px;">$325/yr · 4 credits</div>
+            </div>
+            <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:13px;padding:9px;cursor:pointer;">
+              <div style="position:relative;height:62px;border-radius:9px;background:#9EA6AD;overflow:hidden;">
+                <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div>
+                <div style="position:absolute;top:10px;left:10px;width:22px;height:15px;border-radius:3px;background:rgba(255,255,255,.3);"></div>
+              </div>
+              <div style="margin-top:8px;font-size:13px;font-weight:600;">Amex Platinum</div>
+              <div style="font-size:11px;color:#6F6757;margin-top:1px;">$695/yr · 9 credits</div>
+            </div>
+            <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:13px;padding:9px;cursor:pointer;">
+              <div style="position:relative;height:62px;border-radius:9px;background:#123C66;overflow:hidden;">
+                <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div>
+                <div style="position:absolute;top:10px;left:10px;width:22px;height:15px;border-radius:3px;background:rgba(255,255,255,.3);"></div>
+              </div>
+              <div style="margin-top:8px;font-size:13px;font-weight:600;">Freedom Flex®</div>
+              <div style="font-size:11px;color:#6F6757;margin-top:1px;">$0/yr · 2 credits</div>
+            </div>
+          </div>
+          <div style="position:relative;margin-top:16px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9A927F" stroke-width="2" stroke-linecap="round" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            <div style="width:100%;box-sizing:border-box;padding:12px 13px 12px 38px;border:1px solid #E8E1D2;border-radius:12px;background:#FFFEFB;font-size:14px;color:#9A927F;">Search Chase, Citi, Capital One…</div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">Any Plaid failure lands here — the manual path with a toast, never a dead end. Same screen without the toast when the user skips the gate.</div>
+    </div>
+
+    <!-- ═══════ 1b Web · Onboarding gate ═══════ -->
+    <div id="1b" style="width:880px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">1b</span><span style="font-size:13px;color:#6F6757;">Web · Onboarding gate — sidebar wizard, step 02</span></div>
+      <div style="display:flex;background:#FBF8F0;border:1px solid #E8E1D2;border-radius:18px;box-shadow:0 18px 50px rgba(33,29,22,.12);overflow:hidden;height:600px;">
+        <!-- sidebar -->
+        <aside style="width:236px;flex-shrink:0;border-right:1px solid #ECE5D6;padding:22px 16px;display:flex;flex-direction:column;">
+          <div style="display:flex;align-items:center;gap:11px;padding:0 8px 22px;">
+            <svg width="30" height="30" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberCA3" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeCA3"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberCA3)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeCA3)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+            <span style="font-family:'Source Serif 4',Georgia,serif;font-size:20px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px;">
+            <div style="display:flex;align-items:center;gap:13px;padding:10px;border-radius:11px;"><div style="width:26px;height:26px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div><span style="font-size:14.5px;font-weight:600;color:#6F6757;">Account</span></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:10px;border-radius:11px;background:#F5F1E8;"><div style="width:26px;height:26px;border-radius:50%;border:1.5px solid #E8680E;color:#E8680E;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div><span style="font-size:14.5px;font-weight:600;color:#211D16;">Wallet</span></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:10px;border-radius:11px;"><div style="width:26px;height:26px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div><span style="font-size:14.5px;font-weight:600;color:#9A927F;">Spending</span></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:10px;border-radius:11px;"><div style="width:26px;height:26px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div><span style="font-size:14.5px;font-weight:600;color:#9A927F;">Reminders</span></div>
+            <div style="display:flex;align-items:center;gap:13px;padding:10px;border-radius:11px;"><div style="width:26px;height:26px;border-radius:50%;border:1.5px solid #E8E1D2;color:#9A927F;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">5</div><span style="font-size:14.5px;font-weight:600;color:#9A927F;">Review</span></div>
+          </div>
+          <div style="margin-top:auto;">
+            <div style="background:#F5F1E8;border:1px solid #E8E1D2;border-radius:16px;padding:16px;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#9A927F;">Credits in play</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;letter-spacing:-.02em;color:#E8680E;margin-top:4px;">$0</div>
+              <div style="font-size:12.5px;color:#6F6757;margin-top:1px;">connect to find out</div>
+            </div>
+          </div>
+        </aside>
+        <!-- content -->
+        <div style="flex:1;padding:44px 54px;display:flex;flex-direction:column;">
+          <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:#9A927F;">Step 02 · Your wallet</div>
+          <h1 style="font-family:'Source Serif 4',Georgia,serif;font-size:32px;font-weight:600;letter-spacing:-.02em;margin:10px 0 0;">Connect your bank</h1>
+          <p style="font-size:15px;line-height:1.5;color:#6F6757;margin:10px 0 0;">We'll find your cards and track their credits automatically.</p>
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;">
+            <div style="width:400px;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:18px;padding:38px 36px;display:flex;flex-direction:column;align-items:center;text-align:center;box-shadow:0 12px 44px rgba(33,29,22,.07);">
+              <div style="width:48px;height:48px;border-radius:50%;background:#FBEAD5;display:flex;align-items:center;justify-content:center;color:#E8680E;">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"></path><path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"></path></svg>
+              </div>
+              <div style="font-family:'Source Serif 4',Georgia,serif;font-size:21px;font-weight:600;letter-spacing:-.01em;margin-top:16px;">Find my cards for me</div>
+              <div style="font-size:14px;line-height:1.55;color:#6F6757;margin-top:8px;">Connect once — OfferBee detects your credit cards and tracks their credits from transactions.</div>
+              <div style="align-self:stretch;background:#E8680E;color:#FFFFFF;font-size:15px;font-weight:600;text-align:center;padding:13px;border-radius:12px;cursor:pointer;margin-top:22px;">Connect with Plaid</div>
+              <a href="#1c" style="font-size:13.5px;font-weight:600;color:#6F6757;margin-top:14px;">I'll add my cards manually →</a>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;margin-top:18px;">Read-only access · Disconnect anytime</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">Same gate in the sidebar wizard. Skip advances to the existing manual card-picker step; a Plaid success goes to review <a href="#3a">3a</a>.</div>
+    </div>
+
+    <!-- ═══════ 2a Web · Add-card chooser ═══════ -->
+    <div id="2a" style="width:640px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">2a</span><span style="font-size:13px;color:#6F6757;">Web · Add-card chooser — two paths, Plaid recommended</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:12px;padding:32px;">
+        <div style="font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:-.01em;">Add a card</div>
+        <div style="font-size:14px;color:#6F6757;margin-top:6px;">Two ways in — both end with every credit tracked.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:20px;">
+          <div style="position:relative;background:#FFFEFB;border:1.5px solid #E8680E;border-radius:16px;padding:22px 20px;cursor:pointer;box-shadow:0 0 0 3px #FBEAD5;">
+            <div style="position:absolute;top:14px;right:14px;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:#FBEAD5;color:#B4550B;padding:4px 8px;border-radius:6px;">Recommended</div>
+            <div style="width:40px;height:40px;border-radius:50%;background:#FBEAD5;display:flex;align-items:center;justify-content:center;color:#E8680E;">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"></path><path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"></path></svg>
+            </div>
+            <div style="font-size:16px;font-weight:600;margin-top:14px;">Connect your bank</div>
+            <div style="font-size:13px;line-height:1.5;color:#6F6757;margin-top:4px;">Auto-detect your cards and track credits from transactions.</div>
+          </div>
+          <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;padding:22px 20px;cursor:pointer;" style-hover="border-color:#D9CFB8;">
+            <div style="width:40px;height:40px;border-radius:50%;background:#F5F1E8;display:flex;align-items:center;justify-content:center;color:#6F6757;">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+            </div>
+            <div style="font-size:16px;font-weight:600;margin-top:14px;">Search manually</div>
+            <div style="font-size:13px;line-height:1.5;color:#6F6757;margin-top:4px;">Pick from 65+ cards.</div>
+          </div>
+        </div>
+        <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;margin-top:18px;">Read-only access · Disconnect anytime</div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">"+ Add card" opens this chooser everywhere in the app. Both paths stay available; Plaid is presented first.</div>
+    </div>
+
+    <!-- ═══════ 2b Mobile · Add-card chooser ═══════ -->
+    <div id="2b" style="width:390px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">2b</span><span style="font-size:13px;color:#6F6757;">Mobile · Add-card chooser — sheet</span></div>
+      <div style="position:relative;height:560px;background:#FBF8F0;border:1px solid #E8E1D2;border-radius:34px;box-shadow:0 18px 50px rgba(33,29,22,.14);overflow:hidden;">
+        <div style="padding:24px 20px 10px;display:flex;justify-content:space-between;align-items:flex-end;">
+          <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;">July 2026</div><div style="font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600;margin-top:2px;">Your cards</div></div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,.42);"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#FBF8F0;border-radius:22px 22px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.25);padding:0 16px 24px;">
+          <div style="display:flex;justify-content:center;padding:10px 0 4px;"><div style="width:36px;height:4px;border-radius:2px;background:#D8D2C2;"></div></div>
+          <div style="text-align:center;padding:4px 20px 14px;">
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:19px;font-weight:600;">Add a card</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px;">
+            <div style="position:relative;background:#FFFEFB;border:1.5px solid #E8680E;border-radius:16px;padding:18px 16px;cursor:pointer;box-shadow:0 0 0 3px #FBEAD5;display:flex;gap:14px;align-items:flex-start;">
+              <div style="width:40px;height:40px;border-radius:50%;background:#FBEAD5;display:flex;align-items:center;justify-content:center;color:#E8680E;flex-shrink:0;">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13.5a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2"></path><path d="M14 10.5a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2"></path></svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:15px;font-weight:600;">Connect your bank</span><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;background:#FBEAD5;color:#B4550B;padding:3px 6px;border-radius:5px;">Recommended</span></div>
+                <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:3px;">Auto-detect your cards and track credits from transactions.</div>
+              </div>
+            </div>
+            <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;padding:18px 16px;cursor:pointer;display:flex;gap:14px;align-items:flex-start;">
+              <div style="width:40px;height:40px;border-radius:50%;background:#F5F1E8;display:flex;align-items:center;justify-content:center;color:#6F6757;flex-shrink:0;">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:15px;font-weight:600;">Search manually</div>
+                <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:3px;">Pick from 65+ cards.</div>
+              </div>
+            </div>
+          </div>
+          <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;margin-top:16px;">Read-only access · Disconnect anytime</div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">Replaces the old straight-to-search sheet. "Search manually" opens the existing catalog sheet unchanged.</div>
+    </div>
+
+    <!-- ═══════ 3a Web · Review ═══════ -->
+    <div id="3a" style="width:640px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">3a</span><span style="font-size:13px;color:#6F6757;">Web · Review — confirm detected cards, no silent auto-add</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:12px;padding:32px;">
+        <div style="font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:-.01em;">We found your cards</div>
+        <div style="font-size:14px;color:#6F6757;margin-top:6px;">Confirm what goes in your wallet — nothing is added without you.</div>
+        <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:18px;margin-top:20px;">
+          <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid #ECE5D6;">
+            <div style="width:36px;height:36px;border-radius:9px;background:#0E4C96;color:#FFFFFF;font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">C</div>
+            <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Chase</div><div style="font-size:12.5px;color:#6F6757;">3 credit cards found</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 20px;border-bottom:1px solid #ECE5D6;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+            <div style="width:36px;height:24px;border-radius:4px;background:#1A4B8F;flex-shrink:0;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div></div>
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Chase Sapphire Preferred®</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#9A927F;">····0704</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;flex-shrink:0;">Matched</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 20px;border-bottom:1px solid #ECE5D6;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+            <div style="width:36px;height:24px;border-radius:4px;background:#123C66;flex-shrink:0;position:relative;overflow:hidden;"><div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div></div>
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Chase Freedom Flex®</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#9A927F;">····7059</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;flex-shrink:0;">Matched</span>
+          </div>
+          <div style="margin:12px 16px 16px;display:flex;align-items:center;gap:13px;padding:12px 14px;border:1px solid #E0B48A;background:#FDF6EC;border-radius:12px;">
+            <div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E0B48A;flex-shrink:0;"></div>
+            <div style="width:36px;height:24px;border-radius:4px;border:1.5px dashed #E0B48A;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#B4693A;font-size:13px;font-weight:600;">?</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;color:#B4693A;">Ultimate Rewards®</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#B4693A;">····9911</span></div>
+              <div style="font-size:12.5px;color:#B4693A;margin-top:1px;">Chase didn't say which card this is.</div>
+            </div>
+            <span style="font-size:13px;font-weight:600;color:#B4693A;cursor:pointer;flex-shrink:0;">Choose which card →</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:18px;">
+          <div style="background:#E8680E;color:#FFFFFF;font-size:14px;font-weight:600;padding:12px 24px;border-radius:11px;cursor:pointer;">Add 2 cards</div>
+          <div style="font-size:12.5px;line-height:1.45;color:#6F6757;">Uncheck anything you don't want. You can link the rest later in Settings.</div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">Onboarding and in-app Plaid connects both land here. Confirming adds the checked cards to the wallet AND links the bank accounts.</div>
+    </div>
+
+    <!-- ═══════ 3b Web · Review, picker open ═══════ -->
+    <div id="3b" style="width:640px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">3b</span><span style="font-size:13px;color:#6F6757;">Web · Review — ambiguous row's picker open</span></div>
+      <div style="background:#FBF8F0;border:1px solid #E8E1D2;border-radius:12px;padding:32px;">
+        <div style="font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:-.01em;">We found your cards</div>
+        <div style="font-size:14px;color:#6F6757;margin-top:6px;">Confirm what goes in your wallet — nothing is added without you.</div>
+        <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:18px;margin-top:20px;">
+          <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid #ECE5D6;">
+            <div style="width:36px;height:36px;border-radius:9px;background:#0E4C96;color:#FFFFFF;font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">C</div>
+            <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Chase</div><div style="font-size:12.5px;color:#6F6757;">3 credit cards found</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 20px;border-bottom:1px solid #ECE5D6;opacity:.55;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+            <div style="width:36px;height:24px;border-radius:4px;background:#1A4B8F;flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Chase Sapphire Preferred®</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#9A927F;">····0704</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;flex-shrink:0;">Matched</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:13px;padding:13px 20px;border-bottom:1px solid #ECE5D6;opacity:.55;">
+            <div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+            <div style="width:36px;height:24px;border-radius:4px;background:#123C66;flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;">Chase Freedom Flex®</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#9A927F;">····7059</span></div>
+            <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;color:#9A927F;text-transform:uppercase;flex-shrink:0;">Matched</span>
+          </div>
+          <div style="margin:12px 16px 16px;display:flex;align-items:center;gap:13px;padding:12px 14px;border:1px solid #E8680E;background:#FDF6EC;border-radius:12px;box-shadow:0 0 0 3px #FBEAD5;position:relative;">
+            <div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E0B48A;flex-shrink:0;"></div>
+            <div style="width:36px;height:24px;border-radius:4px;border:1.5px dashed #E0B48A;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:#B4693A;font-size:13px;font-weight:600;">?</div>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;align-items:baseline;gap:8px;"><span style="font-size:14.5px;font-weight:600;color:#B4693A;">Ultimate Rewards®</span><span style="font-family:'IBM Plex Mono',monospace;font-size:12.5px;color:#B4693A;">····9911</span></div>
+              <div style="font-size:12.5px;color:#B4693A;margin-top:1px;">Chase didn't say which card this is.</div>
+            </div>
+            <span style="font-size:13px;font-weight:600;color:#B4693A;flex-shrink:0;">Choose which card →</span>
+            <!-- popover -->
+            <div style="position:absolute;top:calc(100% + 8px);right:0;width:300px;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:14px;box-shadow:0 16px 48px rgba(33,29,22,.18);padding:6px;z-index:10;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:8px 10px 5px;">Your wallet</div>
+              <div style="padding:9px 10px;border-radius:9px;cursor:pointer;font-size:13.5px;font-weight:500;color:#211D16;" style-hover="background:#F5F1E8;">Chase Freedom Unlimited®</div>
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:9px;padding:9px 10px;border-radius:9px;font-size:13.5px;font-weight:500;color:#9A927F;cursor:default;">Chase Sapphire Preferred®<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.05em;text-transform:uppercase;">Matched ····0704</span></div>
+              <div style="height:1px;background:#ECE5D6;margin:6px 4px;"></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:6px 10px 5px;">Add new — Chase</div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;" style-hover="background:#F5F1E8;">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#E8680E" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+                <div>
+                  <div style="font-size:13.5px;font-weight:600;color:#211D16;">Sapphire Reserve®</div>
+                  <div style="font-size:12px;color:#6F6757;margin-top:1px;">Adds this card to your wallet</div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;" style-hover="background:#F5F1E8;">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#E8680E" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+                <div>
+                  <div style="font-size:13.5px;font-weight:600;color:#211D16;">Ink Business Preferred®</div>
+                  <div style="font-size:12px;color:#6F6757;margin-top:1px;">Adds this card to your wallet</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:130px;">
+          <div style="background:#E8680E;color:#FFFFFF;font-size:14px;font-weight:600;padding:12px 24px;border-radius:11px;cursor:pointer;">Add 2 cards</div>
+          <div style="font-size:12.5px;line-height:1.45;color:#6F6757;">Uncheck anything you don't want. You can link the rest later in Settings.</div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">Same grouped popover as Connected Accounts <a href="#3a">↩</a> — resolving checks the row and the CTA becomes "Add 3 cards".</div>
+    </div>
+
+    <!-- ═══════ 3c Mobile · Review + sheet ═══════ -->
+    <div id="3c" style="width:390px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;background:#211D16;color:#FBF8F0;padding:3px 8px;border-radius:6px;">3c</span><span style="font-size:13px;color:#6F6757;">Mobile · Review — bottom-sheet picker open</span></div>
+      <div style="position:relative;height:760px;background:#FBF8F0;border:1px solid #E8E1D2;border-radius:34px;box-shadow:0 18px 50px rgba(33,29,22,.14);overflow:hidden;">
+        <!-- review behind -->
+        <div style="padding:30px 20px 0;">
+          <h1 style="font-family:'Source Serif 4',Georgia,serif;font-size:24px;font-weight:600;letter-spacing:-.02em;line-height:1.1;margin:0;">We found your cards</h1>
+          <p style="font-size:13px;line-height:1.5;color:#6F6757;margin:7px 0 14px;">Confirm what goes in your wallet — nothing is added without you.</p>
+          <div style="background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+            <div style="display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid #ECE5D6;">
+              <div style="width:32px;height:32px;border-radius:8px;background:#0E4C96;color:#FFFFFF;font-family:'Source Serif 4',Georgia,serif;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;">C</div>
+              <div style="flex:1;"><div style="font-size:14.5px;font-weight:600;">Chase</div><div style="font-size:12px;color:#6F6757;">3 credit cards found</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;padding:12px 16px;border-bottom:1px solid #ECE5D6;">
+              <div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+              <div style="width:32px;height:21px;border-radius:4px;background:#1A4B8F;flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">Sapphire Preferred®</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A927F;">····0704 · matched</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:11px;padding:12px 16px;">
+              <div style="width:22px;height:22px;border-radius:50%;background:#E8680E;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></div>
+              <div style="width:32px;height:21px;border-radius:4px;background:#123C66;flex-shrink:0;"></div>
+              <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;">Freedom Flex®</div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:#9A927F;">····7059 · matched</div></div>
+            </div>
+          </div>
+          <div style="margin-top:10px;display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid #E0B48A;background:#FDF6EC;border-radius:12px;">
+            <div style="width:22px;height:22px;border-radius:50%;border:1.5px solid #E0B48A;flex-shrink:0;"></div>
+            <div style="flex:1;min-width:0;"><div style="font-size:13.5px;font-weight:600;color:#B4693A;">Ultimate Rewards® ····9911</div><div style="font-size:12px;color:#B4693A;">Choose which card →</div></div>
+          </div>
+        </div>
+        <div style="position:absolute;inset:0;background:rgba(0,0,0,.42);"></div>
+        <!-- sheet -->
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#FBF8F0;border-radius:22px 22px 0 0;box-shadow:0 -12px 40px rgba(0,0,0,.25);padding-bottom:22px;">
+          <div style="display:flex;justify-content:center;padding:10px 0 4px;"><div style="width:36px;height:4px;border-radius:2px;background:#D8D2C2;"></div></div>
+          <div style="text-align:center;padding:4px 20px 12px;">
+            <div style="font-family:'Source Serif 4',Georgia,serif;font-size:17px;font-weight:600;">Which card is ····9911?</div>
+            <div style="font-size:12.5px;color:#6F6757;margin-top:2px;">Chase reported it as "Ultimate Rewards®"</div>
+          </div>
+          <div style="margin:0 16px;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:16px;overflow:hidden;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:12px 16px 6px;">Your wallet</div>
+            <div style="padding:12px 16px;border-bottom:1px solid #ECE5D6;font-size:14.5px;font-weight:500;cursor:pointer;">Chase Freedom Unlimited®</div>
+            <div style="padding:12px 16px;border-bottom:1px solid #ECE5D6;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:14.5px;font-weight:500;color:#9A927F;">Chase Sapphire Preferred®<span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;">Matched ····0704</span></div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:#9A927F;text-transform:uppercase;padding:12px 16px 6px;">Add new — Chase</div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #ECE5D6;cursor:pointer;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="#E8680E" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+              <div><div style="font-size:14.5px;font-weight:600;">Sapphire Reserve®</div><div style="font-size:12px;color:#6F6757;margin-top:1px;">Adds this card to your wallet</div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;">
+              <svg width="15" height="15" viewBox="0 0 14 14" fill="none" stroke="#E8680E" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><path d="M7 1.5v11M1.5 7h11"></path></svg>
+              <div><div style="font-size:14.5px;font-weight:600;">Ink Business Preferred®</div><div style="font-size:12px;color:#6F6757;margin-top:1px;">Adds this card to your wallet</div></div>
+            </div>
+          </div>
+          <div style="margin:12px 16px 0;background:#FFFEFB;border:1px solid #E8E1D2;border-radius:14px;text-align:center;padding:13px;font-size:15px;font-weight:600;color:#E8680E;cursor:pointer;">Cancel</div>
+        </div>
+      </div>
+      <div style="font-size:12.5px;line-height:1.5;color:#6F6757;margin-top:10px;padding:0 6px;">Unchecked accounts stay connected but unlinked — fixable later in Settings → Connected accounts.</div>
+    </div>
+
+  </div>
+</section>
+</x-dc>
+</body>
+</html>
