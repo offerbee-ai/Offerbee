@@ -33,13 +33,17 @@ const siteDescription =
 
 // Resolve the canonical origin per deploy so og:image/og:url stay on the
 // domain being previewed (Netlify: CONTEXT/URL/DEPLOY_PRIME_URL; Vercel: VERCEL_URL).
-const siteUrl =
+const rawSiteUrl =
   process.env.NEXT_PUBLIC_SITE_URL ??
   (process.env.CONTEXT === "production"
     ? process.env.URL
     : process.env.DEPLOY_PRIME_URL) ??
   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
   "https://offerbee.ai";
+// NEXT_PUBLIC_SITE_URL may be set as a bare hostname; new URL() needs a scheme.
+const siteUrl = rawSiteUrl.startsWith("http")
+  ? rawSiteUrl
+  : `https://${rawSiteUrl}`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
