@@ -31,8 +31,22 @@ const ibmPlexMono = IBM_Plex_Mono({
 const siteDescription =
   "OfferBee tracks every statement credit and benefit across your premium cards — so you use them before they reset, and know which annual fees are still worth it.";
 
+// Resolve the canonical origin per deploy so og:image/og:url stay on the
+// domain being previewed (Netlify: CONTEXT/URL/DEPLOY_PRIME_URL; Vercel: VERCEL_URL).
+const rawSiteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.CONTEXT === "production"
+    ? process.env.URL
+    : process.env.DEPLOY_PRIME_URL) ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined) ??
+  "https://offerbee.ai";
+// NEXT_PUBLIC_SITE_URL may be set as a bare hostname; new URL() needs a scheme.
+const siteUrl = rawSiteUrl.startsWith("http")
+  ? rawSiteUrl
+  : `https://${rawSiteUrl}`;
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://offerbee.ai"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: "OfferBee — Your card perks, actually used.",
     template: "%s — OfferBee",
@@ -41,7 +55,7 @@ export const metadata: Metadata = {
   applicationName: "OfferBee",
   openGraph: {
     type: "website",
-    url: "https://offerbee.ai",
+    url: siteUrl,
     siteName: "OfferBee",
     title: "OfferBee — Your card perks, actually used.",
     description: siteDescription,
