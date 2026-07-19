@@ -1087,9 +1087,19 @@ export const syncAllItems = internalAction({
       cursor,
       limit: 20,
     });
-    page.itemIds.forEach((itemId, i) => {
-      void ctx.scheduler.runAfter(i * 1500, internal.plaid.syncItem, { itemId });
-    });
+    // In an action, scheduler calls are async RPCs — they MUST be awaited or
+    // the action can return before they commit and the jobs are dropped. This
+    // was fire-and-forget (`void`) and the cron silently synced nothing;
+    // items only updated via webhooks/manual refresh.
+    await Promise.all(
+      page.itemIds.map((itemId, i) =>
+        ctx.scheduler.runAfter(i * 1500, internal.plaid.syncItem, { itemId }),
+      ),
+    );
+    console.log(
+      `[plaid sync] cron scheduled ${page.itemIds.length} item sync(s)` +
+        (page.isDone ? "" : " (more pages follow)"),
+    );
     if (!page.isDone)
       await ctx.scheduler.runAfter(30_000, internal.plaid.syncAllItems, {
         cursor: page.continueCursor,
