@@ -1,54 +1,62 @@
 import { useState } from "react";
 import { Pressable, View } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useSignUp } from "@clerk/clerk-expo";
+import { useSignIn } from "@clerk/clerk-expo";
 
 import { Button, Card, Icon, Screen, Text } from "@/components/ui";
 import { spacing } from "@/theme";
 import { fontFamilies } from "@/theme/typography";
-import { AuthField, OAuthButtons, OrDivider } from "@/features/auth/components";
+import { AuthField } from "@/features/auth/components";
 import { clerkError } from "@/features/auth/errors";
 
-export default function SignUp() {
-  const { isLoaded, signUp, setActive } = useSignUp();
+export default function ForgotPassword() {
+  const { isLoaded, signIn, setActive } = useSignIn();
   const insets = useSafeAreaInsets();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const params = useLocalSearchParams<{ email?: string }>();
+  const [email, setEmail] = useState(params.email ?? "");
   const [code, setCode] = useState("");
-  const [pendingVerification, setPendingVerification] = useState(false);
+  const [password, setPassword] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const onContinue = async () => {
+  const onSendCode = async () => {
     if (!isLoaded || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await signUp.create({ emailAddress: email.trim(), password });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
-      setPendingVerification(true);
+      await signIn.create({ strategy: "reset_password_email_code", identifier: email.trim() });
+      setCodeSent(true);
     } catch (err) {
-      setError(clerkError(err));
+      setError(clerkError(err, "Couldn't send the reset code. Try again."));
     } finally {
       setBusy(false);
     }
   };
 
-  const onVerify = async () => {
+  const onReset = async () => {
     if (!isLoaded || busy) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await signUp.attemptEmailAddressVerification({ code: code.trim() });
+      const result = await signIn.attemptFirstFactor({
+        strategy: "reset_password_email_code",
+        code: code.trim(),
+        password,
+      });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        // Root Stack.Protected gate flips to onboarding once auth updates.
+        // Root Stack.Protected gate flips to tabs/onboarding once auth updates.
+      } else if (result.status === "needs_second_factor") {
+        setError(
+          "Two-factor authentication is required for this account — reset your password on the web instead.",
+        );
       } else {
-        setError("That code didn't verify. Check the email and try again.");
+        setError("Couldn't finish the reset. Try again.");
       }
     } catch (err) {
-      setError(clerkError(err));
+      setError(clerkError(err, "Couldn't reset your password. Try again."));
     } finally {
       setBusy(false);
     }
@@ -75,46 +83,26 @@ export default function SignUp() {
       </Pressable>
 
       <Text style={{ fontFamily: fontFamilies.display, fontSize: 28, lineHeight: 34, marginTop: spacing.base }}>
-        Create your account
+        Reset your password
       </Text>
       <Text variant="bodyRegular" color="secondary" style={{ marginTop: spacing.xs }}>
-        Your first "aha" is about two minutes away.
+        We'll email you a code to set a new one.
       </Text>
 
       <Card size="lg" style={{ marginTop: spacing.lg, gap: spacing.base }}>
-        {pendingVerification ? (
+        {codeSent ? (
           <>
-            <Text variant="body">Enter the code we emailed to {email}.</Text>
+            <Text variant="body">Enter the code we emailed to {email.trim()}.</Text>
             <AuthField
-              label="Verification code"
+              label="Reset code"
               value={code}
               onChangeText={setCode}
               keyboardType="number-pad"
               autoFocus
               placeholder="123456"
             />
-            {error ? (
-              <Text variant="subtext" color="alert">
-                {error}
-              </Text>
-            ) : null}
-            <Button label="Verify & continue" loading={busy} onPress={onVerify} />
-          </>
-        ) : (
-          <>
-            <OAuthButtons />
-            <OrDivider />
             <AuthField
-              label="Email"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              placeholder="you@email.com"
-            />
-            <AuthField
-              label="Password"
+              label="New password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
@@ -127,28 +115,42 @@ export default function SignUp() {
               </Text>
             ) : null}
             <Button
-              label="Continue"
+              label="Reset password & sign in"
               loading={busy}
-              disabled={!email.trim() || !password}
-              onPress={onContinue}
+              disabled={!code.trim() || !password}
+              onPress={onReset}
             />
             <View style={{ flexDirection: "row", justifyContent: "center", gap: 4 }}>
               <Text variant="subtext" color="secondary">
-                Already have an account?
+                Didn't get it?
               </Text>
-              <Pressable onPress={() => router.replace("/sign-in")} hitSlop={6}>
+              <Pressable onPress={onSendCode} hitSlop={6}>
                 <Text variant="subtext" color="accent" style={{ fontFamily: fontFamilies.textSemiBold }}>
-                  Sign in
+                  Resend code
                 </Text>
               </Pressable>
             </View>
           </>
+        ) : (
+          <>
+            <AuthField
+              label="Email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoComplete="email"
+              placeholder="you@email.com"
+            />
+            {error ? (
+              <Text variant="subtext" color="alert">
+                {error}
+              </Text>
+            ) : null}
+            <Button label="Send reset code" loading={busy} disabled={!email.trim()} onPress={onSendCode} />
+          </>
         )}
       </Card>
-
-      <Text variant="caption" color="tertiary" style={{ marginTop: spacing.base, textAlign: "center" }}>
-        By continuing you agree to the Terms and Privacy Policy.
-      </Text>
     </Screen>
   );
 }
