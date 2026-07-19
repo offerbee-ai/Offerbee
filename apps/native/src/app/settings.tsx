@@ -1,6 +1,6 @@
 import { Alert, View } from "react-native";
 import Constants from "expo-constants";
-import { useAuth, useUser } from "@clerk/clerk-expo";
+import { useAuth, useUser } from "@clerk/expo";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
