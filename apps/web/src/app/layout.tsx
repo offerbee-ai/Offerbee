@@ -28,10 +28,38 @@ const ibmPlexMono = IBM_Plex_Mono({
   display: "swap",
 });
 
+const siteDescription =
+  "OfferBee tracks every statement credit and benefit across your premium cards — so you use them before they reset, and know which annual fees are still worth it.";
+
 export const metadata: Metadata = {
-  title: "OfferBee — Your card perks, actually used.",
-  description:
-    "OfferBee tracks every statement credit and benefit across your premium cards — so you use them before they reset, and know which annual fees are still worth it.",
+  metadataBase: new URL("https://offerbee.ai"),
+  title: {
+    default: "OfferBee — Your card perks, actually used.",
+    template: "%s — OfferBee",
+  },
+  description: siteDescription,
+  applicationName: "OfferBee",
+  openGraph: {
+    type: "website",
+    url: "https://offerbee.ai",
+    siteName: "OfferBee",
+    title: "OfferBee — Your card perks, actually used.",
+    description: siteDescription,
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "OfferBee — track every statement credit and benefit across your premium cards.",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "OfferBee — Your card perks, actually used.",
+    description: siteDescription,
+    images: ["/og.png"],
+  },
 };
 
 export default function RootLayout({
