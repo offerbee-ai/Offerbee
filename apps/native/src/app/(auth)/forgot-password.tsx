@@ -27,6 +27,8 @@ export default function ForgotPassword() {
     setError(null);
     try {
       await signIn.create({ strategy: "reset_password_email_code", identifier: email.trim() });
+      // A resend starts a fresh attempt — any previously typed code is stale.
+      setCode("");
       setCodeSent(true);
     } catch (err) {
       setError(clerkError(err, "Couldn't send the reset code. Try again."));
