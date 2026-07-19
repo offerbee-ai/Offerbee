@@ -49,6 +49,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ios: {
     supportsTablet: false,
     bundleIdentifier: ENV.bundleId,
+    // Sign in with Apple entitlement (native Apple SSO via Clerk).
+    usesAppleSignIn: true,
     infoPlist: {
       // App uses only standard/exempt encryption (HTTPS). Declaring this here
       // skips the manual export-compliance prompt on every App Store Connect
@@ -82,9 +84,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     "expo-font",
     "expo-secure-store",
+    "expo-apple-authentication",
     ["expo-notifications", { color: "#E8680E" }],
-    // iOS deployment floor (Xcode 27 SDK rejects pods below 15.0; app targets 16.4).
-    ["expo-build-properties", { ios: { deploymentTarget: "16.4" } }],
+    // iOS deployment floor (Xcode 27 SDK rejects pods below 15.0; @clerk/expo's
+    // native module requires 17.0).
+    ["expo-build-properties", { ios: { deploymentTarget: "17.0" } }],
     // expo-build-properties misses pod resource-bundle sub-targets (12.4/13.4) — bump them too.
     "./plugins/with-ios-pod-min-deployment-target",
     // UIScene lifecycle adoption — required on the iOS 26+/27 SDK or UIKit traps at launch.

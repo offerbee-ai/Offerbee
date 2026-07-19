@@ -1,6 +1,6 @@
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
-import { useUser } from "@clerk/clerk-expo";
+import { useUser } from "@clerk/expo";
 
 import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import {
