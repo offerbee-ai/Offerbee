@@ -9,6 +9,13 @@ set -eu
 # ⚠️ `expo prebuild --clean` wipes all of apps/native/ios, including this file. A
 # copy also lives at the repo root (ci_scripts/) as insurance; if you re-prebuild,
 # restore this one (or add a config plugin that regenerates it).
+#
+# 🎯 Trigger scope: the workflow only starts on commits that touch `apps/native/`.
+# This is enforced by the workflow's Start Condition → Branch Changes → Files and
+# Folders = "apps/native" (set in App Store Connect, NOT version-controlled here).
+# Web-only / backend-only commits never build. Backend changes hit hosted Convex at
+# runtime, so no native rebuild is needed. If this filter goes missing (workflow
+# recreated), re-add `apps/native` under Files and Folders.
 
 REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/../../../.." && pwd)}"
 echo "▶︎ repo root: $REPO_ROOT"
