@@ -12,6 +12,7 @@ import {
   periodsForYear,
 } from "./benefitCycles";
 import { suggestCredits } from "./benefitParser";
+import { staleOverrideTitles } from "./benefitOverrides";
 import { benefitSourceValidator, cycleValidator } from "./validators";
 
 const MAX_BENEFITS_PER_USER = 300;
@@ -335,7 +336,14 @@ export const updateBenefit = mutation({
     // current period restarts clean. No migration.
     if (cycle !== undefined) patch.cycle = cycle;
 
-    await ctx.db.patch(userBenefitId, patch);
+    // Amount/cycle edits stamp the row as user-touched so the seeded-benefit
+    // reconcile (repairSeededAmounts) never rewrites a deliberate choice —
+    // even one that happens to land back on the raw-parse values.
+    const edited = patch.amount !== undefined || patch.cycle !== undefined;
+    await ctx.db.patch(userBenefitId, {
+      ...patch,
+      ...(edited ? { editedAt: Date.now() } : {}),
+    });
   },
 });
 
@@ -549,8 +557,12 @@ export const repairSeededAmounts = internalMutation({
     const benefits = await ctx.db.query("userBenefits").take(5000);
     let scanned = 0;
     const patched: string[] = [];
+    const staleOverrides: string[] = [];
     for (const b of benefits) {
-      if (b.source !== "suggested" || !b.benefitTitle) continue;
+      // editedAt = the user deliberately changed amount/cycle — theirs to keep,
+      // even if the values coincide with a parse fingerprint below.
+      if (b.source !== "suggested" || !b.benefitTitle || b.editedAt !== undefined)
+        continue;
       scanned += 1;
       let maps = byCard.get(b.cardKey);
       if (!maps) {
@@ -563,6 +575,10 @@ export const repairSeededAmounts = internalMutation({
           final: toMap(suggestCredits(detail?.benefit ?? [], b.cardKey)),
         };
         byCard.set(b.cardKey, maps);
+        // Drift check once per card: overrides whose titles no longer match
+        // any parsed benefit (upstream renamed it → correction stopped applying).
+        for (const t of staleOverrideTitles(b.cardKey, [...maps.raw.keys()]))
+          staleOverrides.push(`${b.cardKey}/${t}`);
       }
       const s = maps.final.get(b.benefitTitle);
       if (!s || (s.cycle === b.cycle && s.amount === b.amount)) continue;
@@ -605,7 +621,7 @@ export const repairSeededAmounts = internalMutation({
         );
       }
     }
-    return { scanned, patched };
+    return { scanned, patched, staleOverrides };
   },
 });
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { suggestCredits } from "./benefitParser";
+import { staleOverrideTitles } from "./benefitOverrides";
 
 // Real catalog text for CSR StubHub — says "annual", omits the $150 Jan–Jun /
 // $150 Jul–Dec split that Chase's own terms specify.
@@ -30,6 +31,14 @@ describe("curated benefit overrides", () => {
     expect(s).toMatchObject({ amount: 300, cycle: "annual" });
   });
 
+  it("matches titles case-insensitively (upstream casing drift)", () => {
+    const [s] = suggestCredits(
+      [{ ...STUBHUB, benefitTitle: "  Stubhub " }],
+      "chase-sapphirereserve",
+    );
+    expect(s).toMatchObject({ amount: 150, cycle: "semiannual" });
+  });
+
   it("benefits without an override pass through unchanged", () => {
     const [s] = suggestCredits(
       [
@@ -41,5 +50,21 @@ describe("curated benefit overrides", () => {
       "chase-sapphirereserve",
     );
     expect(s).toMatchObject({ amount: 300, cycle: "annual" });
+  });
+});
+
+describe("staleOverrideTitles — upstream rename detection", () => {
+  it("reports an override whose title no longer parses from the card", () => {
+    expect(
+      staleOverrideTitles("chase-sapphirereserve", ["StubHub Credit", "DoorDash"]),
+    ).toEqual(["StubHub"]);
+  });
+
+  it("empty when the title is present (any casing)", () => {
+    expect(staleOverrideTitles("chase-sapphirereserve", ["stubhub"])).toEqual([]);
+  });
+
+  it("empty for cards with no overrides", () => {
+    expect(staleOverrideTitles("amex-platinum", [])).toEqual([]);
   });
 });

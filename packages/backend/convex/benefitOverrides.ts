@@ -25,6 +25,21 @@ const BENEFIT_OVERRIDES: Record<string, Record<string, Override>> = {
   },
 };
 
+// Titles are matched trimmed + case-insensitively so upstream casing drift
+// ("StubHub" → "Stubhub") can't silently disable a correction. Bigger renames
+// ("StubHub Credit") still miss — staleOverrideTitles surfaces those.
+const norm = (s: string) => s.trim().toLowerCase();
+
+const NORMALIZED: Record<string, Map<string, Override & { title: string }>> =
+  Object.fromEntries(
+    Object.entries(BENEFIT_OVERRIDES).map(([cardKey, byTitle]) => [
+      cardKey,
+      new Map(
+        Object.entries(byTitle).map(([title, o]) => [norm(title), { ...o, title }]),
+      ),
+    ]),
+  );
+
 // Apply any curated override for (cardKey, benefitTitle). Returns the parsed
 // credit unchanged when there's none.
 export function applyBenefitOverride(
@@ -32,7 +47,7 @@ export function applyBenefitOverride(
   parsed: ParsedCredit,
 ): ParsedCredit {
   if (!cardKey) return parsed;
-  const o = BENEFIT_OVERRIDES[cardKey]?.[parsed.benefitTitle];
+  const o = NORMALIZED[cardKey]?.get(norm(parsed.benefitTitle));
   if (!o) return parsed;
   return {
     ...parsed,
@@ -40,4 +55,20 @@ export function applyBenefitOverride(
     cycle: o.cycle ?? parsed.cycle,
     confidence: "high", // curated facts beat text heuristics
   };
+}
+
+// Drift detection: configured override titles that match NONE of the card's
+// currently-parsed benefit titles — i.e. the upstream API renamed the benefit
+// and the correction silently stopped applying. Surfaced by
+// benefits.repairSeededAmounts so every reconcile run reports it.
+export function staleOverrideTitles(
+  cardKey: string,
+  parsedTitles: string[],
+): string[] {
+  const configured = NORMALIZED[cardKey];
+  if (!configured) return [];
+  const present = new Set(parsedTitles.map(norm));
+  return [...configured.values()]
+    .filter((o) => !present.has(norm(o.title)))
+    .map((o) => o.title);
 }
