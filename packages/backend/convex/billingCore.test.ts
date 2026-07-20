@@ -66,6 +66,29 @@ describe("hasAccess", () => {
       ),
     ).toBe(false);
   });
+
+  it("incomplete status with future currentPeriodEnd: no access (unpaid)", () => {
+    expect(
+      hasAccess(
+        { ...base, subscriptionStatus: "incomplete", currentPeriodEnd: now + DAY },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it("unpaid status with future currentPeriodEnd: no access", () => {
+    expect(
+      hasAccess(
+        { ...base, subscriptionStatus: "unpaid", currentPeriodEnd: now + DAY },
+        now,
+      ),
+    ).toBe(false);
+  });
+
+  it("trial boundary: effectiveTrialEnd exactly equal to now is not access (exclusive >)", () => {
+    const trialEndsExactlyNow = { _creationTime: now - TRIAL_MS };
+    expect(hasAccess(trialEndsExactlyNow, now)).toBe(false);
+  });
 });
 
 describe("subscriptionPatchFromStripe", () => {
@@ -104,5 +127,20 @@ describe("subscriptionPatchFromStripe", () => {
     expect(patch.currentPeriodEnd).toBe(1_700_000_000 * 1000);
     expect(patch.subscriptionPlan).toBe("monthly");
     expect(patch.cancelAtPeriodEnd).toBe(true);
+  });
+
+  it("unknown price id falls back to monthly", () => {
+    const sub = {
+      id: "sub_3",
+      customer: "cus_3",
+      status: "active",
+      cancel_at_period_end: false,
+      items: {
+        data: [{ price: { id: "price_unknown" }, current_period_end: 1_800_000_000 }],
+      },
+    };
+    expect(subscriptionPatchFromStripe(sub, priceIds).subscriptionPlan).toBe(
+      "monthly",
+    );
   });
 });

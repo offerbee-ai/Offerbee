@@ -29,7 +29,14 @@ export function effectiveTrialEnd(u: {
 export function hasAccess(u: BillingUser, now: number): boolean {
   if (u.subscriptionStatus === "active" || u.subscriptionStatus === "past_due")
     return true;
-  if ((u.currentPeriodEnd ?? 0) > now) return true;
+  // Paid-through grace applies only to canceled subscriptions (deleted before
+  // period end). incomplete/unpaid/paused must NOT get it — Stripe stamps
+  // current_period_end at creation, before payment ever confirms.
+  if (
+    u.subscriptionStatus === "canceled" &&
+    (u.currentPeriodEnd ?? 0) > now
+  )
+    return true;
   return effectiveTrialEnd(u) > now;
 }
 
