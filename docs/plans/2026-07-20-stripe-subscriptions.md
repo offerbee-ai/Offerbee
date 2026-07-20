@@ -535,10 +535,12 @@ export const createCheckoutSession = action({
 
     let customerId = me.stripeCustomerId;
     if (!customerId) {
-      const customer = await stripe.customers.create({
-        email: me.email,
-        metadata: { userId: me.userId },
-      });
+      // idempotencyKey: concurrent calls (double-tap, two devices) resolve to
+      // the same Stripe customer instead of racing to create orphans.
+      const customer = await stripe.customers.create(
+        { email: me.email, metadata: { userId: me.userId } },
+        { idempotencyKey: `customer-${me.userId}` },
+      );
       customerId = customer.id;
       await ctx.runMutation(internal.billing.setStripeCustomerId, {
         userId: me.userId,
@@ -622,7 +624,14 @@ http.route({
   handler: httpAction(async (ctx, request) => {
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
     const key = process.env.STRIPE_SECRET_KEY;
-    if (!secret || !key) return new Response("not configured", { status: 500 });
+    const priceIdMonthly = process.env.STRIPE_PRICE_ID_MONTHLY;
+    const priceIdYearly = process.env.STRIPE_PRICE_ID_YEARLY;
+    if (!secret || !key || !priceIdMonthly || !priceIdYearly) {
+      // 500 so Stripe retries once env is fixed — a missing price ID would
+      // otherwise silently classify every subscription as "monthly".
+      console.error("[stripe webhook] missing STRIPE_* env vars");
+      return new Response("not configured", { status: 500 });
+    }
 
     const stripe = new Stripe(key, {
       httpClient: Stripe.createFetchHttpClient(),
@@ -644,10 +653,7 @@ http.route({
       return new Response("bad signature", { status: 400 });
     }
 
-    const priceIds = {
-      monthly: process.env.STRIPE_PRICE_ID_MONTHLY ?? "",
-      yearly: process.env.STRIPE_PRICE_ID_YEARLY ?? "",
-    };
+    const priceIds = { monthly: priceIdMonthly, yearly: priceIdYearly };
 
     const syncFromSubscription = async (sub: Stripe.Subscription) => {
       const patch = subscriptionPatchFromStripe(
@@ -785,7 +791,15 @@ const PLANS = [
 
 // Full-screen hard paywall (also rendered as the upgrade surface from the
 // trial banner). Stripe Checkout hosts all payment UI.
-export function Paywall({ trialEndsAt }: { trialEndsAt: number | null }) {
+// `onDismiss` present ⇒ opened voluntarily from the trial banner (dismissable);
+// absent ⇒ hard paywall (only exit is Sign out).
+export function Paywall({
+  trialEndsAt,
+  onDismiss,
+}: {
+  trialEndsAt: number | null;
+  onDismiss?: () => void;
+}) {
   const createCheckout = useAction(api.billing.createCheckoutSession);
   const { signOut } = useClerk();
   const [busy, setBusy] = useState<"monthly" | "yearly" | null>(null);
@@ -849,10 +863,10 @@ export function Paywall({ trialEndsAt }: { trialEndsAt: number | null }) {
       {error && <p className="mt-4 text-[14px] text-red-600">{error}</p>}
 
       <button
-        onClick={() => signOut()}
+        onClick={() => (onDismiss ? onDismiss() : signOut())}
         className="mt-8 text-[14px] text-body underline-offset-2 hover:underline"
       >
-        Sign out
+        {onDismiss ? "Not now" : "Sign out"}
       </button>
     </div>
   );
@@ -875,9 +889,32 @@ import { Paywall } from "./Paywall";
 // authed identity, and onboarding finishes inside the trial so it stays first.
 // The /app/billing/success route bypasses the gate: it renders while the
 // checkout webhook is still in flight.
+function TrialBanner({
+  daysLeft,
+  onUpgrade,
+}: {
+  daysLeft: number;
+  onUpgrade: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-3 border-b border-[#DAD2C2] bg-surface px-4 py-2 text-[14px] text-ink">
+      <span>
+        Free trial — {daysLeft} day{daysLeft === 1 ? "" : "s"} left
+      </span>
+      <button
+        onClick={onUpgrade}
+        className="font-semibold text-accent underline-offset-2 hover:underline"
+      >
+        Upgrade
+      </button>
+    </div>
+  );
+}
+
 export function PaywallGate({ children }: { children: ReactNode }) {
   const entitlement = useQuery(api.billing.getEntitlement);
   const pathname = usePathname();
+  const [showPaywall, setShowPaywall] = useState(false);
 
   // Minute tick so an in-session trial expiry drops the gate without a reload
   // (query results don't re-evaluate on wall-clock).
@@ -896,7 +933,30 @@ export function PaywallGate({ children }: { children: ReactNode }) {
   if (!entitlement.hasAccess || (entitlement.status === "trialing" && trialExpiredLocally && !entitlement.currentPeriodEnd)) {
     return <Paywall trialEndsAt={entitlement.trialEndsAt} />;
   }
-  return <>{children}</>;
+
+  // In-trial: app + countdown banner (spec: "X days left — Upgrade"), with a
+  // dismissable upgrade overlay when the banner CTA is tapped.
+  const inTrial =
+    entitlement.status === "trialing" && entitlement.trialEndsAt !== null;
+  if (inTrial && showPaywall) {
+    return (
+      <Paywall
+        trialEndsAt={entitlement.trialEndsAt}
+        onDismiss={() => setShowPaywall(false)}
+      />
+    );
+  }
+  const daysLeft = inTrial
+    ? Math.max(0, Math.ceil((entitlement.trialEndsAt! - now) / 86_400_000))
+    : 0;
+  return (
+    <>
+      {inTrial && (
+        <TrialBanner daysLeft={daysLeft} onUpgrade={() => setShowPaywall(true)} />
+      )}
+      {children}
+    </>
+  );
 }
 ```
 
@@ -912,7 +972,7 @@ import { PaywallGate } from "@/components/app/PaywallGate";
       </OnboardingGate>
 ```
 
-- [ ] **Step 4: Verify in browser** — `pnpm --filter web-app dev`; sign in with a dev user; app renders (in trial). Patch that user's `trialEndsAt` to a past timestamp via the Convex dashboard → paywall appears reactively. Click Subscribe → Stripe test checkout loads (card 4242 4242 4242 4242).
+- [ ] **Step 4: Verify in browser** — `pnpm --filter web-app dev`; sign in with a dev user; app renders with the trial banner ("Free trial — X days left · Upgrade"); banner CTA opens the dismissable plan picker ("Not now" returns to the app). Patch that user's `trialEndsAt` to a past timestamp via the Convex dashboard → hard paywall appears reactively (no "Not now", only Sign out). Click Subscribe → Stripe test checkout loads (card 4242 4242 4242 4242).
 
 - [ ] **Step 5: Commit**
 

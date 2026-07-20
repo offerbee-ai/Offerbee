@@ -98,8 +98,8 @@ Pure function in `packages/backend/convex/billing.ts`, unit-tested like the exis
 ### Public API
 
 - `getEntitlement` (query) → `{ hasAccess, status, plan, trialEndsAt, currentPeriodEnd, cancelAtPeriodEnd }`. Computed server-side at query time; clients also get raw timestamps for countdown UI (queries don't re-run on wall clock, so clients compare timestamps locally for display and the server re-checks at every mutation).
-- `createCheckoutSession` (action, `"use node"`) — args `{ plan: "monthly" | "yearly", platform: "web" | "native" }` → `{ url }`. Reuses `stripeCustomerId` or creates a customer (email from users row), sets `metadata.userId` = Clerk subject on both session and subscription, `mode: "subscription"`. `success_url`/`cancel_url` point at the web app.
-- `createPortalSession` (action, `"use node"`) → `{ url }`. Requires existing `stripeCustomerId`.
+- `createCheckoutSession` (action, default Convex runtime — Stripe SDK with `createFetchHttpClient`, no `"use node"`, same convention as `plaid.ts`) — args `{ plan: "monthly" | "yearly", platform: "web" | "native" }` → `{ url }`. Reuses `stripeCustomerId` or creates a customer (email from users row, `idempotencyKey` = userId so concurrent calls can't create duplicates), sets `metadata.userId` = Clerk subject on both session and subscription, `mode: "subscription"`. `success_url`/`cancel_url` point at the web app.
+- `createPortalSession` (action, default runtime) → `{ url }`. Requires existing `stripeCustomerId`.
 
 ### Webhook (`http.ts`, follows Plaid route pattern)
 
