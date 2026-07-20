@@ -45,6 +45,7 @@ The native app uses three committed env files (client-public values only — Con
 - The web app protects note routes via `apps/web/src/proxy.ts`.
 - The native app uses Expo Router route groups under `apps/native/src/app` (routes stay thin; data hooks live in `src/features/*`, design-system primitives in `src/components/ui`, theme tokens in `src/theme` — sourced from `Design/design_handoff_kept/tokens.json`). Derivation logic in `apps/native/src/features/credits/derive.ts` is a port of `apps/web/src/components/app/data.ts` — keep the two in sync.
 - After changing Convex functions/schema, the generated `_generated/` types update via the running `convex dev` — don't hand-edit them.
+- **Benefit-data discrepancies**: whenever a benefit's amount/cadence disagrees with the issuer's actual terms (catalog text wrong or incomplete, parser false-positive), add the corrected entry to `packages/backend/convex/benefitOverrides.json` — keyed by `(cardKey, benefitTitle)`, with `amount`/`cycle` (or `exclude: true` for non-credits) plus a `note` citing the issuer terms. Never patch user rows or catalog data directly. After deploying, run `convex run benefits:repairSeededAmounts '{}'` on each affected deployment to converge existing untouched rows.
 
 ## Deploy
 

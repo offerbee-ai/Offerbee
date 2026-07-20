@@ -171,6 +171,7 @@ export default defineSchema({
     cycle: cycleValidator,
     source: benefitSourceValidator,
     benefitTitle: v.optional(v.string()), // original API title: provenance + idempotent re-track
+    editedAt: v.optional(v.number()), // ms; user changed amount/cycle — reconcile never touches
     snoozedUntil: v.optional(v.number()), // ms; hide from expiring until then
     archivedAt: v.optional(v.number()), // ms; set when the card is removed (recoverable)
     createdAt: v.number(),

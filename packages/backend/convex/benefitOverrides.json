@@ -1,0 +1,31 @@
+{
+  "chase-sapphirereserve": {
+    "StubHub": {
+      "amount": 150,
+      "cycle": "semiannual",
+      "note": "Chase terms: $150 Jan–Jun + $150 Jul–Dec; catalog text says only 'annual'"
+    }
+  },
+  "charlesschwab-amexplat": {
+    "Schwab Appreciation Bonus": {
+      "exclude": true,
+      "note": "Tiered brokerage-asset bonus, not a recurring credit — the parser grabbed the $10M asset threshold as the amount"
+    },
+    "$200 Uber Cash": {
+      "amount": 15,
+      "note": "Amex terms: $15/mo + $20 bonus in December; the parser grabbed the December figure. The Dec bonus isn't representable, so tracking under-counts $20/yr"
+    }
+  },
+  "citi-premier": {
+    "$100 Annual Hotel Savings Benefit": {
+      "amount": 100,
+      "note": "Citi terms: $100 off a single $500+ hotel stay per calendar year; the parser picked the stay minimum instead of the credit"
+    }
+  },
+  "abbybank-biz-cashpreffered": {
+    "$100 Annual software credit": {
+      "cycle": "annual",
+      "note": "Title says annual; monthly wording in the description won the cadence vote"
+    }
+  }
+}
