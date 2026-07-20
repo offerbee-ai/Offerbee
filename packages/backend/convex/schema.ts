@@ -49,7 +49,9 @@ export default defineSchema({
     stripeCustomerId: v.optional(v.string()),
     stripeSubscriptionId: v.optional(v.string()),
     subscriptionStatus: v.optional(v.string()), // Stripe status verbatim
-    subscriptionPlan: v.optional(v.string()), // "monthly" | "yearly"
+    subscriptionPlan: v.optional(
+      v.union(v.literal("monthly"), v.literal("yearly")),
+    ),
     currentPeriodEnd: v.optional(v.number()), // ms
     cancelAtPeriodEnd: v.optional(v.boolean()),
   })

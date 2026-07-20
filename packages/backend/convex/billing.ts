@@ -30,6 +30,8 @@ export const getEntitlement = query({
     if (!user) {
       // Row not created yet (ensureUser races the first render). Brand-new
       // account ⇒ in trial by definition; the row lands within seconds.
+      // Read-side only — the write guard (requireAccess) denies rowless
+      // users instead, since a real write should never precede onboarding.
       return {
         hasAccess: true,
         status: "trialing" as const,
@@ -42,7 +44,7 @@ export const getEntitlement = query({
     return {
       hasAccess: hasAccess(user, now),
       status: user.subscriptionStatus ?? ("trialing" as const),
-      plan: (user.subscriptionPlan ?? null) as "monthly" | "yearly" | null,
+      plan: user.subscriptionPlan ?? null,
       trialEndsAt: user.subscriptionStatus ? null : effectiveTrialEnd(user),
       currentPeriodEnd: user.currentPeriodEnd ?? null,
       cancelAtPeriodEnd: user.cancelAtPeriodEnd ?? false,
@@ -51,11 +53,14 @@ export const getEntitlement = query({
 });
 
 // Defense-in-depth guard for key write paths (client paywall is the primary
-// gate). Throws for lapsed users; missing row = brand-new account = in trial.
+// gate). Throws for lapsed users. A missing row is also denied: every
+// legitimate guarded write happens after onboarding has upserted the users
+// row, so rowless-but-authed here means a client that skipped ensureUser —
+// treat as no access rather than an indefinite implicit trial.
 export async function requireAccess(ctx: QueryCtx | MutationCtx) {
   const userId = await requireUserId(ctx);
   const user = await userByUserId(ctx, userId);
-  if (user && !hasAccess(user, Date.now())) {
+  if (!user || !hasAccess(user, Date.now())) {
     throw new Error("SUBSCRIPTION_REQUIRED");
   }
   return userId;
@@ -87,15 +92,17 @@ export const getUserForBilling = internalQuery({
 });
 
 // Webhook upsert. Matches by Clerk userId (subscription metadata) first, then
-// by stripeCustomerId. Always writes the full latest state — idempotent and
-// immune to event ordering.
+// by stripeCustomerId. Writes the full given state (idempotent). Ordering
+// safety is the caller's job: Stripe does not guarantee event order, so the
+// webhook handler must sync from a freshly retrieved subscription (not the
+// event's embedded snapshot) — see http.ts /stripe/webhook.
 export const syncSubscription = internalMutation({
   args: {
     userId: v.optional(v.string()),
     stripeCustomerId: v.string(),
     stripeSubscriptionId: v.string(),
     subscriptionStatus: v.string(),
-    subscriptionPlan: v.string(),
+    subscriptionPlan: v.union(v.literal("monthly"), v.literal("yearly")),
     currentPeriodEnd: v.number(),
     cancelAtPeriodEnd: v.boolean(),
   },
@@ -103,12 +110,22 @@ export const syncSubscription = internalMutation({
     const { userId, ...patch } = args;
     let user = userId ? await userByUserId(ctx, userId) : null;
     if (!user) {
-      user = await ctx.db
-        .query("users")
-        .withIndex("by_stripeCustomerId", (q) =>
-          q.eq("stripeCustomerId", args.stripeCustomerId),
-        )
-        .unique();
+      try {
+        user = await ctx.db
+          .query("users")
+          .withIndex("by_stripeCustomerId", (q) =>
+            q.eq("stripeCustomerId", args.stripeCustomerId),
+          )
+          .unique();
+      } catch {
+        // >1 row with this stripeCustomerId — data corruption; don't crash the
+        // webhook, surface in logs instead.
+        console.error(
+          "[stripe] duplicate users for customer",
+          args.stripeCustomerId,
+        );
+        return;
+      }
     }
     if (!user) {
       // Unmatchable — log and swallow (returning 500 would make Stripe retry
