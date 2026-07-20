@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { suggestCredits } from "./benefitParser";
-import { staleOverrideTitles } from "./benefitOverrides";
+import { staleOverrideTitles, validateOverrides } from "./benefitOverrides";
+import shippedConfig from "./benefitOverrides.json";
 
 // Real catalog text for CSR StubHub — says "annual", omits the $150 Jan–Jun /
 // $150 Jul–Dec split that Chase's own terms specify.
@@ -66,5 +67,40 @@ describe("staleOverrideTitles — upstream rename detection", () => {
 
   it("empty for cards with no overrides", () => {
     expect(staleOverrideTitles("amex-platinum", [])).toEqual([]);
+  });
+});
+
+describe("validateOverrides — config-file validation", () => {
+  it("accepts the shipped benefitOverrides.json", () => {
+    const v = validateOverrides(shippedConfig);
+    expect(v["chase-sapphirereserve"]["StubHub"]).toEqual({
+      amount: 150,
+      cycle: "semiannual",
+    });
+  });
+
+  it("rejects an unknown cycle", () => {
+    expect(() =>
+      validateOverrides({ card: { Benefit: { cycle: "biweekly" } } }),
+    ).toThrow(/card\/Benefit: cycle must be one of/);
+  });
+
+  it("rejects non-positive or non-numeric amounts", () => {
+    expect(() =>
+      validateOverrides({ card: { Benefit: { amount: 0 } } }),
+    ).toThrow(/amount must be a positive number/);
+    expect(() =>
+      validateOverrides({ card: { Benefit: { amount: "150" } } }),
+    ).toThrow(/amount must be a positive number/);
+  });
+
+  it("rejects an override that sets neither amount nor cycle", () => {
+    expect(() =>
+      validateOverrides({ card: { Benefit: { note: "just a note" } } }),
+    ).toThrow(/must set amount and\/or cycle/);
+  });
+
+  it("rejects a non-object root", () => {
+    expect(() => validateOverrides([])).toThrow(/root must be an object/);
   });
 });

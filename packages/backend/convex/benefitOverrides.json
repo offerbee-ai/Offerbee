@@ -1,0 +1,9 @@
+{
+  "chase-sapphirereserve": {
+    "StubHub": {
+      "amount": 150,
+      "cycle": "semiannual",
+      "note": "Chase terms: $150 Jan–Jun + $150 Jul–Dec; catalog text says only 'annual'"
+    }
+  }
+}

@@ -3,27 +3,69 @@
 // parser (which can only read the text) needs a factual override. Keyed by
 // (cardKey, benefitTitle) exactly as suggestCredits produces them.
 //
+// The corrections themselves are CONFIG, not code: benefitOverrides.json,
+// shape `{ [cardKey]: { [benefitTitle]: { amount?, cycle?, note? } } }` where
+// `note` documents why the override exists (issuer-terms provenance) and is
+// ignored by logic. Only add entries verified against the issuer's own terms.
+// The config is validated at module load — a malformed entry fails deploy and
+// tests immediately instead of silently misbehaving.
+//
 // CONSISTENCY: this map is applied inside suggestCredits, which is the single
 // parse path used by seeding (seedForUserCard), the suggestions UI
 // (suggestionsForCard), and the reconcile repair (repairSeededAmounts) — so
 // every consumer sees identical values, and the repair converges existing
 // untouched rows to the same numbers after a deploy. Pure module (no Convex
 // imports) so it's unit-testable.
-//
-// Only add entries verified against the issuer's own benefit terms.
 
 import type { BenefitCycle } from "./validators";
 import type { ParsedCredit } from "./benefitParser";
+import rawOverrides from "./benefitOverrides.json";
 
 type Override = { amount?: number; cycle?: BenefitCycle };
 
-const BENEFIT_OVERRIDES: Record<string, Record<string, Override>> = {
-  "chase-sapphirereserve": {
-    // Catalog says "up to $300 in annual statement credits" with no mention of
-    // the split; Chase's terms grant $150 Jan–Jun + $150 Jul–Dec.
-    StubHub: { amount: 150, cycle: "semiannual" },
-  },
-};
+const CYCLES = ["monthly", "quarterly", "semiannual", "annual"] as const;
+
+// Validate the JSON config's shape; throws `cardKey/title: problem` so a bad
+// edit is caught at deploy/test time. Exported for direct testing.
+export function validateOverrides(
+  raw: unknown,
+): Record<string, Record<string, Override>> {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw))
+    throw new Error("benefitOverrides.json: root must be an object");
+  const out: Record<string, Record<string, Override>> = {};
+  for (const [cardKey, byTitle] of Object.entries(raw)) {
+    if (!cardKey.trim())
+      throw new Error("benefitOverrides.json: empty cardKey");
+    if (typeof byTitle !== "object" || byTitle === null || Array.isArray(byTitle))
+      throw new Error(`benefitOverrides.json: ${cardKey}: must be an object`);
+    out[cardKey] = {};
+    for (const [title, o] of Object.entries(byTitle as Record<string, any>)) {
+      const at = `benefitOverrides.json: ${cardKey}/${title}`;
+      if (!title.trim()) throw new Error(`${at}: empty benefit title`);
+      if (typeof o !== "object" || o === null)
+        throw new Error(`${at}: override must be an object`);
+      const { amount, cycle } = o;
+      if (amount === undefined && cycle === undefined)
+        throw new Error(`${at}: must set amount and/or cycle`);
+      if (
+        amount !== undefined &&
+        (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0)
+      )
+        throw new Error(`${at}: amount must be a positive number`);
+      if (cycle !== undefined && !CYCLES.includes(cycle))
+        throw new Error(
+          `${at}: cycle must be one of ${CYCLES.join("/")} (got "${cycle}")`,
+        );
+      out[cardKey][title] = {
+        ...(amount !== undefined ? { amount } : {}),
+        ...(cycle !== undefined ? { cycle: cycle as BenefitCycle } : {}),
+      };
+    }
+  }
+  return out;
+}
+
+const BENEFIT_OVERRIDES = validateOverrides(rawOverrides);
 
 // Titles are matched trimmed + case-insensitively so upstream casing drift
 // ("StubHub" → "Stubhub") can't silently disable a correction. Bigger renames
