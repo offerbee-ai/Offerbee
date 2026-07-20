@@ -12,6 +12,11 @@ const pushClient = new PushNotifications<string>(components.pushNotifications);
 
 // ── Registration (called by native now; usable by web push later) ───────────────
 
+// Raw APNs device tokens (64+ hex chars) — Expo's push service can't deliver
+// to these; they only burn failed sends. Older app builds registered them via
+// a buggy addPushTokenListener, so reject at the boundary too.
+const isRawDeviceToken = (token: string) => /^[0-9a-f]{64,}$/i.test(token);
+
 export const registerPushToken = mutation({
   args: {
     token: v.string(),
@@ -21,6 +26,7 @@ export const registerPushToken = mutation({
   handler: async (ctx, { token, deviceId, platform }) => {
     const userId = (await ctx.auth.getUserIdentity())?.subject;
     if (!userId) throw new Error("Authenticated user was required");
+    if (isRawDeviceToken(token)) return null;
 
     const existing = await ctx.db
       .query("pushTokens")

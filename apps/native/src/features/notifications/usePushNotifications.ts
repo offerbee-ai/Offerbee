@@ -122,10 +122,17 @@ export function usePushNotifications() {
 
     if (isExpoGo) return;
 
-    const tokenSub = Notifications.addPushTokenListener((t) => {
-      fns.current
-        .registerToken({ token: t.data, platform: Platform.OS === "ios" ? "ios" : "android" })
-        .catch(() => {});
+    // The listener fires with the NATIVE device token (raw APNs hex on iOS),
+    // which Expo's push service can't deliver to — re-derive the Expo push
+    // token instead of registering `t.data` directly.
+    const tokenSub = Notifications.addPushTokenListener(() => {
+      void (async () => {
+        const token = await getPushToken();
+        if (!token) return;
+        await fns.current
+          .registerToken({ token, platform: Platform.OS === "ios" ? "ios" : "android" })
+          .catch(() => {});
+      })();
     });
 
     // Shared handler for both the live listener and a cold-start launch
