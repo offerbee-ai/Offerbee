@@ -171,5 +171,6 @@ export function suggestCredits(
   return benefits
     .map((b) => parseBenefitCredit(b))
     .filter((p): p is ParsedCredit => p !== null)
-    .map((p) => applyBenefitOverride(cardKey, p));
+    .map((p) => applyBenefitOverride(cardKey, p))
+    .filter((p): p is ParsedCredit => p !== null); // exclude:true entries drop out
 }

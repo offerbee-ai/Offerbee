@@ -21,7 +21,7 @@ import type { BenefitCycle } from "./validators";
 import type { ParsedCredit } from "./benefitParser";
 import rawOverrides from "./benefitOverrides.json";
 
-type Override = { amount?: number; cycle?: BenefitCycle };
+type Override = { amount?: number; cycle?: BenefitCycle; exclude?: boolean };
 
 const CYCLES = ["monthly", "quarterly", "semiannual", "annual"] as const;
 
@@ -44,9 +44,11 @@ export function validateOverrides(
       if (!title.trim()) throw new Error(`${at}: empty benefit title`);
       if (typeof o !== "object" || o === null)
         throw new Error(`${at}: override must be an object`);
-      const { amount, cycle } = o;
-      if (amount === undefined && cycle === undefined)
-        throw new Error(`${at}: must set amount and/or cycle`);
+      const { amount, cycle, exclude } = o;
+      if (exclude !== undefined && exclude !== true)
+        throw new Error(`${at}: exclude must be true when present`);
+      if (amount === undefined && cycle === undefined && exclude === undefined)
+        throw new Error(`${at}: must set amount, cycle, and/or exclude`);
       if (
         amount !== undefined &&
         (typeof amount !== "number" || !Number.isFinite(amount) || amount <= 0)
@@ -59,6 +61,7 @@ export function validateOverrides(
       out[cardKey][title] = {
         ...(amount !== undefined ? { amount } : {}),
         ...(cycle !== undefined ? { cycle: cycle as BenefitCycle } : {}),
+        ...(exclude === true ? { exclude: true } : {}),
       };
     }
   }
@@ -83,14 +86,17 @@ const NORMALIZED: Record<string, Map<string, Override & { title: string }>> =
   );
 
 // Apply any curated override for (cardKey, benefitTitle). Returns the parsed
-// credit unchanged when there's none.
+// credit unchanged when there's none, or null when the entry is excluded
+// (something the parser mistook for a recurring credit — e.g. a tiered
+// brokerage bonus).
 export function applyBenefitOverride(
   cardKey: string | undefined,
   parsed: ParsedCredit,
-): ParsedCredit {
+): ParsedCredit | null {
   if (!cardKey) return parsed;
   const o = NORMALIZED[cardKey]?.get(norm(parsed.benefitTitle));
   if (!o) return parsed;
+  if (o.exclude) return null;
   return {
     ...parsed,
     amount: o.amount ?? parsed.amount,

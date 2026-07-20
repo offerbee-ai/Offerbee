@@ -581,7 +581,20 @@ export const repairSeededAmounts = internalMutation({
           staleOverrides.push(`${b.cardKey}/${t}`);
       }
       const s = maps.final.get(b.benefitTitle);
-      if (!s || (s.cycle === b.cycle && s.amount === b.amount)) continue;
+      const raw = maps.raw.get(b.benefitTitle);
+
+      // In the raw parse but not the final one → excluded by override (the
+      // parser had mistaken it for a credit). Archive the seeded row if it
+      // still matches the raw fingerprint (untouched by the user) — same
+      // recoverable archival as card removal; listMyCredits already filters it.
+      if (!s) {
+        if (raw && b.cycle === raw.cycle && b.amount === raw.amount) {
+          await ctx.db.patch(b._id, { archivedAt: Date.now() });
+          patched.push(`${b.cardKey}/${b.benefitTitle}: archived (excluded)`);
+        }
+        continue;
+      }
+      if (s.cycle === b.cycle && s.amount === b.amount) continue;
 
       // Case 1: annual-total parser bug (amount only, same cycle).
       if (
@@ -595,7 +608,6 @@ export const repairSeededAmounts = internalMutation({
 
       // Case 2: stored row still matches the raw text parse → untouched by the
       // user; safe to converge onto the curated override.
-      const raw = maps.raw.get(b.benefitTitle);
       if (raw && b.cycle === raw.cycle && b.amount === raw.amount) {
         await ctx.db.patch(b._id, { amount: s.amount, cycle: s.cycle });
         if (s.cycle !== b.cycle) {

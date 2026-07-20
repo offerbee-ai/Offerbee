@@ -70,6 +70,37 @@ describe("staleOverrideTitles — upstream rename detection", () => {
   });
 });
 
+describe("exclude:true — parser false-positives dropped", () => {
+  const SCHWAB_BONUS = {
+    benefitTitle: "Schwab Appreciation Bonus",
+    benefitDesc:
+      "Receive an annual appreciation bonus of up to $10,000,000 based on " +
+      "qualifying assets held at Schwab.",
+  };
+
+  it("drops the excluded benefit for its card", () => {
+    expect(suggestCredits([SCHWAB_BONUS], "charlesschwab-amexplat")).toEqual([]);
+  });
+
+  it("keeps it for other cards / no cardKey (raw parse view)", () => {
+    expect(suggestCredits([SCHWAB_BONUS]).length).toBe(1);
+  });
+
+  it("amount-only override still applies alongside on the same card", () => {
+    const [s] = suggestCredits(
+      [
+        {
+          benefitTitle: "$200 Uber Cash",
+          benefitDesc:
+            "Receive $15 in Uber Cash each month, plus a $20 bonus in December.",
+        },
+      ],
+      "charlesschwab-amexplat",
+    );
+    expect(s).toMatchObject({ amount: 15, cycle: "monthly" });
+  });
+});
+
 describe("validateOverrides — config-file validation", () => {
   it("accepts the shipped benefitOverrides.json", () => {
     const v = validateOverrides(shippedConfig);
@@ -94,10 +125,19 @@ describe("validateOverrides — config-file validation", () => {
     ).toThrow(/amount must be a positive number/);
   });
 
-  it("rejects an override that sets neither amount nor cycle", () => {
+  it("rejects an override that sets neither amount, cycle, nor exclude", () => {
     expect(() =>
       validateOverrides({ card: { Benefit: { note: "just a note" } } }),
-    ).toThrow(/must set amount and\/or cycle/);
+    ).toThrow(/must set amount, cycle, and\/or exclude/);
+  });
+
+  it("accepts exclude-only entries; rejects non-true exclude", () => {
+    expect(
+      validateOverrides({ card: { Benefit: { exclude: true } } }).card.Benefit,
+    ).toEqual({ exclude: true });
+    expect(() =>
+      validateOverrides({ card: { Benefit: { exclude: false } } }),
+    ).toThrow(/exclude must be true when present/);
   });
 
   it("rejects a non-object root", () => {
