@@ -48,3 +48,9 @@ docs/superpowers/
 
 # Superpowers brainstorm sessions
 .superpowers/
+
+# Xcode Cloud local metadata (workflow lives in App Store Connect)
+apps/native/ios/OfferBee.xcodeproj/xcshareddata/xcodecloud/
+
+# Playwright MCP session artifacts
+.playwright-mcp/

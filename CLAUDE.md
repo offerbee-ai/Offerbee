@@ -59,6 +59,6 @@ pnpm exec convex deploy --cmd 'cd ../../apps/web && pnpm build' --cmd-url-env-va
 
 ### Native (TestFlight via Xcode Cloud)
 
-The iOS app auto-deploys to TestFlight via Xcode Cloud. The workflow lives in App Store Connect (not the repo); the repo only holds `apps/native/ios/OfferBee.xcodeproj/xcshareddata/xcodecloud/manifest.json` and `apps/native/ios/ci_scripts/ci_post_clone.sh` (installs pnpm + Pods).
+The iOS app auto-deploys to TestFlight via Xcode Cloud. The workflow lives in App Store Connect (not the repo); the repo only holds `apps/native/ios/ci_scripts/ci_post_clone.sh` (installs pnpm + Pods). The `xcshareddata/xcodecloud/manifest.json` Xcode writes locally is git-ignored — it's local bookkeeping Xcode regenerates, not needed for builds.
 
 **Trigger scope is native-only:** the workflow's Start Condition → Branch Changes → Files and Folders is set to `apps/native`, so web-only or backend-only commits never build. Backend changes reach the app through hosted Convex at runtime — no native rebuild needed. This filter is a server-side setting in App Store Connect; if the workflow is recreated, re-add `apps/native` under Files and Folders.
