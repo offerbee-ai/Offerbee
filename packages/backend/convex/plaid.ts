@@ -81,6 +81,8 @@ export const createLinkToken = action({
   args: {},
   handler: async (ctx): Promise<{ linkToken: string }> => {
     const userId = await requireUserId(ctx);
+    await ctx.runMutation(api.users.ensureUser, {}); // row must exist before the entitlement check (onboarding races ensureUser)
+    await ctx.runQuery(internal.billing.assertAccess, {});
     const site = process.env.CONVEX_SITE_URL;
     const body: Record<string, unknown> = {
       client_name: "OfferBee",
@@ -117,6 +119,8 @@ export const exchangePublicToken = action({
     accounts: DetectedAccount[];
   }> => {
     const userId = await requireUserId(ctx);
+    await ctx.runMutation(api.users.ensureUser, {}); // row must exist before the entitlement check (onboarding races ensureUser)
+    await ctx.runQuery(internal.billing.assertAccess, {});
     const ex = await plaidRequest<{ access_token: string; item_id: string }>(
       "/item/public_token/exchange",
       { public_token: publicToken },
@@ -356,6 +360,8 @@ export const confirmDetectedCards = action({
   },
   handler: async (ctx, { itemId, selections }) => {
     await requireUserId(ctx);
+    await ctx.runMutation(api.users.ensureUser, {}); // row must exist before the entitlement check (onboarding races ensureUser)
+    await ctx.runQuery(internal.billing.assertAccess, {});
     // One card ↔ one account: reject duplicate cardKeys or accountIds before
     // any writes (the client prevents this, but don't trust it).
     const keys = selections.map((s) => s.cardKey);

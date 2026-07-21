@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { getUserId, requireUserId } from "./auth";
+import { requireAccess } from "./billing";
 import {
   PERIODS_PER_YEAR,
   capturedThisYear,
@@ -382,7 +383,7 @@ export const logUsage = mutation({
     note: v.optional(v.string()),
   },
   handler: async (ctx, { userBenefitId, amount, note }) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAccess(ctx); // subscription/trial gate + auth
     const benefit = await requireOwnedBenefit(ctx, userId, userBenefitId);
     assertValidAmount(amount);
 
