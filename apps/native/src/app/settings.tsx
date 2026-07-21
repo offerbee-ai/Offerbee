@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Alert, View } from "react-native";
 import Constants from "expo-constants";
 import { useAuth, useUser } from "@clerk/expo";
@@ -20,6 +21,8 @@ import {
 } from "@/components/ui";
 import { InlineHeader } from "@/components/navigation/InlineHeader";
 import { PlaidConnectSection } from "@/features/plaid/PlaidConnectSection";
+import { useEntitlement } from "@/features/billing/useEntitlement";
+import { useOpenPortal } from "@/features/billing/openCheckout";
 import { goBack } from "@/features/nav/back";
 import { spacing, useTheme } from "@/theme";
 import { appEnv } from "@/lib/env";
@@ -79,6 +82,42 @@ export default function SettingsScreen() {
   const me = useQuery(api.users.getMe);
   const updatePrefs = useMutation(api.users.updateNotificationPrefs);
   const cats = me?.notificationCategories ?? DEFAULT_NOTIFICATION_CATEGORIES;
+
+  const entitlement = useEntitlement();
+  const openPortal = useOpenPortal();
+  // Snapshot for the trial countdown — avoids reading Date.now() in render.
+  const [now] = useState(() => Date.now());
+
+  const plan = entitlement?.plan ?? null;
+  const isSubscribed = plan !== null;
+  const currentPeriodEnd = entitlement?.currentPeriodEnd ?? null;
+  const cancelAtPeriodEnd = entitlement?.cancelAtPeriodEnd ?? false;
+  const trialEndsAt = entitlement?.trialEndsAt ?? null;
+  const periodDate =
+    currentPeriodEnd !== null
+      ? new Date(currentPeriodEnd).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        })
+      : null;
+  const trialDaysLeft =
+    trialEndsAt !== null ? Math.max(0, Math.ceil((trialEndsAt - now) / 86_400_000)) : null;
+
+  const billingTitle = isSubscribed
+    ? `OfferBee Premium — ${plan === "yearly" ? "Yearly" : "Monthly"}`
+    : "Free trial";
+  const billingSubtitle = isSubscribed
+    ? periodDate
+      ? cancelAtPeriodEnd
+        ? `Ends ${periodDate}`
+        : `Renews ${periodDate}`
+      : cancelAtPeriodEnd
+        ? "Cancels at period end"
+        : "Active"
+    : trialDaysLeft !== null
+      ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`
+      : "Active";
 
   const name = user?.fullName ?? me?.name ?? "OfferBee member";
   const email = user?.primaryEmailAddress?.emailAddress ?? "";
@@ -158,6 +197,40 @@ export default function SettingsScreen() {
           />
         ))}
       </Card>
+
+      {/* Billing */}
+      {entitlement ? (
+        <>
+          <SectionLabel>Billing</SectionLabel>
+          <Card padded={false}>
+            <View
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: spacing.base,
+                paddingVertical: spacing.rowPadY,
+                paddingHorizontal: spacing.rowPadX,
+              }}
+            >
+              <View style={{ flex: 1 }}>
+                <Text variant="body">{billingTitle}</Text>
+                <Text variant="subtext" color="secondary" style={{ marginTop: 1 }}>
+                  {billingSubtitle}
+                </Text>
+              </View>
+              {isSubscribed ? (
+                <Button
+                  label="Manage"
+                  variant="secondary"
+                  size="sm"
+                  haptic={false}
+                  onPress={() => void openPortal()}
+                />
+              ) : null}
+            </View>
+          </Card>
+        </>
+      ) : null}
 
       {/* Connected accounts (Plaid) */}
       <PlaidConnectSection />
