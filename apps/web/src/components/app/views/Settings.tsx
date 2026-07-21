@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useClerk, useUser } from "@clerk/nextjs";
-import { useMutation, useQuery } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import {
   DEFAULT_NOTIFICATION_CATEGORIES,
@@ -48,6 +48,139 @@ function ToggleRow({
         <div className="mt-0.5 text-[13px] text-secondary">{desc}</div>
       </div>
       <ToggleSwitch checked={checked} onChange={onChange} label={title} />
+    </div>
+  );
+}
+
+const PLAN_LABEL: Record<string, string> = {
+  monthly: "Monthly",
+  yearly: "Yearly",
+};
+
+function formatBillingDate(ms: number): string {
+  return new Date(ms).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// Data-driven replacement for the old hard-coded "Current plan" card. Stripe
+// Checkout / Billing Portal host all payment UI; we only kick off redirects.
+// Mirrors Paywall.tsx: per-action busy state, single error line, full-page
+// nav via window.location.assign (a property assignment trips react-hooks).
+function BillingSection() {
+  const entitlement = useQuery(api.billing.getEntitlement);
+  const createCheckout = useAction(api.billing.createCheckoutSession);
+  const portal = useAction(api.billing.createPortalSession);
+  const [busy, setBusy] = useState<"monthly" | "yearly" | "portal" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const upgrade = async (plan: "monthly" | "yearly") => {
+    setBusy(plan);
+    setError(null);
+    try {
+      const { url } = await createCheckout({ plan, platform: "web" });
+      window.location.assign(url);
+    } catch {
+      setError("Couldn't start checkout. Please try again.");
+      setBusy(null);
+    }
+  };
+
+  const manage = async () => {
+    setBusy("portal");
+    setError(null);
+    try {
+      const { url } = await portal({});
+      window.location.assign(url);
+    } catch {
+      setError("Couldn't open the billing portal. Please try again.");
+      setBusy(null);
+    }
+  };
+
+  // Graceful loading — the page derives from queries with fallbacks rather
+  // than blocking on a spinner, so show the card shell with a muted label.
+  if (!entitlement) {
+    return (
+      <div className="rounded-[20px] bg-ink p-6 text-background">
+        <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] opacity-70">
+          Current plan
+        </div>
+        <div className="mt-1 font-display text-[22px] font-semibold opacity-60">
+          Loading…
+        </div>
+      </div>
+    );
+  }
+
+  const subscribed = !!entitlement.plan;
+
+  return (
+    <div className="rounded-[20px] bg-ink p-6 text-background">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] opacity-70">
+            Current plan
+          </div>
+          {subscribed ? (
+            <>
+              <div className="mt-1 font-display text-[22px] font-semibold">
+                OfferBee Premium — {PLAN_LABEL[entitlement.plan!] ?? entitlement.plan}
+              </div>
+              {entitlement.currentPeriodEnd && (
+                <div className="mt-0.5 text-[13px] opacity-75">
+                  {entitlement.cancelAtPeriodEnd
+                    ? `Ends on ${formatBillingDate(entitlement.currentPeriodEnd)}`
+                    : `Renews on ${formatBillingDate(entitlement.currentPeriodEnd)}`}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="mt-1 font-display text-[22px] font-semibold">Free trial</div>
+              <div className="mt-0.5 text-[13px] opacity-75">
+                {entitlement.trialEndsAt
+                  ? `Ends ${formatBillingDate(entitlement.trialEndsAt)}`
+                  : "Active"}
+              </div>
+            </>
+          )}
+        </div>
+
+        {subscribed ? (
+          <button
+            type="button"
+            onClick={manage}
+            disabled={busy !== null}
+            className="rounded-[11px] bg-accent px-4 py-2 text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
+          >
+            {busy === "portal" ? "Opening…" : "Manage subscription"}
+          </button>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => upgrade("monthly")}
+              disabled={busy !== null}
+              className="rounded-[11px] border border-border bg-surface px-4 py-2 text-[14px] font-semibold text-ink transition-colors hover:border-accent disabled:opacity-60"
+            >
+              {busy === "monthly" ? "Redirecting…" : "Monthly · $9.99"}
+            </button>
+            <button
+              type="button"
+              onClick={() => upgrade("yearly")}
+              disabled={busy !== null}
+              className="rounded-[11px] bg-accent px-4 py-2 text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-strong disabled:opacity-60"
+            >
+              {busy === "yearly" ? "Redirecting…" : "Yearly · $80"}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {error && <p className="mt-3 text-[13px] text-alert">{error}</p>}
     </div>
   );
 }
@@ -156,27 +289,8 @@ export function Settings() {
         </button>
       </Panel>
 
-      {/* Plan */}
-      <div className="rounded-[20px] bg-ink p-6 text-background">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] opacity-70">
-              Current plan
-            </div>
-            <div className="mt-1 font-display text-[22px] font-semibold">OfferBee Pro</div>
-            <div className="mt-0.5 text-[13px] opacity-75">
-              $4/mo · unlimited cards · renews Aug 2026
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => alert("Billing management is coming soon.")}
-            className="rounded-[11px] bg-accent px-4 py-2 text-[14px] font-semibold text-on-accent transition-colors hover:bg-accent-strong"
-          >
-            Manage billing
-          </button>
-        </div>
-      </div>
+      {/* Billing */}
+      <BillingSection />
 
       {/* Connected accounts (Plaid) */}
       <SettingsSection label="Connected accounts">
