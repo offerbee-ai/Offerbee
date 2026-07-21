@@ -272,6 +272,10 @@ export const createCheckoutSession = action({
         customer: customerId,
         line_items: [{ price: priceId, quantity: 1 }],
         allow_promotion_codes: false,
+        // Classic Billing, not Managed Payments (Stripe merchant-of-record, the
+        // default on new accounts): MoR changes support/refund ownership and tax
+        // semantics the integration wasn't designed for.
+        managed_payments: { enabled: false },
         metadata: { userId: me.userId, plan, platform },
         subscription_data: { metadata: { userId: me.userId } },
         success_url: `${siteUrl}/app/billing/success?platform=${platform}`,
