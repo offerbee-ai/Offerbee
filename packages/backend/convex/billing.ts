@@ -221,10 +221,18 @@ export const createCheckoutSession = action({
       // trust our cached subscriptionStatus.
       const existing = await stripe.subscriptions.list({
         customer: customerId,
-        status: "active",
-        limit: 1,
+        status: "all",
+        limit: 10,
       });
-      if (existing.data.length > 0) throw new Error("ALREADY_SUBSCRIBED");
+      // past_due still holds access (billingCore.hasAccess) — those users must
+      // fix their card via the Portal, not buy a second subscription.
+      if (
+        existing.data.some(
+          (s) => s.status === "active" || s.status === "past_due",
+        )
+      ) {
+        throw new Error("ALREADY_SUBSCRIBED");
+      }
 
       // Single-live-session invariant: reuse a still-open session for the same
       // plan+platform (also dedupes attempts across idempotency buckets), and
@@ -241,7 +249,14 @@ export const createCheckoutSession = action({
       );
       if (reusable?.url) return { url: reusable.url };
       for (const s of open.data) {
-        await stripe.checkout.sessions.expire(s.id);
+        try {
+          await stripe.checkout.sessions.expire(s.id);
+        } catch {
+          // Narrow race: the user completed this exact session between our
+          // list() and this expire() call — it's no longer "open" so expire()
+          // throws. Their subscription just landed; don't fail the whole
+          // action over a session that's already served its purpose.
+        }
       }
     }
 
