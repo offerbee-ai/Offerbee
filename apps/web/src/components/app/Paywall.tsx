@@ -29,9 +29,11 @@ const PLANS = [
 // absent ⇒ hard paywall (only exit is Sign out).
 export function Paywall({
   trialEndsAt,
+  status,
   onDismiss,
 }: {
   trialEndsAt: number | null;
+  status: string;
   onDismiss?: () => void;
 }) {
   const createCheckout = useAction(api.billing.createCheckoutSession);
@@ -64,7 +66,9 @@ export function Paywall({
       <h1 className="text-[28px] font-semibold text-ink">
         {trialDaysLeft && trialDaysLeft > 0
           ? `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left in your trial`
-          : "Your free trial has ended"}
+          : status === "trialing"
+            ? "Your free trial has ended"
+            : "Your subscription has ended"}
       </h1>
       <p className="mt-2 max-w-[36em] text-center text-[16px] text-body">
         Keep every statement credit working for you — reminders before resets,
@@ -101,7 +105,8 @@ export function Paywall({
 
       <button
         onClick={() => (onDismiss ? onDismiss() : signOut())}
-        className="mt-8 text-[14px] text-body underline-offset-2 hover:underline"
+        disabled={busy !== null}
+        className="mt-8 text-[14px] text-body underline-offset-2 hover:underline disabled:opacity-60"
       >
         {onDismiss ? "Not now" : "Sign out"}
       </button>

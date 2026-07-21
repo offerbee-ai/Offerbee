@@ -46,6 +46,16 @@ export function PaywallGate({ children }: { children: ReactNode }) {
     return () => clearInterval(t);
   }, []);
 
+  // The layout persists across nested-route navigation, so a dismissable
+  // overlay opened via the banner would otherwise survive a browser back.
+  // Reset during render on pathname change — React's recommended alternative
+  // to resetting in an effect (which trips react-hooks/set-state-in-effect).
+  const [overlayPath, setOverlayPath] = useState(pathname);
+  if (pathname !== overlayPath) {
+    setOverlayPath(pathname);
+    setShowPaywall(false);
+  }
+
   if (pathname?.startsWith("/app/billing/success")) return <>{children}</>;
   if (entitlement === undefined) return null; // loading — OnboardingGate already showed a shell
   if (entitlement === null) return null; // unauthenticated; RequireAuth handles redirect
@@ -53,7 +63,9 @@ export function PaywallGate({ children }: { children: ReactNode }) {
   const trialExpiredLocally =
     entitlement.trialEndsAt !== null && entitlement.trialEndsAt <= now;
   if (!entitlement.hasAccess || (entitlement.status === "trialing" && trialExpiredLocally && !entitlement.currentPeriodEnd)) {
-    return <Paywall trialEndsAt={entitlement.trialEndsAt} />;
+    return (
+      <Paywall trialEndsAt={entitlement.trialEndsAt} status={entitlement.status} />
+    );
   }
 
   // In-trial: app + countdown banner (spec: "X days left — Upgrade"), with a
@@ -64,6 +76,7 @@ export function PaywallGate({ children }: { children: ReactNode }) {
     return (
       <Paywall
         trialEndsAt={entitlement.trialEndsAt}
+        status={entitlement.status}
         onDismiss={() => setShowPaywall(false)}
       />
     );
