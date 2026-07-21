@@ -143,6 +143,11 @@ RAPIDAPI_KEY=...                       # Rewards Credit Card API — powers card
 OPENROUTER_API_KEY=...                 # optional — AI catalog review
 OPENROUTER_MODEL=...                   # optional — model id for the review pass
 EXPO_ACCESS_TOKEN=...                  # optional — higher Expo push limits
+STRIPE_SECRET_KEY=sk_...               # billing — test key on dev/staging, live key on prod
+STRIPE_WEBHOOK_SECRET=whsec_...        # billing — verifies /stripe/webhook signatures
+STRIPE_PRICE_ID_MONTHLY=price_...      # billing — monthly plan price
+STRIPE_PRICE_ID_YEARLY=price_...       # billing — yearly plan price
+SITE_URL=https://...                   # billing — checkout success/cancel + portal return URLs
 ```
 
 ---
