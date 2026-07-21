@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -10,6 +10,7 @@ import { api } from "@packages/backend/convex/_generated/api";
 
 import Providers from "@/lib/providers";
 import { CreditsProvider } from "@/features/credits/CreditsProvider";
+import { useEntitlement } from "@/features/billing/useEntitlement";
 import { usePushNotifications } from "@/features/notifications/usePushNotifications";
 import { ThemeProvider, useAppFonts, useTheme } from "@/theme";
 
@@ -28,6 +29,15 @@ function RootNavigator() {
   const { user } = useUser();
   const me = useQuery(api.users.getMe, isAuthenticated ? {} : "skip");
   const ensureUser = useMutation(api.users.ensureUser);
+  const entitlement = useEntitlement();
+
+  // Minute tick so an in-session trial expiry raises the paywall without a
+  // reload (query results don't re-evaluate on wall-clock) — mirrors web PaywallGate.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
 
   // Upsert the Convex user row on sign-in (same contract as the web app).
   useEffect(() => {
@@ -38,10 +48,11 @@ function RootNavigator() {
     }).catch((e) => console.error("ensureUser failed", e));
   }, [isAuthenticated, ensureUser, user?.id]);
 
-  // Hold the native splash until fonts + auth state (+ profile when signed in) resolve,
-  // so the Protected gates never flicker.
+  // Hold the native splash until fonts + auth state (+ profile & entitlement
+  // when signed in) resolve, so the Protected gates never flicker.
   const profilePending = isAuthenticated && me === undefined;
-  const ready = fontsReady && !authLoading && !profilePending;
+  const entitlementPending = isAuthenticated && entitlement === undefined;
+  const ready = fontsReady && !authLoading && !profilePending && !entitlementPending;
 
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => {});
@@ -50,6 +61,22 @@ function RootNavigator() {
   if (!ready) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
 
   const onboarded = !!me?.onboardingCompletedAt;
+  // Onboarded users without access land on the hard paywall. entitlement is
+  // resolved by this point (splash held above); null only for the unauthed
+  // case, which the isAuthenticated guard already excludes. trialExpiredLocally
+  // catches an in-session trial crossing its end before the query re-runs.
+  const trialExpiredLocally =
+    entitlement != null &&
+    entitlement.status === "trialing" &&
+    entitlement.trialEndsAt !== null &&
+    entitlement.trialEndsAt <= now &&
+    !entitlement.currentPeriodEnd;
+  const paywalled =
+    isAuthenticated &&
+    onboarded &&
+    entitlement !== undefined &&
+    entitlement !== null &&
+    (!entitlement.hasAccess || trialExpiredLocally);
 
   return (
     <>
@@ -69,7 +96,11 @@ function RootNavigator() {
           <Stack.Screen name="(onboarding)" />
         </Stack.Protected>
 
-        <Stack.Protected guard={isAuthenticated && onboarded}>
+        <Stack.Protected guard={isAuthenticated && onboarded && paywalled}>
+          <Stack.Screen name="paywall" />
+        </Stack.Protected>
+
+        <Stack.Protected guard={isAuthenticated && onboarded && !paywalled}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="card/[cardKey]" />
           <Stack.Screen name="credit/[creditId]" />

@@ -42,7 +42,21 @@ export default defineSchema({
     notificationCategories: v.optional(notificationCategoriesValidator),
     // Idempotency guard for the transactional welcome email (email.ts).
     welcomeEmailSentAt: v.optional(v.number()),
-  }).index("by_userId", ["userId"]),
+    // ── Billing (Stripe). All optional: absent = never subscribed. Entitlement
+    //    is derived in billingCore.hasAccess — trial comes from _creationTime
+    //    (launch-floored), so no backfill was needed. ──
+    trialEndsAt: v.optional(v.number()), // ms; manual support override only
+    stripeCustomerId: v.optional(v.string()),
+    stripeSubscriptionId: v.optional(v.string()),
+    subscriptionStatus: v.optional(v.string()), // Stripe status verbatim
+    subscriptionPlan: v.optional(
+      v.union(v.literal("monthly"), v.literal("yearly")),
+    ),
+    currentPeriodEnd: v.optional(v.number()), // ms
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_stripeCustomerId", ["stripeCustomerId"]),
 
   // ── Catalog cache: cards seen via live name search (name fallback for the
   //    wallet + a reference for detail refresh). Search itself hits the API. ──

@@ -2,6 +2,7 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { getUserId, requireUserId } from "./auth";
+import { requireAccess } from "./billing";
 
 // The user's owned cards, each joined with its cached detail (detail may be null
 // briefly while it is being fetched after an add).
@@ -43,7 +44,7 @@ export const addCard = mutation({
     signupBonusStartDate: v.optional(v.number()),
   },
   handler: async (ctx, { cardKey, nickname, openedDate, signupBonusStartDate }) => {
-    const userId = await requireUserId(ctx);
+    const userId = await requireAccess(ctx); // subscription/trial gate + auth
 
     const existing = await ctx.db
       .query("userCards")

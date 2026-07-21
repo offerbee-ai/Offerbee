@@ -13,6 +13,8 @@ import type * as benefitCycles from "../benefitCycles.js";
 import type * as benefitOverrides from "../benefitOverrides.js";
 import type * as benefitParser from "../benefitParser.js";
 import type * as benefits from "../benefits.js";
+import type * as billing from "../billing.js";
+import type * as billingCore from "../billingCore.js";
 import type * as catalog from "../catalog.js";
 import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
@@ -55,6 +57,8 @@ declare const fullApi: ApiFromModules<{
   benefitOverrides: typeof benefitOverrides;
   benefitParser: typeof benefitParser;
   benefits: typeof benefits;
+  billing: typeof billing;
+  billingCore: typeof billingCore;
   catalog: typeof catalog;
   catalogSync: typeof catalogSync;
   crons: typeof crons;

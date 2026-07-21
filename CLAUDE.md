@@ -32,7 +32,7 @@ pnpm --filter @packages/backend add <pkg>
 Secrets live in git-ignored `.env.local` files (never commit them):
 
 - `apps/web/.env.local` — `NEXT_PUBLIC_CONVEX_URL`, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`
-- Convex-side env (set in the Convex dashboard, not files): `CLERK_JWT_ISSUER_DOMAIN`, optional `OPENAI_API_KEY`
+- Convex-side env (set in the Convex dashboard, not files): `CLERK_JWT_ISSUER_DOMAIN`, optional `OPENAI_API_KEY`, and for billing `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID_MONTHLY`, `STRIPE_PRICE_ID_YEARLY`, `SITE_URL` (per deployment — test keys on dev/staging, live keys on prod). `billingCore.LAUNCH_MS` must be set to the prod deploy date before the paywall merges to `main`.
 
 The native app uses three committed env files (client-public values only — Convex URLs + Clerk publishable keys, never secrets): `apps/native/.env.development` (Convex dev `agreeable-labrador-799`), `.env.preview` (staging `adept-porpoise-776`), `.env.production` (prod `handsome-dodo-841`). Select with `pnpm --filter native-app dev` / `dev:preview` / `dev:prod`; `APP_ENV` drives per-env app name, scheme, and bundle id (`ai.offerbee.app[.dev|.preview]`) in `apps/native/app.config.ts`. EAS build profiles in `apps/native/eas.json` mirror the same three environments.
 
