@@ -225,6 +225,24 @@ export const createCheckoutSession = action({
         limit: 1,
       });
       if (existing.data.length > 0) throw new Error("ALREADY_SUBSCRIBED");
+
+      // Single-live-session invariant: reuse a still-open session for the same
+      // plan+platform (also dedupes attempts across idempotency buckets), and
+      // expire any mismatched open sessions so two checkout attempts can never
+      // both be completed into duplicate subscriptions. Never expire-then-create
+      // with the same key — the idempotent replay would return the expired session.
+      const open = await stripe.checkout.sessions.list({
+        customer: customerId,
+        status: "open",
+        limit: 10,
+      });
+      const reusable = open.data.find(
+        (s) => s.metadata?.plan === plan && s.metadata?.platform === platform,
+      );
+      if (reusable?.url) return { url: reusable.url };
+      for (const s of open.data) {
+        await stripe.checkout.sessions.expire(s.id);
+      }
     }
 
     // Bucketed idempotency: dedupes rapid double-taps/retries within a 30-min
@@ -238,7 +256,7 @@ export const createCheckoutSession = action({
         customer: customerId,
         line_items: [{ price: priceId, quantity: 1 }],
         allow_promotion_codes: false,
-        metadata: { userId: me.userId },
+        metadata: { userId: me.userId, plan, platform },
         subscription_data: { metadata: { userId: me.userId } },
         success_url: `${siteUrl}/app/billing/success?platform=${platform}`,
         cancel_url: `${siteUrl}/app`,
