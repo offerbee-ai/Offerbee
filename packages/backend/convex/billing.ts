@@ -251,11 +251,12 @@ export const createCheckoutSession = action({
       for (const s of open.data) {
         try {
           await stripe.checkout.sessions.expire(s.id);
-        } catch {
-          // Narrow race: the user completed this exact session between our
-          // list() and this expire() call — it's no longer "open" so expire()
-          // throws. Their subscription just landed; don't fail the whole
-          // action over a session that's already served its purpose.
+        } catch (err) {
+          // 400 invalid_request = the session just left "open" (completed or
+          // expired concurrently) — safe to proceed. Anything else (network,
+          // rate limit, auth, 5xx) may have left it open: abort instead of
+          // minting a second completable session.
+          if (!(err instanceof Stripe.errors.StripeInvalidRequestError)) throw err;
         }
       }
     }
