@@ -100,6 +100,17 @@ export function usePushNotifications() {
   const fns = useRef({ registerToken, snoozeBenefit, confirmSuggestion, dismissSuggestion, router });
   fns.current = { registerToken, snoozeBenefit, confirmSuggestion, dismissSuggestion, router };
 
+  // getExpoPushTokenAsync re-registers with APNs, which re-fires
+  // addPushTokenListener — so a listener that naively re-derives the token
+  // calls itself forever. The resulting mutation flood starves the Convex
+  // websocket (actions die mid-flight, login crawls) and spams the server
+  // with pre-auth failures. Guard with: last registered token (skip
+  // unchanged), an in-flight flag (drop self-triggered events), and a
+  // cooldown (break any timing ping-pong).
+  const lastToken = useRef<string | null>(null);
+  const deriving = useRef(false);
+  const lastDeriveAt = useRef(0);
+
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -112,12 +123,31 @@ export function usePushNotifications() {
     // guards against a duplicate register, so letting a resolved token register
     // even after a re-render is harmless — and avoids dropping it in a race.
     void (async () => {
-      const token = await getPushToken();
+      deriving.current = true;
+      lastDeriveAt.current = Date.now();
+      let token: string | null = null;
+      try {
+        token = await getPushToken();
+      } finally {
+        deriving.current = false;
+      }
       if (!token || done.current) return;
       done.current = true;
-      await fns.current
-        .registerToken({ token, platform: Platform.OS === "ios" ? "ios" : "android" })
-        .catch((e) => console.error("registerPushToken failed", e));
+      const t = token;
+      try {
+        // Client-side isAuthenticated can lead the server's view of the
+        // session at launch — retry briefly instead of logging a spurious
+        // "Authenticated user was required" failure.
+        await withAuthRetry(() =>
+          fns.current.registerToken({
+            token: t,
+            platform: Platform.OS === "ios" ? "ios" : "android",
+          }),
+        );
+        lastToken.current = t;
+      } catch (e) {
+        console.error("registerPushToken failed", e);
+      }
     })();
 
     if (isExpoGo) return;
@@ -126,12 +156,23 @@ export function usePushNotifications() {
     // which Expo's push service can't deliver to — re-derive the Expo push
     // token instead of registering `t.data` directly.
     const tokenSub = Notifications.addPushTokenListener(() => {
+      if (deriving.current || Date.now() - lastDeriveAt.current < 30_000) return;
       void (async () => {
-        const token = await getPushToken();
-        if (!token) return;
-        await fns.current
-          .registerToken({ token, platform: Platform.OS === "ios" ? "ios" : "android" })
-          .catch(() => {});
+        deriving.current = true;
+        lastDeriveAt.current = Date.now();
+        try {
+          const token = await getPushToken();
+          if (!token || token === lastToken.current) return;
+          await fns.current.registerToken({
+            token,
+            platform: Platform.OS === "ios" ? "ios" : "android",
+          });
+          lastToken.current = token;
+        } catch {
+          // Swallow: a genuine future token rotation retries via a new event.
+        } finally {
+          deriving.current = false;
+        }
       })();
     });
 
