@@ -7,7 +7,7 @@ import {
   query,
 } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import Stripe from "stripe";
 import { getUserId, requireUserId } from "./auth";
 import { effectiveTrialEnd, hasAccess } from "./billingCore";
@@ -162,6 +162,10 @@ function stripeClient(): Stripe {
     throw new Error(
       missingEnvVariableUrl("STRIPE_SECRET_KEY", "https://dashboard.stripe.com/apikeys"),
     );
+  // No apiVersion pinned here — rides the SDK's built-in default, which is
+  // deterministic per installed `stripe` version (locked via the pnpm
+  // lockfile), so behavior is reproducible across deploys without us tracking
+  // Stripe's API version string by hand.
   return new Stripe(key, { httpClient: Stripe.createFetchHttpClient() });
 }
 
@@ -179,6 +183,14 @@ export const createCheckoutSession = action({
     platform: v.union(v.literal("web"), v.literal("native")),
   },
   handler: async (ctx, { plan, platform }): Promise<{ url: string }> => {
+    // Ensure the users row exists before we touch Stripe. A rowless authed
+    // caller could otherwise create a customer + pay, but setStripeCustomerId
+    // no-ops without a row and the webhook's syncSubscription can never match
+    // it back — a real payment invisible to the app. ensureUser is already
+    // idempotent (same call web/native make on login), so this is a no-op for
+    // the common case where onboarding has already run.
+    await ctx.runMutation(api.users.ensureUser, {});
+
     const me = await ctx.runQuery(internal.billing.getUserForBilling, {});
     if (me.subscriptionStatus === "active" || me.subscriptionStatus === "past_due") {
       throw new Error("ALREADY_SUBSCRIBED");
@@ -202,18 +214,35 @@ export const createCheckoutSession = action({
         userId: me.userId,
         stripeCustomerId: customerId,
       });
+    } else {
+      // The DB status can lag the webhook (TOCTOU): a second concurrent call
+      // could pass the check above before the first call's webhook lands.
+      // Stripe itself is authoritative here — ask it directly rather than
+      // trust our cached subscriptionStatus.
+      const existing = await stripe.subscriptions.list({
+        customer: customerId,
+        status: "active",
+        limit: 1,
+      });
+      if (existing.data.length > 0) throw new Error("ALREADY_SUBSCRIBED");
     }
 
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customerId,
-      line_items: [{ price: priceId, quantity: 1 }],
-      allow_promotion_codes: false,
-      metadata: { userId: me.userId },
-      subscription_data: { metadata: { userId: me.userId } },
-      success_url: `${siteUrl}/app/billing/success?platform=${platform}`,
-      cancel_url: `${siteUrl}/app`,
-    });
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "subscription",
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        allow_promotion_codes: false,
+        metadata: { userId: me.userId },
+        subscription_data: { metadata: { userId: me.userId } },
+        success_url: `${siteUrl}/app/billing/success?platform=${platform}`,
+        cancel_url: `${siteUrl}/app`,
+      },
+      // platform is part of the key: the same (userId, plan) pair with a
+      // different platform must NOT reuse a session (success_url differs),
+      // and Stripe errors if the same key is replayed with different params.
+      { idempotencyKey: `checkout-${me.userId}-${plan}-${platform}` },
+    );
     if (!session.url) throw new Error("Stripe returned no checkout URL");
     return { url: session.url };
   },
