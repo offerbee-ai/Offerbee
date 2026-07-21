@@ -1,13 +1,17 @@
 // packages/backend/convex/billing.ts
 import { v } from "convex/values";
 import {
+  action,
   internalMutation,
   internalQuery,
   query,
 } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import { internal } from "./_generated/api";
+import Stripe from "stripe";
 import { getUserId, requireUserId } from "./auth";
 import { effectiveTrialEnd, hasAccess } from "./billingCore";
+import { missingEnvVariableUrl } from "./utils";
 
 async function userByUserId(ctx: QueryCtx | MutationCtx, userId: string) {
   return await ctx.db
@@ -146,5 +150,86 @@ export const setStripeCustomerId = internalMutation({
     if (user && user.stripeCustomerId !== stripeCustomerId) {
       await ctx.db.patch(user._id, { stripeCustomerId });
     }
+  },
+});
+
+// ── Stripe actions (default Convex runtime — fetch HTTP client, no "use node",
+//    same convention as plaid.ts) ──
+
+function stripeClient(): Stripe {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key)
+    throw new Error(
+      missingEnvVariableUrl("STRIPE_SECRET_KEY", "https://dashboard.stripe.com/apikeys"),
+    );
+  return new Stripe(key, { httpClient: Stripe.createFetchHttpClient() });
+}
+
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Missing ${name} in environment variables`);
+  return value;
+}
+
+// Returns a Stripe Checkout URL for the chosen plan. `platform` only changes
+// the success page copy ("return to the app" on native).
+export const createCheckoutSession = action({
+  args: {
+    plan: v.union(v.literal("monthly"), v.literal("yearly")),
+    platform: v.union(v.literal("web"), v.literal("native")),
+  },
+  handler: async (ctx, { plan, platform }): Promise<{ url: string }> => {
+    const me = await ctx.runQuery(internal.billing.getUserForBilling, {});
+    if (me.subscriptionStatus === "active" || me.subscriptionStatus === "past_due") {
+      throw new Error("ALREADY_SUBSCRIBED");
+    }
+    const stripe = stripeClient();
+    const siteUrl = requiredEnv("SITE_URL");
+    const priceId = requiredEnv(
+      plan === "monthly" ? "STRIPE_PRICE_ID_MONTHLY" : "STRIPE_PRICE_ID_YEARLY",
+    );
+
+    let customerId = me.stripeCustomerId;
+    if (!customerId) {
+      // idempotencyKey: concurrent calls (double-tap, two devices) resolve to
+      // the same Stripe customer instead of racing to create orphans.
+      const customer = await stripe.customers.create(
+        { email: me.email, metadata: { userId: me.userId } },
+        { idempotencyKey: `customer-${me.userId}` },
+      );
+      customerId = customer.id;
+      await ctx.runMutation(internal.billing.setStripeCustomerId, {
+        userId: me.userId,
+        stripeCustomerId: customerId,
+      });
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      allow_promotion_codes: false,
+      metadata: { userId: me.userId },
+      subscription_data: { metadata: { userId: me.userId } },
+      success_url: `${siteUrl}/app/billing/success?platform=${platform}`,
+      cancel_url: `${siteUrl}/app`,
+    });
+    if (!session.url) throw new Error("Stripe returned no checkout URL");
+    return { url: session.url };
+  },
+});
+
+// Stripe-hosted management UI: cancel, switch plan, update card.
+export const createPortalSession = action({
+  args: {},
+  handler: async (ctx): Promise<{ url: string }> => {
+    const me = await ctx.runQuery(internal.billing.getUserForBilling, {});
+    if (!me.stripeCustomerId) throw new Error("NO_BILLING_ACCOUNT");
+    const stripe = stripeClient();
+    const session = await stripe.billingPortal.sessions.create({
+      customer: me.stripeCustomerId,
+      return_url: `${requiredEnv("SITE_URL")}/app/settings`,
+    });
+    return { url: session.url };
   },
 });
