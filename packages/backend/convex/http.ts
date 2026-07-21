@@ -111,6 +111,12 @@ http.route({
     // (Stripe does not guarantee delivery order; see billing.syncSubscription).
     const syncFromSubscriptionId = async (subscriptionId: string) => {
       const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      const itemPriceId = sub.items?.data?.[0]?.price?.id;
+      if (itemPriceId && itemPriceId !== priceIds.monthly && itemPriceId !== priceIds.yearly) {
+        // Env/price misconfig: keep syncing (status drives access; a hard fail
+        // would deny a paid user) but make the wrong-plan default visible.
+        console.error("[stripe webhook] unknown price id", itemPriceId, "— plan defaulted to monthly");
+      }
       const patch = subscriptionPatchFromStripe(
         sub as unknown as StripeSubscriptionLike,
         priceIds,

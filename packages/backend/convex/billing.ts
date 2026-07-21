@@ -227,6 +227,11 @@ export const createCheckoutSession = action({
       if (existing.data.length > 0) throw new Error("ALREADY_SUBSCRIBED");
     }
 
+    // Bucketed idempotency: dedupes rapid double-taps/retries within a 30-min
+    // window without ever replaying a Checkout Session past its expiry
+    // (Stripe caches idempotent results for ~24h — session lifetime).
+    const idempotencyBucket = Math.floor(Date.now() / (30 * 60 * 1000));
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -241,7 +246,7 @@ export const createCheckoutSession = action({
       // platform is part of the key: the same (userId, plan) pair with a
       // different platform must NOT reuse a session (success_url differs),
       // and Stripe errors if the same key is replayed with different params.
-      { idempotencyKey: `checkout-${me.userId}-${plan}-${platform}` },
+      { idempotencyKey: `checkout-${me.userId}-${plan}-${platform}-${idempotencyBucket}` },
     );
     if (!session.url) throw new Error("Stripe returned no checkout URL");
     return { url: session.url };
