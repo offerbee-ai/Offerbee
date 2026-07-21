@@ -85,8 +85,22 @@ export default function SettingsScreen() {
 
   const entitlement = useEntitlement();
   const openPortal = useOpenPortal();
+  const [portalBusy, setPortalBusy] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
   // Snapshot for the trial countdown — avoids reading Date.now() in render.
   const [now] = useState(() => Date.now());
+
+  const onManage = async () => {
+    setPortalBusy(true);
+    setPortalError(null);
+    try {
+      await openPortal();
+    } catch {
+      setPortalError("Couldn't open billing portal. Please try again.");
+    } finally {
+      setPortalBusy(false);
+    }
+  };
 
   const plan = entitlement?.plan ?? null;
   const isSubscribed = plan !== null;
@@ -220,14 +234,27 @@ export default function SettingsScreen() {
               </View>
               {isSubscribed ? (
                 <Button
-                  label="Manage"
+                  label={portalBusy ? "Opening…" : "Manage"}
                   variant="secondary"
                   size="sm"
                   haptic={false}
-                  onPress={() => void openPortal()}
+                  disabled={portalBusy}
+                  onPress={() => void onManage()}
                 />
               ) : null}
             </View>
+            {portalError ? (
+              <Text
+                variant="caption"
+                color="alert"
+                style={{
+                  paddingHorizontal: spacing.rowPadX,
+                  paddingBottom: spacing.rowPadY,
+                }}
+              >
+                {portalError}
+              </Text>
+            ) : null}
           </Card>
         </>
       ) : null}
