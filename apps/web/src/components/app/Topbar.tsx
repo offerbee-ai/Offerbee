@@ -57,8 +57,9 @@ export function Topbar({ onOpenNav }: { onOpenNav: () => void }) {
     "there";
   const { eyebrow, title } = useTitle(pathname, name);
 
+  // top gives way to the trial banner via --ob-banner-h (PaywallGate).
   return (
-    <div className="sticky top-0 z-20 border-b border-border bg-glass px-4 py-3 backdrop-blur-[14px] backdrop-saturate-150 sm:px-6 lg:px-[34px] lg:py-4">
+    <div className="sticky top-[var(--ob-banner-h,0px)] z-20 border-b border-border bg-glass px-4 py-3 backdrop-blur-[14px] backdrop-saturate-150 sm:px-6 lg:px-[34px] lg:py-4">
       <div className="mx-auto flex max-w-[1180px] items-center gap-2 sm:gap-4">
         {/* Hamburger — opens the nav drawer below lg */}
         <button

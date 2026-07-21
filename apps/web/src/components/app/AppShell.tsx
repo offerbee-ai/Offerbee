@@ -37,7 +37,10 @@ function Shell({ children }: { children: ReactNode }) {
   return (
     <div
       className={cn(
-        "ob-app flex min-h-screen bg-background text-ink",
+        // min-height gives back the trial banner's height (--ob-banner-h,
+        // PaywallGate) so banner + shell fit one viewport without forcing
+        // a page scroll when content is short.
+        "ob-app flex min-h-[calc(100dvh-var(--ob-banner-h,0px))] bg-background text-ink",
         theme === "onyx" && "theme-onyx",
       )}
     >

@@ -1,7 +1,6 @@
 // packages/backend/convex/billingCore.test.ts
 import { describe, expect, it } from "vitest";
 import {
-  LAUNCH_MS,
   TRIAL_MS,
   effectiveTrialEnd,
   hasAccess,
@@ -11,15 +10,9 @@ import {
 const DAY = 24 * 60 * 60 * 1000;
 
 describe("effectiveTrialEnd", () => {
-  it("post-launch signup: creation + 7d", () => {
-    const created = LAUNCH_MS + 5 * DAY;
+  it("trial runs TRIAL_MS from account creation", () => {
+    const created = Date.UTC(2026, 6, 1) + 5 * DAY;
     expect(effectiveTrialEnd({ _creationTime: created })).toBe(created + TRIAL_MS);
-  });
-
-  it("pre-launch user: floored to launch + 7d", () => {
-    expect(effectiveTrialEnd({ _creationTime: LAUNCH_MS - 90 * DAY })).toBe(
-      LAUNCH_MS + TRIAL_MS,
-    );
   });
 
   it("manual trialEndsAt override wins", () => {
@@ -30,8 +23,9 @@ describe("effectiveTrialEnd", () => {
 });
 
 describe("hasAccess", () => {
-  const now = LAUNCH_MS + 30 * DAY;
-  const base = { _creationTime: LAUNCH_MS }; // trial long expired at `now`
+  const EPOCH = Date.UTC(2026, 6, 1);
+  const now = EPOCH + 30 * DAY;
+  const base = { _creationTime: EPOCH }; // trial long expired at `now`
 
   it("in-trial user has access", () => {
     expect(hasAccess({ _creationTime: now - 2 * DAY }, now)).toBe(true);
@@ -127,6 +121,38 @@ describe("subscriptionPatchFromStripe", () => {
     expect(patch.currentPeriodEnd).toBe(1_700_000_000 * 1000);
     expect(patch.subscriptionPlan).toBe("monthly");
     expect(patch.cancelAtPeriodEnd).toBe(true);
+  });
+
+  // Stripe dashboard "cancel at end of period" schedules cancel_at and leaves
+  // cancel_at_period_end false — the patch must still read as canceling.
+  it("scheduled cancel_at counts as cancelAtPeriodEnd and caps the end", () => {
+    const sub = {
+      id: "sub_4",
+      customer: "cus_4",
+      status: "trialing",
+      cancel_at_period_end: false,
+      cancel_at: 1_790_000_000,
+      items: {
+        data: [{ price: { id: "price_m" }, current_period_end: 1_800_000_000 }],
+      },
+    };
+    const patch = subscriptionPatchFromStripe(sub, priceIds);
+    expect(patch.cancelAtPeriodEnd).toBe(true);
+    expect(patch.currentPeriodEnd).toBe(1_790_000_000 * 1000);
+  });
+
+  it("cancel_at with no period end still yields an end instant", () => {
+    const sub = {
+      id: "sub_5",
+      customer: "cus_5",
+      status: "trialing",
+      cancel_at_period_end: false,
+      cancel_at: 1_790_000_000,
+      items: { data: [{ price: { id: "price_m" } }] },
+    };
+    expect(subscriptionPatchFromStripe(sub, priceIds).currentPeriodEnd).toBe(
+      1_790_000_000 * 1000,
+    );
   });
 
   it("unknown price id falls back to monthly", () => {

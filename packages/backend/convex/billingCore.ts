@@ -2,12 +2,7 @@
 // Pure billing/entitlement logic — no Convex imports so it unit-tests cleanly
 // (same pattern as benefitCycles.ts).
 
-export const TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
-
-// Launch floor for the trial clock: users created before this date get 7 days
-// from LAUNCH, not from account creation. Set to the prod deploy date of the
-// paywall before merging to main.
-export const LAUNCH_MS = Date.UTC(2026, 6, 27); // 2026-07-27
+export const TRIAL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export interface BillingUser {
   _creationTime: number;
@@ -16,11 +11,14 @@ export interface BillingUser {
   currentPeriodEnd?: number; // ms
 }
 
+// Trial runs 14 days from account creation (product decision 2026-07-21: no
+// launch-date floor — pre-launch accounts are team/test accounts and simply
+// lapse; support can extend any account via the trialEndsAt override).
 export function effectiveTrialEnd(u: {
   _creationTime: number;
   trialEndsAt?: number;
 }): number {
-  return u.trialEndsAt ?? Math.max(u._creationTime, LAUNCH_MS) + TRIAL_MS;
+  return u.trialEndsAt ?? u._creationTime + TRIAL_MS;
 }
 
 // Single source of truth for "can this user use the app".
@@ -47,6 +45,11 @@ export interface StripeSubscriptionLike {
   customer: string | { id: string };
   status: string;
   cancel_at_period_end: boolean;
+  // Scheduled cancellation instant (seconds). The Stripe dashboard's "cancel
+  // at end of period" on a trialing/active sub sets THIS (not
+  // cancel_at_period_end), so a sync that only reads the boolean would keep
+  // showing "Renews …" after a support-side cancel.
+  cancel_at?: number | null;
   current_period_end?: number; // seconds (older API shape)
   items: {
     data: Array<{ price: { id: string }; current_period_end?: number }>;
@@ -68,13 +71,21 @@ export function subscriptionPatchFromStripe(
 ): SubscriptionPatch {
   const item = sub.items.data[0];
   const periodEndSec = item?.current_period_end ?? sub.current_period_end ?? 0;
+  // A scheduled cancel_at caps the access end (it can predate the period end)
+  // and counts as "cancels at period end" for display and access logic.
+  const endSec =
+    sub.cancel_at != null
+      ? periodEndSec > 0
+        ? Math.min(sub.cancel_at, periodEndSec)
+        : sub.cancel_at
+      : periodEndSec;
   return {
     stripeCustomerId:
       typeof sub.customer === "string" ? sub.customer : sub.customer.id,
     stripeSubscriptionId: sub.id,
     subscriptionStatus: sub.status,
     subscriptionPlan: item?.price.id === priceIds.yearly ? "yearly" : "monthly",
-    currentPeriodEnd: periodEndSec * 1000,
-    cancelAtPeriodEnd: sub.cancel_at_period_end,
+    currentPeriodEnd: endSec * 1000,
+    cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at != null,
   };
 }

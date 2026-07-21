@@ -19,7 +19,7 @@ function TrialBanner({
   onUpgrade: () => void;
 }) {
   return (
-    <div className="flex items-center justify-center gap-3 border-b border-[#DAD2C2] bg-surface px-4 py-2 text-[14px] text-ink">
+    <div className="sticky top-0 z-30 box-border flex h-[41px] items-center justify-center gap-3 border-b border-[#DAD2C2] bg-surface px-4 text-[14px] text-ink">
       <span>
         Free trial — {daysLeft} day{daysLeft === 1 ? "" : "s"} left
       </span>
@@ -84,12 +84,16 @@ export function PaywallGate({ children }: { children: ReactNode }) {
   const daysLeft = inTrial
     ? Math.max(0, Math.ceil((entitlement.trialEndsAt! - now) / 86_400_000))
     : 0;
-  return (
-    <>
-      {inTrial && (
+  // --ob-banner-h tells the shell's sticky panes (Sidebar, Topbar) to offset
+  // below the banner and give back its height, so banner + app still fit one
+  // viewport with no forced page scroll. Must match TrialBanner's h-[41px].
+  if (inTrial) {
+    return (
+      <div className="[--ob-banner-h:41px]">
         <TrialBanner daysLeft={daysLeft} onUpgrade={() => setShowPaywall(true)} />
-      )}
-      {children}
-    </>
-  );
+        {children}
+      </div>
+    );
+  }
+  return <>{children}</>;
 }

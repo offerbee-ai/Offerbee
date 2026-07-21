@@ -11,7 +11,7 @@ import { Parallax } from "./motion/Parallax";
  */
 export function ThemeShowcase() {
   return (
-    <div id="themes" className="theme-onyx mt-[100px] bg-background text-ink">
+    <div id="themes" className="theme-onyx scroll-mt-24 mt-[100px] bg-background text-ink">
       <div className="mx-auto grid max-w-[1200px] items-center gap-14 px-6 py-[84px] md:grid-cols-[.95fr_1.05fr] md:gap-14 md:px-10">
         <Stagger stagger={0.08}>
           <StaggerItem>

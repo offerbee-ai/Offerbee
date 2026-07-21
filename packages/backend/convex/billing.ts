@@ -7,6 +7,7 @@ import {
   query,
 } from "./_generated/server";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { Id } from "./_generated/dataModel";
 import { api, internal } from "./_generated/api";
 import Stripe from "stripe";
 import { getUserId, requireUserId } from "./auth";
@@ -56,6 +57,71 @@ export const getEntitlement = query({
   },
 });
 
+// Paywall ledger ("Your trial so far"): what the user actually captured,
+// grouped per benefit with card names, plus a reconciling total. The window is
+// the account's full claim history — the trial starts at account creation, so
+// the two coincide (and a support-extended trial stays consistent with the
+// Benefits screen). total 0 ⇒ the client hides the ledger entirely (design
+// rule: never show an empty or fake ledger).
+export const getTrialLedger = query({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await getUserId(ctx);
+    if (!userId) return null;
+    const round = (n: number) => Math.round(n * 100) / 100;
+
+    // Stream the full index (no .take cap): the total must reconcile with the
+    // user's entire claim history. The grouped map stays small (one entry per
+    // benefit) regardless of usage count.
+    const byBenefit = new Map<
+      Id<"userBenefits">,
+      { count: number; amount: number }
+    >();
+    for await (const u of ctx.db
+      .query("benefitUsages")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))) {
+      const g = byBenefit.get(u.userBenefitId) ?? { count: 0, amount: 0 };
+      g.count += 1;
+      g.amount += u.amount;
+      byBenefit.set(u.userBenefitId, g);
+    }
+    const total = round(
+      [...byBenefit.values()].reduce((a, g) => a + g.amount, 0),
+    );
+
+    // Card names resolve like benefits.listMyCredits: nickname → cardDetails →
+    // catalog → raw key. Only the displayed top lines pay the lookups; the
+    // total above still covers every claim so it reconciles with Benefits.
+    const top = [...byBenefit.entries()]
+      .sort((a, b) => b[1].amount - a[1].amount)
+      .slice(0, 5);
+    const items = [];
+    for (const [benefitId, g] of top) {
+      const benefit = await ctx.db.get(benefitId);
+      if (!benefit) continue; // orphan guard (benefit deleted mid-flight)
+      const card = await ctx.db.get(benefit.userCardId);
+      const detail = await ctx.db
+        .query("cardDetails")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", benefit.cardKey))
+        .unique();
+      const catalog = detail
+        ? null
+        : await ctx.db
+            .query("cardCatalog")
+            .withIndex("by_cardKey", (q) => q.eq("cardKey", benefit.cardKey))
+            .unique();
+      items.push({
+        title: benefit.title,
+        cardName:
+          card?.nickname ?? detail?.cardName ?? catalog?.cardName ?? benefit.cardKey,
+        count: g.count,
+        amount: round(g.amount),
+      });
+    }
+    return { total, items };
+  },
+});
+
 // Defense-in-depth guard for key write paths (client paywall is the primary
 // gate). Throws for lapsed users. A missing row is also denied: every
 // legitimate guarded write happens after onboarding has upserted the users
@@ -90,8 +156,18 @@ export const getUserForBilling = internalQuery({
           email: user.email,
           stripeCustomerId: user.stripeCustomerId,
           subscriptionStatus: user.subscriptionStatus,
+          // For checkout's trial_end: bill only after the free trial runs out.
+          _creationTime: user._creationTime,
+          trialEndsAt: user.trialEndsAt,
         }
-      : { userId, email: undefined, stripeCustomerId: undefined, subscriptionStatus: undefined };
+      : {
+          userId,
+          email: undefined,
+          stripeCustomerId: undefined,
+          subscriptionStatus: undefined,
+          _creationTime: undefined,
+          trialEndsAt: undefined,
+        };
   },
 });
 
@@ -177,12 +253,21 @@ function requiredEnv(name: string): string {
 
 // Returns a Stripe Checkout URL for the chosen plan. `platform` only changes
 // the success page copy ("return to the app" on native).
+// Native passes its app-scheme deep link (from Linking.createURL) so Stripe's
+// success/cancel redirects land back in the app instead of SITE_URL — the
+// in-app auth session intercepts the scheme and closes itself. Web omits it.
+const RETURN_URL_RE = /^(offerbee(-dev)?|exp):\/\/[\w./?=&%:-]*$/;
+
 export const createCheckoutSession = action({
   args: {
     plan: v.union(v.literal("monthly"), v.literal("yearly")),
     platform: v.union(v.literal("web"), v.literal("native")),
+    returnUrl: v.optional(v.string()),
   },
-  handler: async (ctx, { plan, platform }): Promise<{ url: string }> => {
+  handler: async (ctx, { plan, platform, returnUrl }): Promise<{ url: string }> => {
+    if (returnUrl !== undefined && !RETURN_URL_RE.test(returnUrl)) {
+      throw new Error("Invalid returnUrl");
+    }
     // Ensure the users row exists before we touch Stripe. A rowless authed
     // caller could otherwise create a customer + pay, but setStripeCustomerId
     // no-ops without a row and the webhook's syncSubscription can never match
@@ -245,7 +330,10 @@ export const createCheckoutSession = action({
         limit: 10,
       });
       const reusable = open.data.find(
-        (s) => s.metadata?.plan === plan && s.metadata?.platform === platform,
+        (s) =>
+          s.metadata?.plan === plan &&
+          s.metadata?.platform === platform &&
+          (s.metadata?.returnUrl ?? "") === (returnUrl ?? ""),
       );
       if (reusable?.url) return { url: reusable.url };
       for (const s of open.data) {
@@ -266,6 +354,23 @@ export const createCheckoutSession = action({
     // (Stripe caches idempotent results for ~24h — session lifetime).
     const idempotencyBucket = Math.floor(Date.now() / (30 * 60 * 1000));
 
+    // Subscribing during the trial must not cut it short (paywall promises
+    // "you won't be charged until your trial ends") — pass the remaining trial
+    // to Stripe so billing starts at trial end. Stripe rejects trial_end less
+    // than 48h out, so inside that window checkout charges immediately and the
+    // paywall drops the no-charge copy (same 48h threshold on the client).
+    const trialEnd =
+      me._creationTime !== undefined
+        ? effectiveTrialEnd({
+            _creationTime: me._creationTime,
+            trialEndsAt: me.trialEndsAt,
+          })
+        : 0;
+    const trialEndSec =
+      trialEnd - Date.now() > 48 * 60 * 60 * 1000
+        ? Math.floor(trialEnd / 1000)
+        : undefined;
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -276,15 +381,28 @@ export const createCheckoutSession = action({
         // default on new accounts): MoR changes support/refund ownership and tax
         // semantics the integration wasn't designed for.
         managed_payments: { enabled: false },
-        metadata: { userId: me.userId, plan, platform },
-        subscription_data: { metadata: { userId: me.userId } },
-        success_url: `${siteUrl}/app/billing/success?platform=${platform}`,
-        cancel_url: `${siteUrl}/app`,
+        metadata: { userId: me.userId, plan, platform, returnUrl: returnUrl ?? "" },
+        subscription_data: {
+          metadata: { userId: me.userId },
+          ...(trialEndSec !== undefined ? { trial_end: trialEndSec } : {}),
+        },
+        // With a returnUrl, redirects hit the app scheme and the in-app auth
+        // session closes itself — SITE_URL (a web origin) never loads on device.
+        success_url: returnUrl
+          ? `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}outcome=success`
+          : `${siteUrl}/app/billing/success?platform=${platform}`,
+        cancel_url: returnUrl
+          ? `${returnUrl}${returnUrl.includes("?") ? "&" : "?"}outcome=cancel`
+          : `${siteUrl}/app`,
       },
       // platform is part of the key: the same (userId, plan) pair with a
       // different platform must NOT reuse a session (success_url differs),
       // and Stripe errors if the same key is replayed with different params.
-      { idempotencyKey: `checkout-${me.userId}-${plan}-${platform}-${idempotencyBucket}` },
+      // trialEndSec and returnUrl are part of the key too: a replay that
+      // crosses the 48h trial_end cutoff (or switches return target, e.g.
+      // Expo Go vs dev build) would otherwise reuse a key with different
+      // params, which Stripe rejects.
+      { idempotencyKey: `checkout-${me.userId}-${plan}-${platform}-${idempotencyBucket}-t${trialEndSec ?? 0}-${returnUrl ?? "web"}` },
     );
     if (!session.url) throw new Error("Stripe returned no checkout URL");
     return { url: session.url };

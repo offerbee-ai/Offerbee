@@ -21,7 +21,7 @@ const steps = [
 
 export function HowItWorks() {
   return (
-    <div id="how" className="mx-auto max-w-[1200px] px-6 pt-[90px] md:px-10">
+    <div id="how" className="scroll-mt-24 mx-auto max-w-[1200px] px-6 pt-[90px] md:px-10">
       <Reveal className="text-center">
         <div className="font-mono text-[12.5px] font-semibold uppercase tracking-[.1em] text-accent">
           How it works

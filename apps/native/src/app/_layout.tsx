@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { Stack } from "expo-router";
+import { router, Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as SplashScreen from "expo-splash-screen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -58,25 +58,41 @@ function RootNavigator() {
     if (ready) SplashScreen.hideAsync().catch(() => {});
   }, [ready]);
 
-  if (!ready) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
-
   const onboarded = !!me?.onboardingCompletedAt;
-  // Onboarded users without access land on the hard paywall. entitlement is
-  // resolved by this point (splash held above); null only for the unauthed
-  // case, which the isAuthenticated guard already excludes. trialExpiredLocally
-  // catches an in-session trial crossing its end before the query re-runs.
+  // Lapsed users keep the app mounted but get the paywall sheet pushed over it
+  // on every app open (and the moment the trial lapses mid-session). The sheet
+  // is closeable — feature writes stay blocked server-side (requireAccess
+  // throws SUBSCRIPTION_REQUIRED), so closing only lets them look around.
+  // trialExpiredLocally catches an in-session trial crossing its end before
+  // the query re-runs.
   const trialExpiredLocally =
     entitlement != null &&
     entitlement.status === "trialing" &&
     entitlement.trialEndsAt !== null &&
     entitlement.trialEndsAt <= now &&
     !entitlement.currentPeriodEnd;
-  const paywalled =
+  const lapsed =
     isAuthenticated &&
     onboarded &&
     entitlement !== undefined &&
     entitlement !== null &&
     (!entitlement.hasAccess || trialExpiredLocally);
+
+  // Present the paywall sheet once per lapse episode: on every app open while
+  // lapsed (this component remounts per launch) and again the moment access
+  // lapses mid-session. Resets when access returns so a future lapse re-nags.
+  const nagged = useRef(false);
+  useEffect(() => {
+    if (!ready || !lapsed) {
+      if (!lapsed) nagged.current = false;
+      return;
+    }
+    if (nagged.current) return;
+    nagged.current = true;
+    router.push("/paywall");
+  }, [ready, lapsed]);
+
+  if (!ready) return <View style={{ flex: 1, backgroundColor: colors.background }} />;
 
   return (
     <>
@@ -96,11 +112,7 @@ function RootNavigator() {
           <Stack.Screen name="(onboarding)" />
         </Stack.Protected>
 
-        <Stack.Protected guard={isAuthenticated && onboarded && paywalled}>
-          <Stack.Screen name="paywall" />
-        </Stack.Protected>
-
-        <Stack.Protected guard={isAuthenticated && onboarded && !paywalled}>
+        <Stack.Protected guard={isAuthenticated && onboarded}>
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="card/[cardKey]" />
           <Stack.Screen name="credit/[creditId]" />
@@ -108,6 +120,10 @@ function RootNavigator() {
           <Stack.Screen name="add-card-search" options={{ presentation: "modal" }} />
           <Stack.Screen name="settings" />
           <Stack.Screen name="notifications" />
+          {/* Declared after (tabs) so the tabs stay the anchor; pushed
+              voluntarily from Settings during the trial and automatically on
+              every app open once access lapses (PaywallNag below). */}
+          <Stack.Screen name="paywall" options={{ presentation: "modal" }} />
         </Stack.Protected>
       </Stack>
     </>
