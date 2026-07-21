@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Hard-paywall OfferBee behind a Stripe subscription ($9.99/mo, $80/yr) with a 7-day no-card trial, on web and native, per `docs/specs/2026-07-20-stripe-subscriptions-design.md`.
+**Goal:** Hard-paywall OfferBee behind a Stripe subscription ($9.99/mo, $80/yr) with a 14-day no-card trial, on web and native, per `docs/specs/2026-07-20-stripe-subscriptions-design.md`.
 
 **Architecture:** Stripe hosts all payment UI (Checkout + Customer Portal). Convex owns entitlement: billing fields live on the `users` row, a webhook (`/stripe/webhook` on `http.ts`) upserts subscription state, and both clients gate reactively on `billing.getEntitlement`. Trial derives from `_creationTime` with a launch-date floor — no migration. Native links out to web checkout (US storefront external-purchase rules); Convex reactivity dismisses the paywall when the webhook lands, so no deep link.
 
@@ -201,9 +201,9 @@ Expected: FAIL — `Cannot find module './billingCore'`.
 // Pure billing/entitlement logic — no Convex imports so it unit-tests cleanly
 // (same pattern as benefitCycles.ts).
 
-export const TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
+export const TRIAL_MS = 14 * 24 * 60 * 60 * 1000;
 
-// Launch floor for the trial clock: users created before this date get 7 days
+// Launch floor for the trial clock: users created before this date get 14 days
 // from LAUNCH, not from account creation. Set to the prod deploy date of the
 // paywall before merging to main.
 export const LAUNCH_MS = Date.UTC(2026, 6, 27); // 2026-07-27

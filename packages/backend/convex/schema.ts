@@ -43,8 +43,8 @@ export default defineSchema({
     // Idempotency guard for the transactional welcome email (email.ts).
     welcomeEmailSentAt: v.optional(v.number()),
     // ── Billing (Stripe). All optional: absent = never subscribed. Entitlement
-    //    is derived in billingCore.hasAccess — trial comes from _creationTime
-    //    (launch-floored), so no backfill was needed. ──
+    //    is derived in billingCore.hasAccess — trial comes from _creationTime,
+    //    so no backfill was needed. ──
     trialEndsAt: v.optional(v.number()), // ms; manual support override only
     stripeCustomerId: v.optional(v.string()),
     stripeSubscriptionId: v.optional(v.string()),

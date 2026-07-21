@@ -126,12 +126,32 @@
 }
 
 @layer base {
+  /* Anchor nav (landing #how/#pricing/#themes) glides instead of jumping. */
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   body {
     background: var(--ob-background);
     color: var(--ob-ink);
     font-family: var(--font-public-sans), ui-sans-serif, system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+  }
+
+  /* Tailwind v4 dropped the v3 preflight's cursor:pointer on buttons; restore
+     it for every enabled interactive control (disabled ones keep default). */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  select:not(:disabled),
+  summary {
+    cursor: pointer;
   }
 
   /* Tailwind v4: default border color is currentColor; pin it to the token. */

@@ -9,7 +9,7 @@ Monetize OfferBee with a single premium subscription behind a hard paywall:
 
 - **Monthly:** $9.99/month
 - **Yearly:** $80/year (~33% savings, $6.67/month equivalent)
-- **Trial:** 7 days, no card required, app-managed
+- **Trial:** 14 days, no card required, app-managed
 - One billing system (Stripe) for both the Next.js web app and the Expo iOS app
 
 ## Decisions (locked)
@@ -18,8 +18,8 @@ Monetize OfferBee with a single premium subscription behind a hard paywall:
 | --- | --- | --- |
 | iOS purchases | Stripe-only; native links out to web checkout | US storefront allows external purchase links (post-2025 Epic ruling); OfferBee is US-cards-focused. Avoids Apple's 15–30% cut, StoreKit, and RevenueCat. |
 | Gating model | Hard paywall after trial | Whole app requires an active trial or subscription. One gate at app entry, simplest entitlement checks. |
-| Trial | 7 days, no card, app-managed | Trial clock derives from user creation time; Stripe is only involved once the user actually subscribes. |
-| Existing users | 7-day trial from feature launch | Uniform code path; a launch-date constant floors the trial clock for pre-launch users. |
+| Trial | 14 days, no card, app-managed | Trial clock derives from user creation time; Stripe is only involved once the user actually subscribes. |
+| Existing users | 14-day trial from feature launch | Uniform code path; a launch-date constant floors the trial clock for pre-launch users. |
 | Billing stack | Raw Stripe + Convex webhooks | Entitlement lives in Convex where every function can read it. Follows the existing Plaid webhook pattern in `http.ts`. No Clerk Billing fee or native-support gaps. |
 
 ## Architecture overview
@@ -59,14 +59,14 @@ Three separate `ctx.db.insert("users", ...)` call sites exist (`users.ts:46`, `u
 
 ```ts
 const LAUNCH_MS = <deploy date of this feature>; // hardcoded constant
-const TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
+const TRIAL_MS = 14 * 24 * 60 * 60 * 1000;
 
 effectiveTrialEnd(user) =
   user.trialEndsAt ?? (Math.max(user._creationTime, LAUNCH_MS) + TRIAL_MS)
 ```
 
-- New signups: 7 days from account creation.
-- Pre-launch users: 7 days from launch.
+- New signups: 14 days from account creation.
+- Pre-launch users: 14 days from launch.
 - `trialEndsAt` field exists solely as a manual override (extend a specific user's trial via dashboard) — it is never written by application code in v1.
 
 ### Entitlement (single pure function)

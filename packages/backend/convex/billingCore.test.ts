@@ -1,7 +1,6 @@
 // packages/backend/convex/billingCore.test.ts
 import { describe, expect, it } from "vitest";
 import {
-  LAUNCH_MS,
   TRIAL_MS,
   effectiveTrialEnd,
   hasAccess,
@@ -11,15 +10,9 @@ import {
 const DAY = 24 * 60 * 60 * 1000;
 
 describe("effectiveTrialEnd", () => {
-  it("post-launch signup: creation + 7d", () => {
-    const created = LAUNCH_MS + 5 * DAY;
+  it("trial runs TRIAL_MS from account creation", () => {
+    const created = Date.UTC(2026, 6, 1) + 5 * DAY;
     expect(effectiveTrialEnd({ _creationTime: created })).toBe(created + TRIAL_MS);
-  });
-
-  it("pre-launch user: floored to launch + 7d", () => {
-    expect(effectiveTrialEnd({ _creationTime: LAUNCH_MS - 90 * DAY })).toBe(
-      LAUNCH_MS + TRIAL_MS,
-    );
   });
 
   it("manual trialEndsAt override wins", () => {
@@ -30,8 +23,9 @@ describe("effectiveTrialEnd", () => {
 });
 
 describe("hasAccess", () => {
-  const now = LAUNCH_MS + 30 * DAY;
-  const base = { _creationTime: LAUNCH_MS }; // trial long expired at `now`
+  const EPOCH = Date.UTC(2026, 6, 1);
+  const now = EPOCH + 30 * DAY;
+  const base = { _creationTime: EPOCH }; // trial long expired at `now`
 
   it("in-trial user has access", () => {
     expect(hasAccess({ _creationTime: now - 2 * DAY }, now)).toBe(true);

@@ -238,7 +238,8 @@ export function Sidebar({
   return (
     <>
       {/* Desktop: static sticky pane */}
-      <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-border bg-surface lg:flex">
+      {/* top/height give way to the trial banner via --ob-banner-h (PaywallGate). */}
+      <aside className="sticky top-[var(--ob-banner-h,0px)] hidden h-[calc(100dvh-var(--ob-banner-h,0px))] w-[248px] shrink-0 flex-col border-r border-border bg-surface lg:flex">
         <SidebarContent />
       </aside>
 

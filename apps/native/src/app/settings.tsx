@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Alert, View } from "react-native";
 import Constants from "expo-constants";
+import { router } from "expo-router";
 import { useAuth, useUser } from "@clerk/expo";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
@@ -241,7 +242,14 @@ export default function SettingsScreen() {
                   disabled={portalBusy}
                   onPress={() => void onManage()}
                 />
-              ) : null}
+              ) : (
+                <Button
+                  label="Upgrade"
+                  size="sm"
+                  haptic={false}
+                  onPress={() => router.push("/paywall")}
+                />
+              )}
             </View>
             {portalError ? (
               <Text

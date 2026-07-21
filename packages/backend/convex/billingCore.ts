@@ -2,12 +2,7 @@
 // Pure billing/entitlement logic — no Convex imports so it unit-tests cleanly
 // (same pattern as benefitCycles.ts).
 
-export const TRIAL_MS = 7 * 24 * 60 * 60 * 1000;
-
-// Launch floor for the trial clock: users created before this date get 7 days
-// from LAUNCH, not from account creation. Set to the prod deploy date of the
-// paywall before merging to main.
-export const LAUNCH_MS = Date.UTC(2026, 6, 27); // 2026-07-27
+export const TRIAL_MS = 14 * 24 * 60 * 60 * 1000;
 
 export interface BillingUser {
   _creationTime: number;
@@ -16,11 +11,14 @@ export interface BillingUser {
   currentPeriodEnd?: number; // ms
 }
 
+// Trial runs 14 days from account creation (product decision 2026-07-21: no
+// launch-date floor — pre-launch accounts are team/test accounts and simply
+// lapse; support can extend any account via the trialEndsAt override).
 export function effectiveTrialEnd(u: {
   _creationTime: number;
   trialEndsAt?: number;
 }): number {
-  return u.trialEndsAt ?? Math.max(u._creationTime, LAUNCH_MS) + TRIAL_MS;
+  return u.trialEndsAt ?? u._creationTime + TRIAL_MS;
 }
 
 // Single source of truth for "can this user use the app".
