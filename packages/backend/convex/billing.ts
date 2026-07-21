@@ -68,17 +68,18 @@ export const getTrialLedger = query({
   handler: async (ctx) => {
     const userId = await getUserId(ctx);
     if (!userId) return null;
-    const usages = await ctx.db
-      .query("benefitUsages")
-      .withIndex("by_userId", (q) => q.eq("userId", userId))
-      .take(500);
     const round = (n: number) => Math.round(n * 100) / 100;
 
+    // Stream the full index (no .take cap): the total must reconcile with the
+    // user's entire claim history. The grouped map stays small (one entry per
+    // benefit) regardless of usage count.
     const byBenefit = new Map<
       Id<"userBenefits">,
       { count: number; amount: number }
     >();
-    for (const u of usages) {
+    for await (const u of ctx.db
+      .query("benefitUsages")
+      .withIndex("by_userId", (q) => q.eq("userId", userId))) {
       const g = byBenefit.get(u.userBenefitId) ?? { count: 0, amount: 0 };
       g.count += 1;
       g.amount += u.amount;

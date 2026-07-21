@@ -123,6 +123,38 @@ describe("subscriptionPatchFromStripe", () => {
     expect(patch.cancelAtPeriodEnd).toBe(true);
   });
 
+  // Stripe dashboard "cancel at end of period" schedules cancel_at and leaves
+  // cancel_at_period_end false — the patch must still read as canceling.
+  it("scheduled cancel_at counts as cancelAtPeriodEnd and caps the end", () => {
+    const sub = {
+      id: "sub_4",
+      customer: "cus_4",
+      status: "trialing",
+      cancel_at_period_end: false,
+      cancel_at: 1_790_000_000,
+      items: {
+        data: [{ price: { id: "price_m" }, current_period_end: 1_800_000_000 }],
+      },
+    };
+    const patch = subscriptionPatchFromStripe(sub, priceIds);
+    expect(patch.cancelAtPeriodEnd).toBe(true);
+    expect(patch.currentPeriodEnd).toBe(1_790_000_000 * 1000);
+  });
+
+  it("cancel_at with no period end still yields an end instant", () => {
+    const sub = {
+      id: "sub_5",
+      customer: "cus_5",
+      status: "trialing",
+      cancel_at_period_end: false,
+      cancel_at: 1_790_000_000,
+      items: { data: [{ price: { id: "price_m" } }] },
+    };
+    expect(subscriptionPatchFromStripe(sub, priceIds).currentPeriodEnd).toBe(
+      1_790_000_000 * 1000,
+    );
+  });
+
   it("unknown price id falls back to monthly", () => {
     const sub = {
       id: "sub_3",

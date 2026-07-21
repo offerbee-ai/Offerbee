@@ -45,6 +45,11 @@ export interface StripeSubscriptionLike {
   customer: string | { id: string };
   status: string;
   cancel_at_period_end: boolean;
+  // Scheduled cancellation instant (seconds). The Stripe dashboard's "cancel
+  // at end of period" on a trialing/active sub sets THIS (not
+  // cancel_at_period_end), so a sync that only reads the boolean would keep
+  // showing "Renews …" after a support-side cancel.
+  cancel_at?: number | null;
   current_period_end?: number; // seconds (older API shape)
   items: {
     data: Array<{ price: { id: string }; current_period_end?: number }>;
@@ -66,13 +71,21 @@ export function subscriptionPatchFromStripe(
 ): SubscriptionPatch {
   const item = sub.items.data[0];
   const periodEndSec = item?.current_period_end ?? sub.current_period_end ?? 0;
+  // A scheduled cancel_at caps the access end (it can predate the period end)
+  // and counts as "cancels at period end" for display and access logic.
+  const endSec =
+    sub.cancel_at != null
+      ? periodEndSec > 0
+        ? Math.min(sub.cancel_at, periodEndSec)
+        : sub.cancel_at
+      : periodEndSec;
   return {
     stripeCustomerId:
       typeof sub.customer === "string" ? sub.customer : sub.customer.id,
     stripeSubscriptionId: sub.id,
     subscriptionStatus: sub.status,
     subscriptionPlan: item?.price.id === priceIds.yearly ? "yearly" : "monthly",
-    currentPeriodEnd: periodEndSec * 1000,
-    cancelAtPeriodEnd: sub.cancel_at_period_end,
+    currentPeriodEnd: endSec * 1000,
+    cancelAtPeriodEnd: sub.cancel_at_period_end || sub.cancel_at != null,
   };
 }
