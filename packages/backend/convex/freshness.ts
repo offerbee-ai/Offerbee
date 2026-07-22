@@ -1,15 +1,18 @@
 import {
+  action,
   internalAction,
   internalMutation,
   internalQuery,
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import { requireAdmin } from "./auth";
 import { missingEnvVariableUrl } from "./utils";
 import { selectSource } from "./cardSourceSelect";
 import { parseExtraction } from "./cardExtractionParse";
 import { diffScalar, diffNamedArray, type NamedItem } from "./cardDataDiff";
 import { gateChange } from "./autoApplyGate";
+import { applyItemDelta } from "./arrayDelta";
 import {
   categoryToNamed,
   namedToCategory,
@@ -313,12 +316,11 @@ export const markVerified = internalMutation({
   },
 });
 
-// Array fields are handled all-or-nothing per field: if every one of the run's
-// deltas for a field passes the gate (and auto-apply is enabled) the whole
-// corrected array is written; otherwise a single WHOLE-ARRAY proposal is queued
-// for review (currentValue = old array, proposedValue = fully-corrected array),
-// which confirmReview applies verbatim. This keeps every change actionable
-// (never audit-only) while sidestepping single-item review shapes.
+// Array fields (spendBonusCategory / benefit) are handled PER ITEM: each gated
+// delta that passes auto-applies to a working copy; the rest are queued as one
+// review row per item (add/remove/patch + item name), so a reviewer accepts or
+// rejects each individually. confirmReview applies a single item delta to the
+// live array. "Add everything" — no field is excluded; benefits included.
 const ARRAY_FIELDS = new Set(["spendBonusCategory", "benefit"]);
 
 // Apply the auto-approved changes (when enabled), enqueue scalar changes that
@@ -375,51 +377,49 @@ export const applyFreshnessChanges = internalMutation({
       provenance.push(...others);
     };
 
-    const applyArrayOp = (
-      arr: any[],
-      ch: any,
-      toStored: (n: NamedItem) => Record<string, unknown>,
-      nameKeys: string[],
-    ): any[] => {
-      const nameOf = (item: any) =>
+    const nameOfIn =
+      (nameKeys: string[]) =>
+      (item: any): string =>
         norm(String(nameKeys.map((k) => item?.[k]).find((x) => x != null) ?? ""));
-      const key = norm(ch.name ?? "");
-      if (ch.changeType === "remove")
-        return arr.filter((i) => nameOf(i) !== key);
-      const mapped = toStored(ch.proposed as NamedItem);
-      if (ch.changeType === "add") return [...arr, mapped];
-      // patch: merge over the existing item so LLM-omitted fields survive.
-      return arr.map((i) => (nameOf(i) === key ? { ...i, ...mapped } : i));
-    };
 
-    // Replace any pending proposal for this field, then queue a fresh one.
-    const enqueueReviewRow = async (
-      field: string,
-      current: unknown,
-      proposed: unknown,
-      confidence: number | undefined,
-      sourceUrl: string | undefined,
-      note: string,
-    ) => {
+    // Enqueue a review row, replacing the matching pending one. Scalars dedupe by
+    // field; array item deltas dedupe by (field, itemName) so each item is its
+    // own reviewable finding.
+    const enqueueReview = async (opts: {
+      field: string;
+      itemName?: string;
+      changeType?: "patch" | "add" | "remove";
+      current: unknown;
+      proposed: unknown;
+      confidence?: number;
+      sourceUrl?: string;
+      note: string;
+    }) => {
       const pending = await ctx.db
         .query("cardDataReview")
         .withIndex("by_cardKey_and_field", (q) =>
-          q.eq("cardKey", cardKey).eq("field", field),
+          q.eq("cardKey", cardKey).eq("field", opts.field),
         )
         .collect();
       for (const r of pending) {
-        if (r.status === "pending") await ctx.db.delete(r._id);
+        if (r.status !== "pending") continue;
+        if (opts.itemName === undefined || r.itemName === opts.itemName)
+          await ctx.db.delete(r._id);
       }
       await ctx.db.insert("cardDataReview", {
         cardKey,
-        field,
-        currentValue: current as any,
-        proposedValue: proposed as any,
+        field: opts.field,
+        itemName: opts.itemName,
+        changeType: opts.changeType,
+        currentValue: opts.current as any,
+        proposedValue: opts.proposed as any,
         reason: "web-correction",
-        observations: [{ source: "web", value: proposed as any }],
-        confidence,
-        sourceUrl,
-        note,
+        observations: [
+          { source: "web", value: (opts.proposed ?? opts.current) as any },
+        ],
+        confidence: opts.confidence,
+        sourceUrl: opts.sourceUrl,
+        note: opts.note,
         status: "pending",
         createdAt: now,
       });
@@ -447,19 +447,20 @@ export const applyFreshnessChanges = internalMutation({
         scalarTouched = true;
         upsertProv(ch.field, ch.proposed, ch.confidence, ch.sourceUrl);
       } else {
-        await enqueueReviewRow(
-          ch.field,
-          ch.current,
-          ch.proposed,
-          ch.confidence,
-          ch.sourceUrl,
-          `freshness: ${ch.changeType} ${ch.field}`,
-        );
+        await enqueueReview({
+          field: ch.field,
+          current: ch.current,
+          proposed: ch.proposed,
+          confidence: ch.confidence,
+          sourceUrl: ch.sourceUrl,
+          note: `freshness: ${ch.changeType} ${ch.field}`,
+        });
       }
       await audit(ch, willApply ? "auto" : "shadow");
     }
 
-    // ── Array fields: all-or-nothing per field, else whole-array review ──
+    // ── Array fields: per-item. Auto-apply each passing delta to a working copy;
+    //    queue the rest as one review row PER item (add everything, review each). ──
     const arrayDefs = [
       {
         field: "spendBonusCategory",
@@ -473,34 +474,52 @@ export const applyFreshnessChanges = internalMutation({
       const chs = changes.filter((c) => c.field === field);
       if (chs.length === 0) continue;
 
-      const original = [...(((detail as any)[field] as any[]) ?? [])];
-      let proposedArr = original;
-      for (const ch of chs)
-        proposedArr = applyArrayOp(proposedArr, ch, toStored, [...nameKeys]);
+      let working = [...(((detail as any)[field] as any[]) ?? [])];
+      const nameOf = nameOfIn([...nameKeys]);
+      const findStored = (name: string) =>
+        working.find((i) => nameOf(i) === norm(name));
+      let touched = false;
 
-      const willApply = chs.every((c) => c.autoApply) && autoEnabled;
-      // Strongest cited signal among the field's changes represents the batch.
-      const rep = chs.reduce(
-        (a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a),
-        chs[0],
-      );
+      for (const ch of chs) {
+        const willApply = ch.autoApply && autoEnabled;
+        const storedItem =
+          ch.changeType === "remove"
+            ? undefined
+            : toStored(ch.proposed as NamedItem);
+        const existing = findStored(ch.name ?? "");
 
-      if (willApply) {
-        patchDoc[field] = proposedArr;
-        upsertProv(field, proposedArr, rep.confidence, rep.sourceUrl);
+        if (willApply) {
+          working = applyItemDelta(
+            working,
+            { changeType: ch.changeType, itemName: ch.name ?? "", item: storedItem },
+            [...nameKeys],
+          );
+          touched = true;
+        } else {
+          await enqueueReview({
+            field,
+            itemName: ch.name,
+            changeType: ch.changeType,
+            current: existing,
+            proposed: storedItem,
+            confidence: ch.confidence,
+            sourceUrl: ch.sourceUrl,
+            note: `freshness: ${ch.changeType} ${field} "${ch.name ?? ""}"`,
+          });
+        }
+        await audit(ch, willApply ? "auto" : "shadow");
+      }
+
+      if (touched) {
+        patchDoc[field] = working;
+        const rep = chs.reduce(
+          (a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a),
+          chs[0],
+        );
+        upsertProv(field, working, rep.confidence, rep.sourceUrl);
         if (field === "benefit") benefitsTouched = true;
         else categoriesTouched = true;
-      } else {
-        await enqueueReviewRow(
-          field,
-          original,
-          proposedArr,
-          rep.confidence,
-          rep.sourceUrl,
-          `freshness: ${chs.length} ${field} change(s)`,
-        );
       }
-      for (const ch of chs) await audit(ch, willApply ? "auto" : "shadow");
     }
 
     if (scalarTouched || categoriesTouched || benefitsTouched) {
@@ -517,6 +536,25 @@ export const applyFreshnessChanges = internalMutation({
         cardKey,
       });
     }
+  },
+});
+
+// Admin-triggered: verify every card in the caller's wallet now, AWAITING all
+// checks so the caller's promise resolves only when done — the review screen can
+// show a spinner for the whole run instead of returning immediately.
+export const verifyMyWallet = action({
+  args: {},
+  handler: async (ctx): Promise<{ cardCount: number }> => {
+    const subject = await requireAdmin(ctx);
+    const cardKeys = await ctx.runQuery(internal.verify.getUserCardKeys, {
+      userId: subject,
+    });
+    await Promise.all(
+      cardKeys.map((cardKey) =>
+        ctx.runAction(internal.freshness.verifyOneCard, { cardKey }),
+      ),
+    );
+    return { cardCount: cardKeys.length };
   },
 });
 
