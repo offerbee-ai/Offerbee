@@ -167,12 +167,30 @@ export default defineSchema({
     .index("by_cardKey", ["cardKey"])
     .index("by_appliedAt", ["appliedAt"]),
 
-  // ── Small key/value bookkeeping for background pipelines (e.g. the freshness
-  //    scan's rotating pagination cursor over userCards). ──
+  // ── Small key/value bookkeeping for background pipelines. RETIRED: the
+  //    freshness scan's cursor moved to claim-based selection (freshness.ts's
+  //    claimDueCards); drop this table once existing rows are cleared. ──
   pipelineState: defineTable({
     key: v.string(),
     cursor: v.union(v.string(), v.null()),
   }).index("by_key", ["key"]),
+
+  // ── One row per freshness-pipeline run (a full cron chain or a manual
+  //    wallet verify): counters for the admin History view. Dedicated
+  //    high-churn table per the churn-separation guideline. ──
+  pipelineRuns: defineTable({
+    pipeline: v.string(), // "freshness"
+    source: v.union(v.literal("cron"), v.literal("manual")),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    scheduled: v.number(), // cards claimed across the whole chain
+    extracted: v.number(), // successful LLM extractions
+    failed: v.number(), // extraction failures (retry via short backoff)
+    autoApplied: v.number(), // changes written to cardDetails
+    enqueued: v.number(), // changes routed to the review queue
+    suppressed: v.number(), // changes matching a rejected proposal / manual pin
+    suspect: v.number(), // array fields dropped by the mass-removal guard
+  }).index("by_pipeline_and_startedAt", ["pipeline", "startedAt"]),
 
   // ── User wallet: the cards a user owns ──
   userCards: defineTable({

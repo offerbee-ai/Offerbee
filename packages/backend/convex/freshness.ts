@@ -20,6 +20,7 @@ import {
   type RejectedRow,
 } from "./reviewSuppress";
 import { issuerAllowlist } from "./freshnessConfig";
+import { planBatch, isRetryableStatus, retryDelayMs } from "./freshnessPlan";
 import {
   categoryToNamed,
   namedToCategory,
@@ -33,8 +34,13 @@ import {
 // diff them against what we store. Confident, cited, in-bounds changes are
 // auto-applied (fees, earn categories, benefits); everything else falls back to
 // the human review queue. AUTO_APPLY_ENABLED gates whether confident changes are
-// actually written ("shadow" mode records them for measurement instead). The
-// per-card TTL is tracked by cardDetails.lastVerifiedAt. See
+// actually written ("shadow" mode records them for measurement instead).
+//
+// Scheduling: the daily cron drives a self-chaining driver (verifyWalletBatch)
+// that repeatedly claims the most-overdue owned cards via the
+// cardDetails.by_lastVerifiedAt index (claimDueCards — the claim itself is the
+// crash-retry backoff), staggers the per-card LLM calls, and stops at a daily
+// call budget. The per-card TTL is tracked by cardDetails.lastVerifiedAt. See
 // docs/plans/2026-07-22-auto-card-data-freshness-plan.md.
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
@@ -60,6 +66,15 @@ function config() {
     // After a failed extraction, retry this soon instead of waiting a full TTL.
     failureRetryMs: num("FRESHNESS_FAILURE_RETRY_HOURS", 6) * 60 * 60 * 1000,
     perRunCap: num("FRESHNESS_PER_RUN_CAP", 25),
+    // Hard ceiling on LLM calls per daily chain (cost control).
+    dailyCap: num("FRESHNESS_DAILY_CAP", 150),
+    // Stagger between scheduled per-card verifications — avoids bursting the
+    // whole batch at OpenRouter concurrently.
+    callSpacingMs: num("FRESHNESS_CALL_SPACING_MS", 5000),
+    // Concurrency for the admin's manual verifyMyWallet run.
+    walletConcurrency: num("FRESHNESS_WALLET_CONCURRENCY", 3),
+    // Bounded retries inside one extraction call (429/5xx/network only).
+    maxRetries: num("OPENROUTER_MAX_RETRIES", 2),
     // Off by default: first deploy runs in shadow (record, don't write).
     autoApplyEnabled: process.env.AUTO_APPLY_ENABLED === "true",
     allowlist: issuerAllowlist(process.env.ISSUER_DOMAIN_ALLOWLIST),
@@ -87,70 +102,144 @@ export const getCardForFreshness = internalQuery({
   },
 });
 
-// Wallet-scan pagination cursor, persisted so the daily run advances through
-// the ENTIRE userCards table across runs (round-robin) rather than re-reading a
-// fixed prefix — no wallet is ever permanently skipped, at any table size.
-const CURSOR_KEY = "freshness-wallet-scan";
-
-export const getFreshnessCursor = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const row = await ctx.db
-      .query("pipelineState")
-      .withIndex("by_key", (q) => q.eq("key", CURSOR_KEY))
-      .unique();
-    return row?.cursor ?? null;
-  },
-});
-
-export const setFreshnessCursor = internalMutation({
-  args: { cursor: v.union(v.string(), v.null()) },
-  handler: async (ctx, { cursor }) => {
-    const row = await ctx.db
-      .query("pipelineState")
-      .withIndex("by_key", (q) => q.eq("key", CURSOR_KEY))
-      .unique();
-    if (row) await ctx.db.patch(row._id, { cursor });
-    else await ctx.db.insert("pipelineState", { key: CURSOR_KEY, cursor });
-  },
-});
-
-// One page of userCards from the persisted cursor; returns the owned cardKeys in
-// that page whose data is past TTL, plus the next cursor. The batch driver walks
-// pages run-over-run and wraps at the end, so every card is eventually visited.
-export const getWalletCardsDuePage = internalQuery({
-  args: {
-    cursor: v.union(v.string(), v.null()),
-    ttlMs: v.number(),
-    pageSize: v.number(),
-  },
-  handler: async (ctx, { cursor, ttlMs, pageSize }) => {
-    const cutoff = Date.now() - ttlMs;
-    const page = await ctx.db
+// The cardKeys in one user's wallet (drives the manual verifyMyWallet run).
+export const getUserCardKeys = internalQuery({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    const cards = await ctx.db
       .query("userCards")
-      .paginate({ cursor, numItems: pageSize });
+      .withIndex("by_userId", (q) => q.eq("userId", userId))
+      .collect();
+    return cards.map((c) => c.cardKey);
+  },
+});
+
+// Select AND claim the next most-overdue owned cards in one transaction. The
+// claim patches lastVerifiedAt to the failure-backoff timestamp, which (a)
+// prevents a concurrent/next chain invocation from double-scheduling the same
+// card, and (b) means a verification action that crashes mid-flight self-heals:
+// the card simply becomes due again in retryMs. by_lastVerifiedAt ascending
+// visits never-verified cards first (missing field sorts lowest), then the
+// stalest — most-overdue-first is inherently starvation-free.
+export const claimDueCards = internalMutation({
+  args: { limit: v.number(), ttlMs: v.number(), retryMs: v.number() },
+  handler: async (ctx, { limit, ttlMs, retryMs }) => {
+    const now = Date.now();
+    const cutoff = now - ttlMs;
+    // Bounded scan: read up to limit*10 due candidates, keep the owned ones.
+    // Unowned cards are skipped (not claimed) so they don't consume budget;
+    // they also never verify — freshness only covers wallet cards.
+    const scanCap = limit * 10;
+    // Two reads so never-verified docs (lastVerifiedAt unset) are included
+    // regardless of how the index range treats a missing optional field.
+    const neverVerified = await ctx.db
+      .query("cardDetails")
+      .withIndex("by_lastVerifiedAt", (q) => q.eq("lastVerifiedAt", undefined))
+      .take(scanCap);
+    const overdue = await ctx.db
+      .query("cardDetails")
+      .withIndex("by_lastVerifiedAt", (q) => q.lt("lastVerifiedAt", cutoff))
+      .order("asc")
+      .take(scanCap);
     const seen = new Set<string>();
-    const due: string[] = [];
-    for (const uc of page.page) {
-      if (seen.has(uc.cardKey)) continue;
-      seen.add(uc.cardKey);
-      const d = await ctx.db
-        .query("cardDetails")
-        .withIndex("by_cardKey", (q) => q.eq("cardKey", uc.cardKey))
-        .unique();
-      const last = d?.lastVerifiedAt ?? 0; // never-verified is always due
-      if (last < cutoff) due.push(uc.cardKey);
+    const cardKeys: string[] = [];
+    for (const d of [...neverVerified, ...overdue]) {
+      if (cardKeys.length >= limit) break;
+      if (seen.has(d.cardKey)) continue;
+      seen.add(d.cardKey);
+      // Belt-and-suspenders: skip docs the range read shouldn't have returned
+      // (claimed by a concurrent invocation between the two reads).
+      if ((d.lastVerifiedAt ?? 0) >= cutoff) continue;
+      const owner = await ctx.db
+        .query("userCards")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", d.cardKey))
+        .first();
+      if (!owner) continue;
+      await ctx.db.patch(d._id, { lastVerifiedAt: now - ttlMs + retryMs });
+      cardKeys.push(d.cardKey);
     }
-    return { due, nextCursor: page.continueCursor, isDone: page.isDone };
+    return { cardKeys };
+  },
+});
+
+// ── Run log: one row per cron chain / manual wallet verify ──────────────────
+export const startRun = internalMutation({
+  args: { source: v.union(v.literal("cron"), v.literal("manual")) },
+  handler: async (ctx, { source }) => {
+    return await ctx.db.insert("pipelineRuns", {
+      pipeline: "freshness",
+      source,
+      startedAt: Date.now(),
+      scheduled: 0,
+      extracted: 0,
+      failed: 0,
+      autoApplied: 0,
+      enqueued: 0,
+      suppressed: 0,
+      suspect: 0,
+    });
+  },
+});
+
+export const finishRun = internalMutation({
+  args: { runId: v.id("pipelineRuns") },
+  handler: async (ctx, { runId }) => {
+    const run = await ctx.db.get(runId);
+    if (run && run.finishedAt === undefined)
+      await ctx.db.patch(runId, { finishedAt: Date.now() });
+  },
+});
+
+const runCounterValidator = v.object({
+  scheduled: v.optional(v.number()),
+  extracted: v.optional(v.number()),
+  failed: v.optional(v.number()),
+  autoApplied: v.optional(v.number()),
+  enqueued: v.optional(v.number()),
+  suppressed: v.optional(v.number()),
+  suspect: v.optional(v.number()),
+});
+
+type RunCounters = {
+  scheduled?: number;
+  extracted?: number;
+  failed?: number;
+  autoApplied?: number;
+  enqueued?: number;
+  suppressed?: number;
+  suspect?: number;
+};
+
+async function bumpRun(
+  ctx: { db: any },
+  runId: string | undefined,
+  deltas: RunCounters,
+) {
+  if (!runId) return;
+  const run = await ctx.db.get(runId);
+  if (!run) return;
+  const patch: Record<string, number> = {};
+  for (const [k, delta] of Object.entries(deltas)) {
+    if (delta) patch[k] = ((run as any)[k] ?? 0) + delta;
+  }
+  if (Object.keys(patch).length > 0) await ctx.db.patch(runId, patch);
+}
+
+export const bumpRunCounters = internalMutation({
+  args: { runId: v.id("pipelineRuns"), deltas: runCounterValidator },
+  handler: async (ctx, { runId, deltas }) => {
+    await bumpRun(ctx, runId, deltas);
   },
 });
 
 // ── LLM extraction ─────────────────────────────────────────────────────────
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 async function extractProfile(
   cardName: string,
   cardIssuer: string,
   sourceHint: string | undefined,
-  model: string,
+  opts: { model: string; maxRetries: number },
 ): Promise<string | null> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) {
@@ -170,26 +259,48 @@ async function extractProfile(
     `"earnCategories":[{"name":"<category>","multiplier":<number>,"spendLimit":<number or 0>,"desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}],` +
     `"benefits":[{"title":"<benefit>","desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}]}. ` +
     `multiplier is the cash-back % or points-per-dollar. Set confidence low if the page is ambiguous or not the issuer's own.`;
-  try {
-    const res = await fetch(OPENROUTER_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${key}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        plugins: [{ id: "web", max_results: 5 }],
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
-    if (!res.ok) throw new Error(`openrouter HTTP ${res.status}`);
-    const data: any = await res.json();
-    return data?.choices?.[0]?.message?.content ?? null;
-  } catch (e) {
-    console.error(`Freshness extraction failed for '${cardName}'`, e);
-    return null;
+
+  // Bounded retry on rate limits / server errors / network failures; other
+  // client errors fail fast (retrying a 400/401 won't help).
+  for (let attempt = 0; attempt <= opts.maxRetries; attempt++) {
+    try {
+      const res = await fetch(OPENROUTER_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: opts.model,
+          plugins: [{ id: "web", max_results: 5 }],
+          // Belt-and-suspenders with parseExtraction's fence/prose-tolerant
+          // regex parse: ask the provider for a JSON-only response outright.
+          response_format: { type: "json_object" },
+          messages: [{ role: "user", content: prompt }],
+        }),
+      });
+      if (!res.ok) {
+        if (isRetryableStatus(res.status) && attempt < opts.maxRetries) {
+          await sleep(retryDelayMs(attempt));
+          continue;
+        }
+        console.error(
+          `Freshness extraction failed for '${cardName}': openrouter HTTP ${res.status}`,
+        );
+        return null;
+      }
+      const data: any = await res.json();
+      return data?.choices?.[0]?.message?.content ?? null;
+    } catch (e) {
+      if (attempt < opts.maxRetries) {
+        await sleep(retryDelayMs(attempt));
+        continue;
+      }
+      console.error(`Freshness extraction failed for '${cardName}'`, e);
+      return null;
+    }
   }
+  return null;
 }
 
 // ── Change type passed action -> mutation ────────────────────────────────────
@@ -206,8 +317,8 @@ type PipelineChange = {
 
 // Verify one card end-to-end.
 export const verifyOneCard = internalAction({
-  args: { cardKey: v.string() },
-  handler: async (ctx, { cardKey }) => {
+  args: { cardKey: v.string(), runId: v.optional(v.id("pipelineRuns")) },
+  handler: async (ctx, { cardKey, runId }) => {
     const cfg = config();
     const detail = await ctx.runQuery(internal.freshness.getCardForFreshness, {
       cardKey,
@@ -223,7 +334,7 @@ export const verifyOneCard = internalAction({
       detail.cardName,
       detail.cardIssuer,
       selection.mode === "issuer-url" ? selection.url : undefined,
-      cfg.model,
+      { model: cfg.model, maxRetries: cfg.maxRetries },
     );
     const profile = raw ? parseExtraction(raw) : null;
     if (!profile) {
@@ -232,6 +343,7 @@ export const verifyOneCard = internalAction({
       await ctx.runMutation(internal.freshness.markVerified, {
         cardKey,
         verifiedAt: Date.now() - cfg.ttlMs + cfg.failureRetryMs,
+        runId,
       });
       return;
     }
@@ -297,6 +409,7 @@ export const verifyOneCard = internalAction({
       changes,
       evaluatedFields,
       autoEnabled: cfg.autoApplyEnabled,
+      runId,
     });
   },
 });
@@ -304,13 +417,18 @@ export const verifyOneCard = internalAction({
 // Set the TTL marker (no changes, or couldn't verify). `verifiedAt` lets the
 // caller set a short-backoff timestamp on failure instead of a full TTL.
 export const markVerified = internalMutation({
-  args: { cardKey: v.string(), verifiedAt: v.optional(v.number()) },
-  handler: async (ctx, { cardKey, verifiedAt }) => {
+  args: {
+    cardKey: v.string(),
+    verifiedAt: v.optional(v.number()),
+    runId: v.optional(v.id("pipelineRuns")),
+  },
+  handler: async (ctx, { cardKey, verifiedAt, runId }) => {
     const d = await ctx.db
       .query("cardDetails")
       .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
       .unique();
     if (d) await ctx.db.patch(d._id, { lastVerifiedAt: verifiedAt ?? Date.now() });
+    await bumpRun(ctx, runId, { failed: 1 });
   },
 });
 
@@ -346,8 +464,12 @@ export const applyFreshnessChanges = internalMutation({
     // Fields the extraction actually reported this run (drives retirement).
     evaluatedFields: v.optional(v.array(v.string())),
     autoEnabled: v.boolean(),
+    runId: v.optional(v.id("pipelineRuns")),
   },
-  handler: async (ctx, { cardKey, changes, evaluatedFields, autoEnabled }) => {
+  handler: async (
+    ctx,
+    { cardKey, changes, evaluatedFields, autoEnabled, runId },
+  ) => {
     const detail = await ctx.db
       .query("cardDetails")
       .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
@@ -469,9 +591,13 @@ export const applyFreshnessChanges = internalMutation({
         createdAt: now,
       });
       keepKeys.add(reviewKey(opts.field, opts.itemName));
+      counters.enqueued++;
     };
 
+    const counters = { autoApplied: 0, enqueued: 0, suppressed: 0 };
     const audit = async (ch: any, mode: "auto" | "shadow" | "suppressed") => {
+      if (mode === "auto") counters.autoApplied++;
+      else if (mode === "suppressed") counters.suppressed++;
       await ctx.db.insert("cardDataAudit", {
         cardKey,
         field: ch.field,
@@ -609,6 +735,8 @@ export const applyFreshnessChanges = internalMutation({
     patchDoc.lastVerifiedAt = now;
     await ctx.db.patch(detail._id, patchDoc as Record<string, unknown>);
 
+    await bumpRun(ctx, runId, { extracted: 1, ...counters });
+
     if (scalarTouched || categoriesTouched || benefitsTouched) {
       await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
     }
@@ -622,44 +750,88 @@ export const applyFreshnessChanges = internalMutation({
 
 // Admin-triggered: verify every card in the caller's wallet now, AWAITING all
 // checks so the caller's promise resolves only when done — the review screen can
-// show a spinner for the whole run instead of returning immediately.
+// show a spinner for the whole run instead of returning immediately. Runs in
+// bounded chunks so a large wallet doesn't burst concurrent LLM calls.
 export const verifyMyWallet = action({
   args: {},
   handler: async (ctx): Promise<{ cardCount: number }> => {
     const subject = await requireAdmin(ctx);
-    const cardKeys = await ctx.runQuery(internal.verify.getUserCardKeys, {
-      userId: subject,
-    });
-    await Promise.all(
-      cardKeys.map((cardKey) =>
-        ctx.runAction(internal.freshness.verifyOneCard, { cardKey }),
-      ),
+    const cfg = config();
+    const cardKeys: string[] = await ctx.runQuery(
+      internal.freshness.getUserCardKeys,
+      { userId: subject },
     );
+    const runId = await ctx.runMutation(internal.freshness.startRun, {
+      source: "manual",
+    });
+    await ctx.runMutation(internal.freshness.bumpRunCounters, {
+      runId,
+      deltas: { scheduled: cardKeys.length },
+    });
+    for (let i = 0; i < cardKeys.length; i += cfg.walletConcurrency) {
+      await Promise.all(
+        cardKeys.slice(i, i + cfg.walletConcurrency).map((cardKey) =>
+          ctx.runAction(internal.freshness.verifyOneCard, { cardKey, runId }),
+        ),
+      );
+    }
+    await ctx.runMutation(internal.freshness.finishRun, { runId });
     return { cardCount: cardKeys.length };
   },
 });
 
 // ── Daily batch driver ───────────────────────────────────────────────────────
+// Self-chaining (mirrors rapidapi.refreshStaleDetails): each invocation claims
+// the next most-overdue batch, schedules the per-card verifications staggered
+// by callSpacingMs (no concurrent burst at OpenRouter), and re-schedules itself
+// while full batches keep coming — bounded by the dailyCap LLM-call budget.
 export const verifyWalletBatch = internalAction({
-  args: {},
-  handler: async (ctx) => {
+  args: {
+    processed: v.optional(v.number()),
+    runId: v.optional(v.id("pipelineRuns")),
+  },
+  handler: async (ctx, { processed, runId }) => {
     const cfg = config();
-    const cursor = await ctx.runQuery(internal.freshness.getFreshnessCursor, {});
-    const { due, nextCursor, isDone } = await ctx.runQuery(
-      internal.freshness.getWalletCardsDuePage,
-      { cursor, ttlMs: cfg.ttlMs, pageSize: cfg.perRunCap },
-    );
-    for (const cardKey of due) {
-      await ctx.scheduler.runAfter(0, internal.freshness.verifyOneCard, {
-        cardKey,
-      });
+    const done = processed ?? 0;
+    const batch = planBatch(done, cfg.dailyCap, cfg.perRunCap);
+    if (batch <= 0) {
+      if (runId)
+        await ctx.runMutation(internal.freshness.finishRun, { runId });
+      console.info(`freshness: daily cap reached after ${done} card(s)`);
+      return;
     }
-    // Advance the cursor; wrap to the start when the table is exhausted.
-    await ctx.runMutation(internal.freshness.setFreshnessCursor, {
-      cursor: isDone ? null : nextCursor,
-    });
-    if (due.length > 0) {
-      console.info(`freshness: scheduled ${due.length} card verification(s)`);
+
+    const run =
+      runId ??
+      (await ctx.runMutation(internal.freshness.startRun, { source: "cron" }));
+    const { cardKeys } = await ctx.runMutation(
+      internal.freshness.claimDueCards,
+      { limit: batch, ttlMs: cfg.ttlMs, retryMs: cfg.failureRetryMs },
+    );
+    for (let i = 0; i < cardKeys.length; i++) {
+      await ctx.scheduler.runAfter(
+        i * cfg.callSpacingMs,
+        internal.freshness.verifyOneCard,
+        { cardKey: cardKeys[i], runId: run },
+      );
+    }
+    if (cardKeys.length > 0) {
+      await ctx.runMutation(internal.freshness.bumpRunCounters, {
+        runId: run,
+        deltas: { scheduled: cardKeys.length },
+      });
+      console.info(`freshness: scheduled ${cardKeys.length} card verification(s)`);
+    }
+
+    if (cardKeys.length === batch) {
+      // A full batch — more may be due. Chain after the batch has drained.
+      await ctx.scheduler.runAfter(
+        cardKeys.length * cfg.callSpacingMs + 30_000,
+        internal.freshness.verifyWalletBatch,
+        { processed: done + cardKeys.length, runId: run },
+      );
+    } else {
+      await ctx.runMutation(internal.freshness.finishRun, { runId: run });
     }
   },
 });
