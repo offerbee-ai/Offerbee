@@ -66,10 +66,13 @@ export default function PaywallScreen() {
 
   // Voluntary visit: once checkout completes (webhook sets the plan while the
   // in-app browser is still up), drop back to the app instead of re-pitching.
+  // hasAccess must gate this: a canceled subscriber keeps a non-null plan on
+  // the row, and dismissing on plan alone would close the resubscribe paywall
+  // the instant it opens.
   const plan = entitlement?.plan ?? null;
   useEffect(() => {
-    if (plan !== null && router.canGoBack()) router.back();
-  }, [plan]);
+    if (hasAccess && plan !== null && router.canGoBack()) router.back();
+  }, [hasAccess, plan]);
 
   const headline =
     trialDaysLeft && trialDaysLeft > 0
