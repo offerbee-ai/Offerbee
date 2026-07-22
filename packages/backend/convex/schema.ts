@@ -112,6 +112,13 @@ export default defineSchema({
     field: v.string(), // cardDetails key under review
     currentValue: v.optional(fieldValueValidator), // what cardDetails holds now
     proposedValue: v.optional(fieldValueValidator), // web-verified candidate
+    // For array-field item deltas (spendBonusCategory / benefit): the kind of
+    // change and the item's name, so one review row = one reviewable item and
+    // confirm applies just that delta to the live array. Absent for scalars.
+    changeType: v.optional(
+      v.union(v.literal("patch"), v.literal("add"), v.literal("remove")),
+    ),
+    itemName: v.optional(v.string()),
     reason: reviewReasonValidator,
     observations: v.array(reviewObservationValidator), // what each source said
     confidence: v.optional(v.number()), // 0-1 from the web-verify step

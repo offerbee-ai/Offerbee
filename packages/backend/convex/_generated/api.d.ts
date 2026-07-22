@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as arrayDelta from "../arrayDelta.js";
 import type * as auth from "../auth.js";
 import type * as autoApplyGate from "../autoApplyGate.js";
 import type * as benefitCycles from "../benefitCycles.js";
@@ -59,6 +60,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  arrayDelta: typeof arrayDelta;
   auth: typeof auth;
   autoApplyGate: typeof autoApplyGate;
   benefitCycles: typeof benefitCycles;
