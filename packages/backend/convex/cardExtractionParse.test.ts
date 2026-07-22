@@ -73,4 +73,12 @@ describe("parseExtraction", () => {
     );
     expect(p?.earnCategories?.[0]).toMatchObject({ multiplier: 5, spendLimit: 7000 });
   });
+
+  it("coerces thousands-formatted and currency spend limits correctly", () => {
+    const p = parseExtraction(
+      '{"earnCategories": [{"name": "Gas", "multiplier": 4, "spendLimit": "$7,000", "confidence": 0.9}]}',
+    );
+    // The [^0-9.-] strip already removes the comma and "$": "$7,000" -> 7000.
+    expect(p?.earnCategories?.[0]).toMatchObject({ spendLimit: 7000 });
+  });
 });
