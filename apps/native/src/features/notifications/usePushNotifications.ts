@@ -132,7 +132,6 @@ export function usePushNotifications() {
         deriving.current = false;
       }
       if (!token || done.current) return;
-      done.current = true;
       const t = token;
       try {
         // Client-side isAuthenticated can lead the server's view of the
@@ -144,6 +143,9 @@ export function usePushNotifications() {
             platform: Platform.OS === "ios" ? "ios" : "android",
           }),
         );
+        // Success-only: a failed registration leaves `done` false so the next
+        // auth transition (or token event) retries instead of never registering.
+        done.current = true;
         lastToken.current = t;
       } catch (e) {
         console.error("registerPushToken failed", e);
