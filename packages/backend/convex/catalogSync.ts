@@ -2,6 +2,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { cardDetailContentValidator } from "./validators";
+import { guardApiContent } from "./provenanceGuard";
 
 const DETAIL_TTL_MS = 7 * 24 * 60 * 60 * 1000; // refresh cached details weekly
 
@@ -143,11 +144,23 @@ export const saveCardDetail = internalMutation({
       return;
     }
 
+    // Provenance guard: don't let this API refresh clobber a field that a human
+    // confirmed (source "manual") or the verifier web-checked ("web"). Those
+    // authoritative values outrank the (possibly stale) RapidAPI payload.
+    const { patch: guarded, preserved } = guardApiContent(
+      content as Record<string, unknown>,
+      existing.fieldProvenance,
+    );
+    if (preserved.length > 0) {
+      console.info(
+        `saveCardDetail '${cardKey}': preserved authoritative field(s) ${preserved.join(", ")} against API refresh`,
+      );
+    }
     await ctx.db.patch(existing._id, {
-      ...content,
+      ...guarded,
       detailFetchedAt: now,
       detailHash: hash,
-    });
+    } as Record<string, unknown>);
     await ctx.scheduler.runAfter(0, internal.offers.rescanCard, { cardKey });
     await ctx.scheduler.runAfter(0, internal.benefits.seedOwnersForCard, {
       cardKey,

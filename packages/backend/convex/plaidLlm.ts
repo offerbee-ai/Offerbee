@@ -7,7 +7,7 @@ import { missingEnvVariableUrl } from "./utils";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SIGNUP_URL = "https://openrouter.ai/keys";
-const DEFAULT_MODEL = "anthropic/claude-sonnet-5";
+const DEFAULT_MODEL = "deepseek/deepseek-v4-flash";
 const CONFIDENCE_THRESHOLD = 0.6;
 
 export type LlmBenefit = {

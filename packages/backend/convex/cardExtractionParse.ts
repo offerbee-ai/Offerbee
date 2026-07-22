@@ -1,0 +1,88 @@
+// Parses the LLM's card-profile response into a normalized shape the diff
+// primitives consume. The model returns JSON, sometimes wrapped in prose or a
+// markdown fence; we extract the object, coerce annualFee to a number, and map
+// the two arrays to { name, ... } items (benefits' `title` -> `name`) so
+// cardDataDiff can match them. Returns null when no usable JSON is present.
+// Pure module — unit-testable.
+
+import type { NamedItem } from "./cardDataDiff";
+
+export type ExtractedProfile = {
+  annualFee?: number;
+  annualFeeConfidence?: number;
+  annualFeeSourceUrl?: string;
+  // undefined = the model omitted the field (do NOT diff → no bogus removals);
+  // [] = the model explicitly reported no items (a real removal signal).
+  earnCategories?: NamedItem[];
+  benefits?: NamedItem[];
+};
+
+function toNum(x: unknown): number | undefined {
+  if (typeof x === "number") return Number.isFinite(x) ? x : undefined;
+  if (typeof x === "string") {
+    const n = parseFloat(x.replace(/[^0-9.\-]/g, ""));
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
+export function parseExtraction(raw: string): ExtractedProfile | null {
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  let obj: Record<string, any>;
+  try {
+    const parsed = JSON.parse(match[0]);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return null;
+    obj = parsed;
+  } catch {
+    return null;
+  }
+
+  const profile: ExtractedProfile = {};
+
+  const afNode = obj.annualFee;
+  const af = toNum(afNode?.value ?? afNode);
+  if (af !== undefined) {
+    profile.annualFee = af;
+    if (afNode && typeof afNode === "object") {
+      if (typeof afNode.confidence === "number")
+        profile.annualFeeConfidence = afNode.confidence;
+      if (typeof afNode.sourceUrl === "string")
+        profile.annualFeeSourceUrl = afNode.sourceUrl;
+    }
+  }
+
+  if (Array.isArray(obj.earnCategories)) {
+    profile.earnCategories = obj.earnCategories
+      .filter((c: any) => c && typeof c.name === "string")
+      .map((c: any) => {
+        const out: NamedItem = { ...c };
+        // Coerce numeric terms so the gate's bounds checks apply (LLMs often
+        // return "5" / "7000" as strings).
+        const m = toNum(c.multiplier);
+        if (m !== undefined) out.multiplier = m;
+        const sl = toNum(c.spendLimit);
+        if (sl !== undefined) out.spendLimit = sl;
+        return out;
+      });
+  }
+
+  if (Array.isArray(obj.benefits)) {
+    profile.benefits = obj.benefits
+      .map((b: any): NamedItem | null => {
+        const name =
+          typeof b?.name === "string"
+            ? b.name
+            : typeof b?.title === "string"
+              ? b.title
+              : undefined;
+        if (!name) return null;
+        const { title: _title, ...rest } = b ?? {};
+        return { ...rest, name };
+      })
+      .filter((b: NamedItem | null): b is NamedItem => b !== null);
+  }
+
+  return profile;
+}

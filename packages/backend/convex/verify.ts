@@ -19,7 +19,7 @@ import { requireAdmin } from "./auth";
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SIGNUP_URL = "https://openrouter.ai/keys";
-const DEFAULT_MODEL = "anthropic/claude-sonnet-5";
+const DEFAULT_MODEL = "deepseek/deepseek-v4-flash";
 
 // ── Coercion (the Rewards CC API is loosely typed) ──────────────────────────
 function toNum(x: unknown): number | undefined {

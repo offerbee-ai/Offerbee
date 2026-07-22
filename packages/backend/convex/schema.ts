@@ -97,9 +97,13 @@ export default defineSchema({
     // Per-field provenance for cross-checked/verified fields (annualFee, bonus…).
     // Absent until the verification pipeline has run for that field.
     fieldProvenance: v.optional(v.array(fieldProvenanceValidator)),
+    // Last time the freshness pipeline (freshness.ts) verified this card against
+    // the web. Drives the per-card TTL, independent of detailFetchedAt (RapidAPI).
+    lastVerifiedAt: v.optional(v.number()),
   })
     .index("by_cardKey", ["cardKey"])
-    .index("by_detailFetchedAt", ["detailFetchedAt"]), // oldest-first refresh
+    .index("by_detailFetchedAt", ["detailFetchedAt"]) // oldest-first RapidAPI refresh
+    .index("by_lastVerifiedAt", ["lastVerifiedAt"]), // oldest-first freshness re-verify
 
   // ── Data-verification review queue: proposed field corrections awaiting a
   //    human one-click confirm before they are written to cardDetails. ──
@@ -121,6 +125,35 @@ export default defineSchema({
     .index("by_status", ["status"])
     .index("by_cardKey", ["cardKey"])
     .index("by_cardKey_and_field", ["cardKey", "field"]),
+
+  // ── Audit trail of freshness-pipeline changes: every auto-applied correction
+  //    (and, in shadow mode, every would-be correction) with its before/after
+  //    for rollback and an admin "what changed" view. ──
+  cardDataAudit: defineTable({
+    cardKey: v.string(),
+    field: v.string(),
+    changeType: v.union(
+      v.literal("patch"),
+      v.literal("add"),
+      v.literal("remove"),
+    ),
+    before: v.optional(v.any()),
+    after: v.optional(v.any()),
+    confidence: v.optional(v.number()),
+    sourceUrl: v.optional(v.string()),
+    // "auto" = written to cardDetails; "shadow" = kill switch off, recorded only.
+    mode: v.union(v.literal("auto"), v.literal("shadow")),
+    appliedAt: v.number(),
+  })
+    .index("by_cardKey", ["cardKey"])
+    .index("by_appliedAt", ["appliedAt"]),
+
+  // ── Small key/value bookkeeping for background pipelines (e.g. the freshness
+  //    scan's rotating pagination cursor over userCards). ──
+  pipelineState: defineTable({
+    key: v.string(),
+    cursor: v.union(v.string(), v.null()),
+  }).index("by_key", ["key"]),
 
   // ── User wallet: the cards a user owns ──
   userCards: defineTable({
