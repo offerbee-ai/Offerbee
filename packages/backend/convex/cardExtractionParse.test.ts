@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import { parseExtraction } from "./cardExtractionParse";
+
+// The LLM returns a card profile as JSON, sometimes wrapped in prose or a
+// markdown fence. parseExtraction pulls the object out and normalizes the two
+// arrays into { name, ... } items so cardDataDiff can match them. Returns null
+// when no usable JSON is present.
+
+describe("parseExtraction", () => {
+  it("returns null when there is no JSON object", () => {
+    expect(parseExtraction("I could not find the terms.")).toBeNull();
+  });
+
+  it("returns null on malformed JSON", () => {
+    expect(parseExtraction("{ annualFee: }")).toBeNull();
+  });
+
+  it("parses a clean object and coerces annualFee to a number", () => {
+    const p = parseExtraction('{"annualFee": {"value": "695", "confidence": 0.9}}');
+    expect(p?.annualFee).toBe(695);
+  });
+
+  it("extracts JSON from a markdown fence with surrounding prose", () => {
+    const raw =
+      "Here are the terms:\n```json\n" +
+      '{"annualFee": {"value": 0, "confidence": 1}}\n' +
+      "```\nHope that helps!";
+    expect(parseExtraction(raw)?.annualFee).toBe(0);
+  });
+
+  it("normalizes earnCategories into name-keyed items for the differ", () => {
+    const raw = JSON.stringify({
+      earnCategories: [
+        { name: "Costco Gas", multiplier: 5, sourceUrl: "https://citi.com", confidence: 0.9 },
+      ],
+    });
+    const p = parseExtraction(raw);
+    expect(p?.earnCategories).toEqual([
+      { name: "Costco Gas", multiplier: 5, sourceUrl: "https://citi.com", confidence: 0.9 },
+    ]);
+  });
+
+  it("maps a benefit's title to name so it matches the stored shape", () => {
+    const raw = JSON.stringify({
+      benefits: [{ title: "Lounge Access", desc: "Centurion", confidence: 0.8 }],
+    });
+    const p = parseExtraction(raw);
+    expect(p?.benefits?.[0]).toMatchObject({ name: "Lounge Access", desc: "Centurion" });
+  });
+
+  it("defaults arrays to empty when absent", () => {
+    const p = parseExtraction('{"annualFee": {"value": 95, "confidence": 1}}');
+    expect(p?.earnCategories).toEqual([]);
+    expect(p?.benefits).toEqual([]);
+  });
+});
