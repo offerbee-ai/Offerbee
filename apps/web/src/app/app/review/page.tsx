@@ -10,8 +10,13 @@ type Scalar = number | string | boolean | undefined;
 
 const FIELD_LABELS: Record<string, string> = {
   annualFee: "Annual fee",
+  fxFee: "Foreign transaction fee",
   signupBonusAmount: "Signup bonus",
   signupBonusSpend: "Min. spend",
+  signupBonusLength: "Bonus window",
+  signupBonusLengthPeriod: "Bonus window unit",
+  signupBonusDesc: "Bonus description",
+  cardUrl: "Official page",
   spendBonusCategory: "Earn category",
   benefit: "Benefit",
 };
@@ -31,6 +36,7 @@ function fmtScalar(field: string, value: Scalar) {
   if (value === undefined || value === null) return "—";
   if (field === "annualFee" || field === "signupBonusSpend")
     return `$${Number(value).toLocaleString()}`;
+  if (field === "fxFee") return `${Number(value)}%`;
   if (typeof value === "number") return value.toLocaleString();
   return String(value);
 }

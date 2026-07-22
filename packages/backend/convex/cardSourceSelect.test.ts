@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { selectSource } from "./cardSourceSelect";
+import { selectSource, cleanIssuerUrl } from "./cardSourceSelect";
 
 // The freshness pipeline prefers a card's official issuer page (cardUrl) as the
 // extraction source, but only when the URL is issuer-authoritative. Junk /
@@ -72,5 +72,31 @@ describe("card data source selection", () => {
       allowlist: ALLOW,
     });
     expect(r.mode).toBe("web-search");
+  });
+});
+
+describe("cleanIssuerUrl", () => {
+  it("strips hash and tracking params, keeps meaningful query", () => {
+    expect(
+      cleanIssuerUrl(
+        "https://www.chase.com/personal/credit-cards/sapphire?utm_source=x&utm_campaign=y&iCELL=abc#offers",
+      ),
+    ).toBe("https://www.chase.com/personal/credit-cards/sapphire?iCELL=abc");
+  });
+
+  it("strips ref/affid style params", () => {
+    expect(cleanIssuerUrl("https://citi.com/card?ref=aff&affid=1&plan=std")).toBe(
+      "https://citi.com/card?plan=std",
+    );
+  });
+
+  it("returns a clean URL unchanged", () => {
+    expect(cleanIssuerUrl("https://citi.com/costco-anywhere")).toBe(
+      "https://citi.com/costco-anywhere",
+    );
+  });
+
+  it("returns null for a malformed URL", () => {
+    expect(cleanIssuerUrl("not a url")).toBeNull();
   });
 });

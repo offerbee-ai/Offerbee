@@ -9,11 +9,14 @@ import { isIssuerAuthoritativeUrl } from "./cardSourceSelect";
 
 // When cardIssuer + allowlist are supplied, the change's sourceUrl must be an
 // issuer-authoritative domain to auto-apply — a confident extraction citing a
-// blog / affiliate / lookalike is routed to review instead.
+// blog / affiliate / lookalike is routed to review instead. reviewOnlyFields
+// lists fields that NEVER auto-apply regardless of confidence (e.g. the signup
+// bonus block until shadow precision proves it) — they always go to review.
 export type GateConfig = {
   confidenceThreshold: number;
   cardIssuer?: string;
   allowlist?: string[];
+  reviewOnlyFields?: string[];
 };
 
 export type Change = {
@@ -65,6 +68,9 @@ function boundsError(change: Change): string | null {
 }
 
 export function gateChange(change: Change, cfg: GateConfig): GateDecision {
+  if (cfg.reviewOnlyFields?.includes(change.field))
+    return { autoApply: false, reason: "review-only field" };
+
   if (change.changeType === "remove")
     return { autoApply: false, reason: "removal requires review" };
 

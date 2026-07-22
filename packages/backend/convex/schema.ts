@@ -156,11 +156,13 @@ export default defineSchema({
     wouldAutoApply: v.optional(v.boolean()),
     // "auto" = written to cardDetails; "shadow" = not written (gate said review,
     // or kill switch off); "suppressed" = matched a reviewer-rejected proposal
-    // or a manual pin, so it was not re-enqueued.
+    // or a manual pin, so it was not re-enqueued; "suspect" = an array field
+    // dropped whole by the mass-removal guard (before = the untouched items).
     mode: v.union(
       v.literal("auto"),
       v.literal("shadow"),
       v.literal("suppressed"),
+      v.literal("suspect"),
     ),
     appliedAt: v.number(),
   })

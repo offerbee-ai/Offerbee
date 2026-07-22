@@ -8,9 +8,18 @@ import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import { requireAdmin } from "./auth";
 import { missingEnvVariableUrl } from "./utils";
-import { selectSource } from "./cardSourceSelect";
-import { parseExtraction } from "./cardExtractionParse";
-import { diffScalar, diffNamedArray, type NamedItem } from "./cardDataDiff";
+import {
+  selectSource,
+  cleanIssuerUrl,
+  isIssuerAuthoritativeUrl,
+} from "./cardSourceSelect";
+import { parseExtraction, toNum } from "./cardExtractionParse";
+import {
+  diffScalar,
+  diffNamedArray,
+  isMassRemoval,
+  type NamedItem,
+} from "./cardDataDiff";
 import { gateChange } from "./autoApplyGate";
 import { applyItemDelta } from "./arrayDelta";
 import { norm } from "./cardDataDiff";
@@ -52,6 +61,16 @@ const changeTypeValidator = v.union(
   v.literal("add"),
   v.literal("remove"),
 );
+
+// The signup-bonus block never auto-applies (gate reviewOnlyFields) until
+// shadow precision proves the extraction on it — proposals go to review.
+const SIGNUP_REVIEW_ONLY = [
+  "signupBonusAmount",
+  "signupBonusSpend",
+  "signupBonusLength",
+  "signupBonusLengthPeriod",
+  "signupBonusDesc",
+];
 
 // ── Config (env, with safe defaults) ────────────────────────────────────────
 function config() {
@@ -96,6 +115,12 @@ export const getCardForFreshness = internalQuery({
       cardIssuer: d.cardIssuer,
       cardUrl: d.cardUrl,
       annualFee: d.annualFee,
+      fxFee: d.fxFee,
+      signupBonusAmount: d.signupBonusAmount,
+      signupBonusSpend: d.signupBonusSpend,
+      signupBonusLength: d.signupBonusLength,
+      signupBonusLengthPeriod: d.signupBonusLengthPeriod,
+      signupBonusDesc: d.signupBonusDesc,
       spendBonusCategory: d.spendBonusCategory ?? [],
       benefit: d.benefit ?? [],
     };
@@ -256,9 +281,12 @@ async function extractProfile(
     source +
     `Report the issuer's standard US consumer terms. Reply with ONLY a JSON object, no prose:\n` +
     `{"annualFee":{"value":<number>,"confidence":<0-1>,"sourceUrl":"<url>"},` +
+    `"fxFee":{"value":<foreign transaction fee percent, 0 if none>,"confidence":<0-1>,"sourceUrl":"<url>"},` +
+    `"signupBonus":{"amount":<points/miles/cash bonus number>,"spend":<required spend number>,"lengthOfPeriod":"<e.g. 3 months>","desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"},` +
     `"earnCategories":[{"name":"<category>","multiplier":<number>,"spendLimit":<number or 0>,"desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}],` +
     `"benefits":[{"title":"<benefit>","desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}]}. ` +
-    `multiplier is the cash-back % or points-per-dollar. Set confidence low if the page is ambiguous or not the issuer's own.`;
+    `multiplier is the cash-back % or points-per-dollar. Omit signupBonus if the card has none. ` +
+    `Set confidence low if the page is ambiguous or not the issuer's own.`;
 
   // Bounded retry on rate limits / server errors / network failures; other
   // client errors fail fast (retrying a 400/401 won't help).
@@ -352,24 +380,130 @@ export const verifyOneCard = internalAction({
       confidenceThreshold: cfg.confidenceThreshold,
       cardIssuer: detail.cardIssuer,
       allowlist: cfg.allowlist,
+      // Never auto-applied until shadow precision proves the extraction on
+      // these; they still surface as review proposals.
+      reviewOnlyFields: SIGNUP_REVIEW_ONLY,
     };
     const changes: PipelineChange[] = [];
     // Fields the model actually reported this run — the mutation retires stale
     // pending reviews for these (an old proposal the model no longer makes is
     // outdated). Omitted fields are left untouched.
     const evaluatedFields: string[] = [];
+    // Array fields whose diff proposed removing most of the items — the whole
+    // extraction for that field is untrustworthy (see isMassRemoval).
+    const suspectFields: string[] = [];
 
-    // Scalar: annual fee.
+    const pushScalar = (
+      field: string,
+      current: unknown,
+      proposed: unknown,
+      confidence: number,
+      sourceUrl?: string,
+    ) => {
+      evaluatedFields.push(field);
+      const sc = diffScalar(field, current, proposed, confidence, sourceUrl);
+      if (sc) changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
+    };
+
+    // Scalars: annual fee + foreign transaction fee.
     if (profile.annualFee !== undefined) {
-      evaluatedFields.push("annualFee");
-      const sc = diffScalar(
+      pushScalar(
         "annualFee",
         detail.annualFee,
         profile.annualFee,
         profile.annualFeeConfidence ?? 0,
         profile.annualFeeSourceUrl ?? selection.url,
       );
-      if (sc) changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
+    }
+    if (profile.fxFee !== undefined) {
+      pushScalar(
+        "fxFee",
+        detail.fxFee,
+        profile.fxFee,
+        profile.fxFeeConfidence ?? 0,
+        profile.fxFeeSourceUrl ?? selection.url,
+      );
+    }
+
+    // Signup-bonus block (review-only via the gate). signupBonusAmount is
+    // number|string in the catalog — compare numerically so "60000" vs 60000
+    // never reads as a change.
+    if (profile.signupBonus !== undefined) {
+      const sb = profile.signupBonus;
+      const conf = sb.confidence ?? 0;
+      const url = sb.sourceUrl ?? selection.url;
+      if (sb.amount !== undefined) {
+        // Numeric equivalence guard: the catalog stores number|string, so a
+        // stored "60000" vs extracted 60000 must not read as a change. The
+        // change itself keeps the REAL stored value (staleness checks compare
+        // it against the live field verbatim).
+        if (toNum(detail.signupBonusAmount) === sb.amount)
+          evaluatedFields.push("signupBonusAmount");
+        else
+          pushScalar(
+            "signupBonusAmount",
+            detail.signupBonusAmount,
+            sb.amount,
+            conf,
+            url,
+          );
+      }
+      if (sb.spend !== undefined)
+        pushScalar("signupBonusSpend", detail.signupBonusSpend, sb.spend, conf, url);
+      if (sb.length !== undefined)
+        pushScalar("signupBonusLength", detail.signupBonusLength, sb.length, conf, url);
+      if (sb.lengthPeriod !== undefined)
+        pushScalar(
+          "signupBonusLengthPeriod",
+          detail.signupBonusLengthPeriod,
+          sb.lengthPeriod,
+          conf,
+          url,
+        );
+      if (sb.desc !== undefined)
+        pushScalar("signupBonusDesc", detail.signupBonusDesc, sb.desc, conf, url);
+    }
+
+    // URL self-heal: when the stored cardUrl was unusable (web-search mode) and
+    // the extraction cites an issuer-authoritative page confidently, propose it
+    // as the new cardUrl — the next run goes straight to the source.
+    if (selection.mode === "web-search") {
+      const candidates: Array<{ url?: string; confidence?: number }> = [
+        { url: profile.annualFeeSourceUrl, confidence: profile.annualFeeConfidence },
+        { url: profile.fxFeeSourceUrl, confidence: profile.fxFeeConfidence },
+        {
+          url: profile.signupBonus?.sourceUrl,
+          confidence: profile.signupBonus?.confidence,
+        },
+        ...(profile.earnCategories ?? []).map((c: any) => ({
+          url: c.sourceUrl,
+          confidence: c.confidence,
+        })),
+        ...(profile.benefits ?? []).map((b: any) => ({
+          url: b.sourceUrl,
+          confidence: b.confidence,
+        })),
+      ];
+      const best = candidates
+        .filter(
+          (c): c is { url: string; confidence: number } =>
+            typeof c.url === "string" &&
+            (c.confidence ?? 0) >= cfg.confidenceThreshold &&
+            isIssuerAuthoritativeUrl(c.url, detail.cardIssuer, cfg.allowlist),
+        )
+        .sort((a, b) => b.confidence - a.confidence)[0];
+      const clean = best ? cleanIssuerUrl(best.url) : null;
+      if (clean && clean !== detail.cardUrl) {
+        const sc = diffScalar(
+          "cardUrl",
+          detail.cardUrl,
+          clean,
+          best!.confidence,
+          clean,
+        );
+        if (sc)
+          changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
+      }
     }
 
     // Arrays: earn categories + benefits. Only diff a field the model actually
@@ -384,8 +518,16 @@ export const verifyOneCard = internalAction({
     ];
     for (const [field, current, proposed] of arrayDiffs) {
       if (proposed === undefined) continue;
+      const fieldChanges = diffNamedArray(field, current, proposed);
+      // Mass-removal guard: an extraction wiping out most of a populated array
+      // is a failed read, not a real delisting — drop ALL of the field's
+      // changes (not just removals) and retry on the short backoff.
+      if (isMassRemoval(current.length, fieldChanges)) {
+        suspectFields.push(field);
+        continue;
+      }
       evaluatedFields.push(field);
-      for (const c of diffNamedArray(field, current, proposed)) {
+      for (const c of fieldChanges) {
         const proposedItem = "proposed" in c ? (c.proposed as any) : undefined;
         const change: PipelineChange = {
           field: c.field,
@@ -408,6 +550,7 @@ export const verifyOneCard = internalAction({
       cardKey,
       changes,
       evaluatedFields,
+      suspectFields,
       autoEnabled: cfg.autoApplyEnabled,
       runId,
     });
@@ -463,12 +606,15 @@ export const applyFreshnessChanges = internalMutation({
     ),
     // Fields the extraction actually reported this run (drives retirement).
     evaluatedFields: v.optional(v.array(v.string())),
+    // Array fields dropped by the mass-removal guard: audited as suspect, no
+    // review rows, and the card retries on the short backoff.
+    suspectFields: v.optional(v.array(v.string())),
     autoEnabled: v.boolean(),
     runId: v.optional(v.id("pipelineRuns")),
   },
   handler: async (
     ctx,
-    { cardKey, changes, evaluatedFields, autoEnabled, runId },
+    { cardKey, changes, evaluatedFields, suspectFields, autoEnabled, runId },
   ) => {
     const detail = await ctx.db
       .query("cardDetails")
@@ -594,10 +740,14 @@ export const applyFreshnessChanges = internalMutation({
       counters.enqueued++;
     };
 
-    const counters = { autoApplied: 0, enqueued: 0, suppressed: 0 };
-    const audit = async (ch: any, mode: "auto" | "shadow" | "suppressed") => {
+    const counters = { autoApplied: 0, enqueued: 0, suppressed: 0, suspect: 0 };
+    const audit = async (
+      ch: any,
+      mode: "auto" | "shadow" | "suppressed" | "suspect",
+    ) => {
       if (mode === "auto") counters.autoApplied++;
       else if (mode === "suppressed") counters.suppressed++;
+      else if (mode === "suspect") counters.suspect++;
       await ctx.db.insert("cardDataAudit", {
         cardKey,
         field: ch.field,
@@ -611,6 +761,20 @@ export const applyFreshnessChanges = internalMutation({
         appliedAt: now,
       });
     };
+
+    // ── Suspect array fields (mass-removal guard): one audit row per field,
+    //    no review rows, and the card retries on the short backoff below. ──
+    for (const field of suspectFields ?? []) {
+      await audit(
+        {
+          field,
+          changeType: "remove",
+          current: (detail as any)[field],
+          proposed: undefined,
+        },
+        "suspect",
+      );
+    }
 
     // ── Scalars: per-field auto-apply or review ──
     for (const ch of changes.filter((c) => !ARRAY_FIELDS.has(c.field))) {
@@ -732,7 +896,12 @@ export const applyFreshnessChanges = internalMutation({
     if (scalarTouched || categoriesTouched || benefitsTouched) {
       patchDoc.fieldProvenance = provenance;
     }
-    patchDoc.lastVerifiedAt = now;
+    // A suspect extraction doesn't earn the full TTL — retry on the short
+    // failure backoff so a transient bad read heals within hours, not a week.
+    patchDoc.lastVerifiedAt =
+      suspectFields && suspectFields.length > 0
+        ? now - config().ttlMs + config().failureRetryMs
+        : now;
     await ctx.db.patch(detail._id, patchDoc as Record<string, unknown>);
 
     await bumpRun(ctx, runId, { extracted: 1, ...counters });

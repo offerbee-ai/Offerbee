@@ -62,6 +62,19 @@ function canonical(item: NamedItem): string {
   return JSON.stringify(keys.map((k) => [k, withNormName[k]]));
 }
 
+// Mass-removal suspect guard: an extraction that proposes wiping out most of a
+// populated array almost certainly failed to read the page (truncated fetch,
+// wrong card) rather than the issuer genuinely dropping everything. Suspect iff
+// at least 2 removals AND a strict majority of the current items. Single
+// removals and 1-item arrays stay normal (a real delisting must be reviewable).
+export function isMassRemoval(
+  currentCount: number,
+  changes: ArrayChange[],
+): boolean {
+  const removals = changes.filter((c) => c.changeType === "remove").length;
+  return removals >= 2 && removals > currentCount / 2;
+}
+
 export function diffNamedArray(
   field: string,
   current: NamedItem[],
