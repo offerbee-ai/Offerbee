@@ -25,7 +25,12 @@ export function applyItemDelta(
 
   if (!delta.item) return arr; // add/patch need an item; no-op if missing
 
-  if (delta.changeType === "add") return [...arr, delta.item];
+  if (delta.changeType === "add") {
+    // Idempotent: skip if an item with the same name is already present (guards
+    // against confirming a stale "add" after a concurrent auto-apply).
+    if (arr.some((i) => nameOf(i) === key)) return arr;
+    return [...arr, delta.item];
+  }
 
   // patch: merge over the matched item so LLM-omitted fields survive; if the
   // target is absent, treat it as an upsert (add).

@@ -19,6 +19,19 @@ describe("applyItemDelta", () => {
     expect(out[1]).toEqual({ spendBonusCategoryName: "Costco Gas", earnMultiplier: 5 });
   });
 
+  it("does not duplicate an add when the item name already exists (idempotent)", () => {
+    const out = applyItemDelta(
+      [{ spendBonusCategoryName: "Costco Gas", earnMultiplier: 5 }],
+      {
+        changeType: "add",
+        itemName: "costco gas",
+        item: { spendBonusCategoryName: "Costco Gas", earnMultiplier: 5 },
+      },
+      NAME_KEYS,
+    );
+    expect(out).toHaveLength(1);
+  });
+
   it("removes an item by name (case/space-insensitive)", () => {
     const out = applyItemDelta(
       [

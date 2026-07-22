@@ -236,10 +236,15 @@ export const confirmHighConfidence = mutation({
   handler: async (ctx, { minConfidence }) => {
     const userId = await requireAdmin(ctx);
     const threshold = minConfidence ?? 0.9;
+    // Bounded scan so one mutation stays within Convex's read/time limits; a very
+    // large queue just takes another click. Ordered oldest-first for stable
+    // progress across calls.
+    const SCAN_CAP = 400;
     const pending = await ctx.db
       .query("cardDataReview")
       .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .collect();
+      .order("asc")
+      .take(SCAN_CAP);
     let applied = 0;
     for (const review of pending) {
       if ((review.confidence ?? 0) >= threshold) {
@@ -247,7 +252,7 @@ export const confirmHighConfidence = mutation({
         applied++;
       }
     }
-    return { applied, threshold };
+    return { applied, threshold, scanned: pending.length, more: pending.length === SCAN_CAP };
   },
 });
 
