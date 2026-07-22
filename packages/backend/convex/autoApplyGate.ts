@@ -1,9 +1,10 @@
 // The auto-apply gate: decides whether a proposed card-data change is written
 // automatically or falls back to the human review queue. A change auto-applies
-// only when it is confident, cited (has a source URL), within sane bounds, and
-// is not a removal — removals always go to review (the "never bulk-delete"
-// safety rule). Pure module — unit-testable. The kill switch and per-run
-// removal cap live in the pipeline action, not here.
+// only when it is confident, cited (has a source URL), within sane bounds, not
+// review-only, and not a removal — removals always go to review (the "never
+// bulk-delete" safety rule). Pure module — unit-testable. The kill switch
+// (AUTO_APPLY_ENABLED) and the mass-removal guard (isMassRemoval in
+// cardDataDiff.ts, applied in freshness.verifyOneCard) live in the pipeline.
 
 import { isIssuerAuthoritativeUrl } from "./cardSourceSelect";
 

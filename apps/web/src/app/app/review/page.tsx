@@ -70,6 +70,7 @@ function itemSummary(field: string, item: any): string {
 export default function ReviewPage() {
   const amAdmin = useQuery(api.review.amIAdmin);
   const reviews = useQuery(api.review.listPendingReviews);
+  const pendingCount = useQuery(api.review.pendingReviewCount);
   const confirm = useMutation(api.review.confirmReview);
   const reject = useMutation(api.review.rejectReview);
   const autoConfirm = useMutation(api.review.confirmHighConfidence);
@@ -127,9 +128,20 @@ export default function ReviewPage() {
       return;
     setAutoBusy(true);
     try {
-      const { applied } = await autoConfirm({});
+      // The mutation scans a bounded page per call (Convex limits); loop until
+      // the queue is drained, with a safety cap on iterations.
+      let applied = 0;
+      let stale = 0;
+      for (let i = 0; i < 10; i++) {
+        const res = await autoConfirm({});
+        applied += res.applied;
+        stale += res.stale;
+        if (!res.more) break;
+        setRunMsg(`Auto-confirming… ${applied} applied so far.`);
+      }
       setRunMsg(
-        `Auto-confirmed ${applied} finding${applied === 1 ? "" : "s"} at ≥90% confidence.`,
+        `Auto-confirmed ${applied} finding${applied === 1 ? "" : "s"} at ≥90% confidence` +
+          (stale > 0 ? ` (${stale} skipped as stale — data had moved on).` : "."),
       );
     } catch (e) {
       console.error("auto-confirm failed", e);
@@ -260,7 +272,12 @@ export default function ReviewPage() {
         </h1>
         <div className="flex items-center gap-3">
           {ViewToggle}
-          <Pill tone="warning">{reviews.length} pending</Pill>
+          <Pill tone="warning">
+            {(pendingCount ?? reviews.length) > 200
+              ? "200+"
+              : (pendingCount ?? reviews.length)}{" "}
+            pending
+          </Pill>
           <Button
             variant="secondary"
             onClick={runAutoConfirm}

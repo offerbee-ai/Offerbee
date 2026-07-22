@@ -20,77 +20,8 @@ export const ARRAY_FIELD_NAME_KEYS: Record<string, string[]> = {
   spendBonusCategory: ["spendBonusCategoryName", "spendBonusCategoryType"],
   benefit: ["benefitTitle"],
 };
-import {
-  dataSourceValidator,
-  fieldProvenanceValidator,
-  fieldValueValidator,
-  reviewObservationValidator,
-  reviewReasonValidator,
-} from "./validators";
 
-// ── Internal writes used by the verification pipeline (verify.ts) ────────────
-
-// Record where a cross-checked field's value came from, without changing the
-// value itself. Upserts the entry for that field in cardDetails.fieldProvenance.
-export const recordProvenance = internalMutation({
-  args: {
-    cardKey: v.string(),
-    entry: fieldProvenanceValidator,
-  },
-  handler: async (ctx, { cardKey, entry }) => {
-    const detail = await ctx.db
-      .query("cardDetails")
-      .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
-      .unique();
-    if (!detail) return;
-    const others = (detail.fieldProvenance ?? []).filter(
-      (p) => p.field !== entry.field,
-    );
-    await ctx.db.patch(detail._id, { fieldProvenance: [...others, entry] });
-
-    // Recording provenance means this field is now resolved (sources agree, or
-    // web confirmed the current value) — retire any stale pending review for it
-    // so a later verification can't be contradicted by an old queued proposal.
-    const stale = await ctx.db
-      .query("cardDataReview")
-      .withIndex("by_cardKey_and_field", (q) =>
-        q.eq("cardKey", cardKey).eq("field", entry.field),
-      )
-      .collect();
-    for (const row of stale) {
-      if (row.status === "pending") await ctx.db.delete(row._id);
-    }
-  },
-});
-
-// Queue a proposed correction for human confirmation. Idempotent per
-// (cardKey, field): a still-pending item for the same field is replaced.
-export const enqueueReview = internalMutation({
-  args: {
-    cardKey: v.string(),
-    field: v.string(),
-    currentValue: v.optional(fieldValueValidator),
-    proposedValue: v.optional(fieldValueValidator),
-    reason: reviewReasonValidator,
-    observations: v.array(reviewObservationValidator),
-    confidence: v.optional(v.number()),
-    sourceUrl: v.optional(v.string()),
-    note: v.optional(v.string()),
-    createdAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("cardDataReview")
-      .withIndex("by_cardKey_and_field", (q) =>
-        q.eq("cardKey", args.cardKey).eq("field", args.field),
-      )
-      .collect();
-    for (const row of existing) {
-      if (row.status === "pending") await ctx.db.delete(row._id);
-    }
-    await ctx.db.insert("cardDataReview", { ...args, status: "pending" });
-  },
-});
+// ── Internal maintenance ─────────────────────────────────────────────────────
 
 // Maintenance: clear pending review proposals (e.g. after changing the proposal
 // shape). Internal — run via `convex run review:clearPendingReviews`.

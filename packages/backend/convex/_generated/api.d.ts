@@ -55,7 +55,6 @@ import type * as tips from "../tips.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 import type * as validators from "../validators.js";
-import type * as verify from "../verify.js";
 import type * as wallet from "../wallet.js";
 
 import type {
@@ -112,7 +111,6 @@ declare const fullApi: ApiFromModules<{
   users: typeof users;
   utils: typeof utils;
   validators: typeof validators;
-  verify: typeof verify;
   wallet: typeof wallet;
 }>;
 

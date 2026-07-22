@@ -1,7 +1,7 @@
 # Auto card-data freshness — daily LLM verify + auto-update
 
 **Date:** 2026-07-22
-**Status:** plan, not implemented
+**Status:** implemented (PRs #84/#85) and hardened (see "Implementation status & hardening" at the end); shadow mode until precision is proven
 **Goal:** A daily cron that keeps user-facing card data fresh automatically. For every card in
 any user's wallet, fetch the latest terms from the web, LLM-eval against what we store, and
 auto-apply confident corrections to fees, sign-up bonus, earn (bonus) categories, and benefits —
@@ -193,3 +193,78 @@ emergency ever needs an instant manual override, `fieldProvenance` (highest conf
 - **Monthly OpenRouter spend ceiling** — set a cap before Phase 2.
 - **Second source** — issuer page only, or also a second aggregator to break ties?
 ```
+
+---
+
+## Implementation status & hardening (updated 2026-07-22)
+
+PRs #84/#85 shipped the pipeline (`freshness.ts` + pure modules, `cardDataAudit`,
+per-item review UI). A follow-up hardening pass closed the gaps found when
+auditing the shipped code against this plan:
+
+### Shipped divergences from the original design (intentional)
+
+- **Removals never auto-apply** (gate rule) instead of a numeric "net removals
+  ≤1 per run" cap — strictly stronger. The mass-removal guard (below) covers
+  the review-spam side.
+- **Array corrections are per-item reviews** (one row per add/remove/patch with
+  `changeType` + `itemName`), not whole-array blobs.
+- **Enumeration is claim-based** (most-overdue-first via
+  `cardDetails.by_lastVerifiedAt`), not a cron-picks-N cursor walk.
+
+### Hardening pass (this branch)
+
+1. **Review-loop integrity** — manual (`source:"manual"`) provenance pins
+   outrank auto-apply; reviewer-rejected proposals are value-level suppressed
+   (audited `mode:"suppressed"`, not re-enqueued every TTL); confirms verify the
+   live value still matches the proposal (else the row closes as
+   `status:"stale"`); pending rows whose diff disappeared are retired after each
+   run; bulk confirm requires an issuer-authoritative citation. The gate verdict
+   is persisted as `wouldAutoApply` on review + audit rows.
+2. **Scheduling/throughput** — `verifyWalletBatch` self-chains until due cards
+   drain or the daily budget is spent; `claimDueCards` selects+claims in one
+   transaction (the claim doubles as crash backoff); per-card calls are staggered.
+3. **LLM robustness** — `response_format: json_object` + bounded 429/5xx/network
+   retries; `verifyMyWallet` runs in bounded chunks.
+4. **Mass-removal guard** — an extraction removing a strict majority (≥2) of an
+   array's items is dropped whole, audited `mode:"suspect"`, retried on the
+   short backoff.
+5. **Coverage** — `fxFee` (auto-eligible) and the signup-bonus block
+   (review-only via `reviewOnlyFields` until precision proves it). Base earn and
+   travel perks deliberately skipped (freeform text, high false-positive risk).
+6. **URL self-heal** — implemented: an issuer-authoritative, confident citation
+   found during web-search fallback is proposed as a `cardUrl` change
+   (sanitized), flowing through the normal gate/kill-switch/suppression path.
+7. **Audit/rollback/measurement** — `audit.ts`: paginated history, run log
+   (`pipelineRuns`), `shadowPrecision` (reviewer verdicts over
+   `wouldAutoApply:true` rows), and `revertAudit` (inverse delta, manual-pinned,
+   audited `mode:"revert"`). Surfaced in the review page's History tab.
+8. **Cleanup** — legacy `verify.ts` pipeline deleted (`freshness.ts` owns
+   verification end-to-end).
+
+### Env vars (Convex dashboard, per deployment)
+
+| Var | Default | Meaning |
+| --- | --- | --- |
+| `AUTO_APPLY_ENABLED` | unset (off) | Kill switch; off = shadow mode (record + review only) |
+| `CONFIDENCE_AUTO_APPLY` | 0.85 | Gate threshold for auto-apply |
+| `CARD_VERIFY_TTL_DAYS` | 7 | Per-card re-verify TTL |
+| `FRESHNESS_FAILURE_RETRY_HOURS` | 6 | Backoff after a failed/suspect extraction |
+| `FRESHNESS_PER_RUN_CAP` | 25 | Cards claimed per chain link |
+| `FRESHNESS_DAILY_CAP` | 150 | Hard ceiling on LLM calls per daily chain |
+| `FRESHNESS_CALL_SPACING_MS` | 5000 | Stagger between per-card verifications |
+| `FRESHNESS_WALLET_CONCURRENCY` | 3 | Concurrency of the manual wallet verify |
+| `OPENROUTER_MAX_RETRIES` | 2 | Retries per extraction on 429/5xx/network |
+| `OPENROUTER_MODEL` | deepseek/deepseek-v4-flash | Extraction model |
+| `ISSUER_DOMAIN_ALLOWLIST` | built-in list | Authoritative domains (comma-separated) |
+
+### Rollout recipe
+
+1. Deploy with `AUTO_APPLY_ENABLED` unset — shadow mode. Let the daily cron run
+   ≥1 TTL cycle (a week) while reviewing findings normally.
+2. Watch the History tab's **shadow precision** tile (reviewer-confirmed share
+   of would-auto-apply findings). Target ≥95%.
+3. Set `AUTO_APPLY_ENABLED=true` on dev/staging first; watch the audit trail
+   and revert anything wrong (revert pins the field against re-apply).
+4. Promote to prod. Signup-bonus fields stay review-only (`reviewOnlyFields`)
+   until precision on them separately justifies promotion.
