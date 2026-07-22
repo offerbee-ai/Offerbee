@@ -93,32 +93,38 @@ export const getCardForFreshness = internalQuery({
   },
 });
 
-// Wallet cardKeys due for re-verification, OLDEST-verified first. Walking the
-// by_lastVerifiedAt index ascending means never-verified rows come first, then
-// the stalest — so cards rotate through and none is permanently starved. We stop
-// as soon as we reach a card still within TTL (all later ones are fresher) or
-// hit the scan cap. Only owned cards (userCards.by_cardKey) are returned.
+// Wallet cardKeys due for re-verification, STALEST first. Driven from the OWNED
+// set (userCards) — not the by_lastVerifiedAt index — so unowned catalog rows
+// (which pollute the front of that index as never-verified) can never consume
+// the run budget and starve owned cards. Every run reconsiders all distinct
+// owned cards and returns the stalest `limit` that are past TTL, so no card is
+// permanently skipped. The take() cap bounds cost; it is logged if hit.
+const OWNED_SCAN_CAP = 8000;
+
 export const getWalletCardsDue = internalQuery({
   args: { ttlMs: v.number(), limit: v.number() },
   handler: async (ctx, { ttlMs, limit }) => {
     const cutoff = Date.now() - ttlMs;
-    const due: string[] = [];
-    let scanned = 0;
-    for await (const d of ctx.db
-      .query("cardDetails")
-      .withIndex("by_lastVerifiedAt")
-      .order("asc")) {
-      if (due.length >= limit || scanned >= 2000) break;
-      scanned++;
-      // Ascending: once we reach a card still inside its TTL, the rest are too.
-      if (d.lastVerifiedAt !== undefined && d.lastVerifiedAt >= cutoff) break;
-      const owned = await ctx.db
-        .query("userCards")
-        .withIndex("by_cardKey", (q) => q.eq("cardKey", d.cardKey))
-        .first();
-      if (owned) due.push(d.cardKey);
+    const owned = await ctx.db.query("userCards").take(OWNED_SCAN_CAP);
+    if (owned.length === OWNED_SCAN_CAP) {
+      console.warn(
+        `freshness: userCards scan hit cap ${OWNED_SCAN_CAP}; some wallets may be unseen this run`,
+      );
     }
-    return due;
+    const seen = new Set<string>();
+    const candidates: Array<{ cardKey: string; last: number }> = [];
+    for (const uc of owned) {
+      if (seen.has(uc.cardKey)) continue;
+      seen.add(uc.cardKey);
+      const d = await ctx.db
+        .query("cardDetails")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", uc.cardKey))
+        .unique();
+      const last = d?.lastVerifiedAt ?? 0; // never-verified sorts stalest
+      if (last < cutoff) candidates.push({ cardKey: uc.cardKey, last });
+    }
+    candidates.sort((a, b) => a.last - b.last); // stalest first
+    return candidates.slice(0, limit).map((c) => c.cardKey);
   },
 });
 
@@ -284,9 +290,12 @@ export const markVerified = internalMutation({
   },
 });
 
-// Array fields hold whole-array corrections; the scalar-shaped review queue
-// (and confirmReview) can't represent a single-item delta, so those are
-// auto-apply-only (gated + audited). Scalars route to the human review queue.
+// Array fields are handled all-or-nothing per field: if every one of the run's
+// deltas for a field passes the gate (and auto-apply is enabled) the whole
+// corrected array is written; otherwise a single WHOLE-ARRAY proposal is queued
+// for review (currentValue = old array, proposedValue = fully-corrected array),
+// which confirmReview applies verbatim. This keeps every change actionable
+// (never audit-only) while sidestepping single-item review shapes.
 const ARRAY_FIELDS = new Set(["spendBonusCategory", "benefit"]);
 
 // Apply the auto-approved changes (when enabled), enqueue scalar changes that
@@ -318,23 +327,25 @@ export const applyFreshnessChanges = internalMutation({
 
     const now = Date.now();
     const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
-
-    let categories = [...(detail.spendBonusCategory ?? [])] as any[];
-    let benefits = [...(detail.benefit ?? [])] as any[];
+    const provenance = [...(detail.fieldProvenance ?? [])];
+    const patchDoc: Record<string, unknown> = {};
+    let scalarTouched = false;
     let categoriesTouched = false;
     let benefitsTouched = false;
-    let scalarTouched = false;
-    const patchDoc: Record<string, unknown> = {};
-    const provenance = [...(detail.fieldProvenance ?? [])];
 
-    const upsertProv = (field: string, value: unknown, ch: any) => {
+    const upsertProv = (
+      field: string,
+      value: unknown,
+      confidence?: number,
+      sourceUrl?: string,
+    ) => {
       const others = provenance.filter((p) => p.field !== field);
       others.push({
         field,
         value: value as any,
         source: "web" as const,
-        confidence: ch.confidence,
-        sourceUrl: ch.sourceUrl,
+        confidence,
+        sourceUrl,
         verifiedAt: now,
       });
       provenance.length = 0;
@@ -358,52 +369,40 @@ export const applyFreshnessChanges = internalMutation({
       return arr.map((i) => (nameOf(i) === key ? { ...i, ...mapped } : i));
     };
 
-    for (const ch of changes) {
-      const willApply = ch.autoApply && autoEnabled;
-      const mode = willApply ? "auto" : "shadow";
-
-      if (willApply) {
-        if (ch.field === "annualFee") {
-          patchDoc.annualFee = ch.proposed;
-          scalarTouched = true;
-          upsertProv("annualFee", ch.proposed, ch);
-        } else if (ch.field === "spendBonusCategory") {
-          categories = applyArrayOp(categories, ch, namedToCategory, [
-            "spendBonusCategoryName",
-            "spendBonusCategoryType",
-          ]);
-          categoriesTouched = true;
-        } else if (ch.field === "benefit") {
-          benefits = applyArrayOp(benefits, ch, namedToBenefit, ["benefitTitle"]);
-          benefitsTouched = true;
-        }
-      } else if (!ARRAY_FIELDS.has(ch.field)) {
-        // Scalar not auto-applied → human review queue (dedupe pending per field).
-        const pending = await ctx.db
-          .query("cardDataReview")
-          .withIndex("by_cardKey_and_field", (q) =>
-            q.eq("cardKey", cardKey).eq("field", ch.field),
-          )
-          .collect();
-        for (const r of pending) {
-          if (r.status === "pending") await ctx.db.delete(r._id);
-        }
-        await ctx.db.insert("cardDataReview", {
-          cardKey,
-          field: ch.field,
-          currentValue: ch.current as any,
-          proposedValue: ch.proposed as any,
-          reason: "web-correction",
-          observations: [{ source: "web", value: ch.proposed as any }],
-          confidence: ch.confidence,
-          sourceUrl: ch.sourceUrl,
-          note: `freshness: ${ch.changeType} ${ch.field}`,
-          status: "pending",
-          createdAt: now,
-        });
+    // Replace any pending proposal for this field, then queue a fresh one.
+    const enqueueReviewRow = async (
+      field: string,
+      current: unknown,
+      proposed: unknown,
+      confidence: number | undefined,
+      sourceUrl: string | undefined,
+      note: string,
+    ) => {
+      const pending = await ctx.db
+        .query("cardDataReview")
+        .withIndex("by_cardKey_and_field", (q) =>
+          q.eq("cardKey", cardKey).eq("field", field),
+        )
+        .collect();
+      for (const r of pending) {
+        if (r.status === "pending") await ctx.db.delete(r._id);
       }
-      // (Array changes not auto-applied are recorded in the audit only.)
+      await ctx.db.insert("cardDataReview", {
+        cardKey,
+        field,
+        currentValue: current as any,
+        proposedValue: proposed as any,
+        reason: "web-correction",
+        observations: [{ source: "web", value: proposed as any }],
+        confidence,
+        sourceUrl,
+        note,
+        status: "pending",
+        createdAt: now,
+      });
+    };
 
+    const audit = async (ch: any, mode: "auto" | "shadow") => {
       await ctx.db.insert("cardDataAudit", {
         cardKey,
         field: ch.field,
@@ -415,15 +414,70 @@ export const applyFreshnessChanges = internalMutation({
         mode,
         appliedAt: now,
       });
+    };
+
+    // ── Scalars: per-field auto-apply or review ──
+    for (const ch of changes.filter((c) => !ARRAY_FIELDS.has(c.field))) {
+      const willApply = ch.autoApply && autoEnabled;
+      if (willApply) {
+        patchDoc[ch.field] = ch.proposed;
+        scalarTouched = true;
+        upsertProv(ch.field, ch.proposed, ch.confidence, ch.sourceUrl);
+      } else {
+        await enqueueReviewRow(
+          ch.field,
+          ch.current,
+          ch.proposed,
+          ch.confidence,
+          ch.sourceUrl,
+          `freshness: ${ch.changeType} ${ch.field}`,
+        );
+      }
+      await audit(ch, willApply ? "auto" : "shadow");
     }
 
-    if (categoriesTouched) {
-      patchDoc.spendBonusCategory = categories;
-      upsertProv("spendBonusCategory", categories, {});
-    }
-    if (benefitsTouched) {
-      patchDoc.benefit = benefits;
-      upsertProv("benefit", benefits, {});
+    // ── Array fields: all-or-nothing per field, else whole-array review ──
+    const arrayDefs = [
+      {
+        field: "spendBonusCategory",
+        toStored: namedToCategory,
+        nameKeys: ["spendBonusCategoryName", "spendBonusCategoryType"],
+      },
+      { field: "benefit", toStored: namedToBenefit, nameKeys: ["benefitTitle"] },
+    ] as const;
+
+    for (const { field, toStored, nameKeys } of arrayDefs) {
+      const chs = changes.filter((c) => c.field === field);
+      if (chs.length === 0) continue;
+
+      const original = [...(((detail as any)[field] as any[]) ?? [])];
+      let proposedArr = original;
+      for (const ch of chs)
+        proposedArr = applyArrayOp(proposedArr, ch, toStored, [...nameKeys]);
+
+      const willApply = chs.every((c) => c.autoApply) && autoEnabled;
+      // Strongest cited signal among the field's changes represents the batch.
+      const rep = chs.reduce(
+        (a, b) => ((b.confidence ?? 0) > (a.confidence ?? 0) ? b : a),
+        chs[0],
+      );
+
+      if (willApply) {
+        patchDoc[field] = proposedArr;
+        upsertProv(field, proposedArr, rep.confidence, rep.sourceUrl);
+        if (field === "benefit") benefitsTouched = true;
+        else categoriesTouched = true;
+      } else {
+        await enqueueReviewRow(
+          field,
+          original,
+          proposedArr,
+          rep.confidence,
+          rep.sourceUrl,
+          `freshness: ${chs.length} ${field} change(s)`,
+        );
+      }
+      for (const ch of chs) await audit(ch, willApply ? "auto" : "shadow");
     }
 
     if (scalarTouched || categoriesTouched || benefitsTouched) {
