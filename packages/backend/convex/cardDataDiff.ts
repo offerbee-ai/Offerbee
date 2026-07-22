@@ -44,12 +44,13 @@ export function diffScalar(
   };
 }
 
-const norm = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
+export const norm = (name: string) =>
+  name.trim().toLowerCase().replace(/\s+/g, " ");
 
 // Extraction metadata that rides along on proposed items but is not part of the
 // card's actual data — excluded from change detection so a differing confidence
 // or sourceUrl alone never looks like a content change.
-const META_KEYS = new Set(["confidence", "sourceUrl", "group"]);
+export const META_KEYS = new Set(["confidence", "sourceUrl", "group"]);
 
 // Stable stringify (sorted keys, metadata excluded) with the name normalized,
 // so case/whitespace drift in the name alone is not a meaningful change.

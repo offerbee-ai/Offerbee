@@ -9,6 +9,9 @@ import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { isAdmin, requireAdmin } from "./auth";
 import { applyItemDelta } from "./arrayDelta";
+import { reviewIsStale } from "./reviewSuppress";
+import { isIssuerAuthoritativeUrl } from "./cardSourceSelect";
+import { issuerAllowlist } from "./freshnessConfig";
 
 // Array fields whose reviews carry a single item delta (changeType + itemName)
 // rather than a scalar value. Name keys mirror the stored item shapes.
@@ -151,12 +154,15 @@ export const pendingReviewCount = query({
 });
 
 // Apply one pending review to cardDetails and close it. Shared by single-confirm
-// and bulk auto-confirm. Assumes the row is still pending.
+// and bulk auto-confirm. Assumes the row is still pending. If the live data
+// changed after the proposal was enqueued (concurrent RapidAPI refresh,
+// auto-apply, or another admin), the row is closed as "stale" instead of
+// applied — confirming it verbatim would clobber the newer value.
 async function applyConfirmedReview(
   ctx: MutationCtx,
   review: Doc<"cardDataReview">,
   userId: string,
-) {
+): Promise<{ applied: boolean; stale: boolean }> {
   const detail = await ctx.db
     .query("cardDetails")
     .withIndex("by_cardKey", (q) => q.eq("cardKey", review.cardKey))
@@ -165,6 +171,21 @@ async function applyConfirmedReview(
     const nameKeys = ARRAY_FIELD_NAME_KEYS[review.field];
     const isItemDelta =
       !!nameKeys && !!review.changeType && review.itemName !== undefined;
+
+    if (
+      reviewIsStale(
+        (detail as any)[review.field],
+        review,
+        isItemDelta ? nameKeys : undefined,
+      )
+    ) {
+      await ctx.db.patch(review._id, {
+        status: "stale",
+        reviewedAt: Date.now(),
+        reviewedBy: userId,
+      });
+      return { applied: false, stale: true };
+    }
 
     // For an array item delta, apply just that delta to the live array;
     // otherwise write the scalar value verbatim.
@@ -212,10 +233,13 @@ async function applyConfirmedReview(
     reviewedAt: Date.now(),
     reviewedBy: userId,
   });
+  return { applied: true, stale: false };
 }
 
 // Accept a proposal: write the value to cardDetails, stamp manual provenance,
 // close the review, and re-scan offers for the card since fees/bonuses changed.
+// Returns { applied, stale } — stale means the live data changed since the
+// proposal and the row was closed without applying.
 export const confirmReview = mutation({
   args: { reviewId: v.id("cardDataReview") },
   handler: async (ctx, { reviewId }) => {
@@ -224,18 +248,21 @@ export const confirmReview = mutation({
     if (!review) throw new Error(`Review '${reviewId}' not found`);
     if (review.status !== "pending")
       throw new Error(`Review '${reviewId}' is already ${review.status}`);
-    await applyConfirmedReview(ctx, review, userId);
+    return await applyConfirmedReview(ctx, review, userId);
   },
 });
 
 // Bulk auto-confirm every pending proposal at or above a confidence threshold
-// (default 0.9). Removals carry no confidence, so they are never bulk-confirmed
-// and stay for manual review. Returns how many were applied.
+// (default 0.9) whose citation is an issuer-authoritative domain — a confident
+// extraction citing a blog/affiliate stays for manual review, as do removals
+// (they carry no confidence). Rows whose live data changed since the proposal
+// are closed as stale, not applied. Returns how many were applied.
 export const confirmHighConfidence = mutation({
   args: { minConfidence: v.optional(v.number()) },
   handler: async (ctx, { minConfidence }) => {
     const userId = await requireAdmin(ctx);
     const threshold = minConfidence ?? 0.9;
+    const allowlist = issuerAllowlist(process.env.ISSUER_DOMAIN_ALLOWLIST);
     // Bounded scan so one mutation stays within Convex's read/time limits; a very
     // large queue just takes another click. Ordered oldest-first for stable
     // progress across calls.
@@ -246,13 +273,30 @@ export const confirmHighConfidence = mutation({
       .order("asc")
       .take(SCAN_CAP);
     let applied = 0;
+    let stale = 0;
     for (const review of pending) {
-      if ((review.confidence ?? 0) >= threshold) {
-        await applyConfirmedReview(ctx, review, userId);
-        applied++;
-      }
+      if ((review.confidence ?? 0) < threshold) continue;
+      const detail = await ctx.db
+        .query("cardDetails")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", review.cardKey))
+        .unique();
+      if (
+        !detail ||
+        !review.sourceUrl ||
+        !isIssuerAuthoritativeUrl(review.sourceUrl, detail.cardIssuer, allowlist)
+      )
+        continue;
+      const res = await applyConfirmedReview(ctx, review, userId);
+      if (res.applied) applied++;
+      else if (res.stale) stale++;
     }
-    return { applied, threshold, scanned: pending.length, more: pending.length === SCAN_CAP };
+    return {
+      applied,
+      stale,
+      threshold,
+      scanned: pending.length,
+      more: pending.length === SCAN_CAP,
+    };
   },
 });
 

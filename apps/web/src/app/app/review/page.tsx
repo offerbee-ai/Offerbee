@@ -189,13 +189,18 @@ export default function ReviewPage() {
   });
 
   const act = async (
-    fn: typeof confirm,
+    fn: typeof confirm | typeof reject,
     id: Id<"cardDataReview">,
     tag: string,
   ) => {
     setBusy(tag);
     try {
-      await fn({ reviewId: id });
+      const res = await fn({ reviewId: id });
+      if (res && res.stale) {
+        setRunMsg(
+          "Card data changed since this proposal — the finding was marked stale instead of applied.",
+        );
+      }
     } catch (e) {
       console.error("review action failed", e);
     } finally {

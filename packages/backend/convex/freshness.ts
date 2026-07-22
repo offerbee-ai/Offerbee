@@ -13,6 +13,13 @@ import { parseExtraction } from "./cardExtractionParse";
 import { diffScalar, diffNamedArray, type NamedItem } from "./cardDataDiff";
 import { gateChange } from "./autoApplyGate";
 import { applyItemDelta } from "./arrayDelta";
+import { norm } from "./cardDataDiff";
+import {
+  canonicalValue,
+  matchesRejected,
+  type RejectedRow,
+} from "./reviewSuppress";
+import { issuerAllowlist } from "./freshnessConfig";
 import {
   categoryToNamed,
   namedToCategory,
@@ -33,19 +40,6 @@ import {
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SIGNUP_URL = "https://openrouter.ai/keys";
 const DEFAULT_MODEL = "deepseek/deepseek-v4-flash";
-
-const DEFAULT_ALLOWLIST = [
-  "americanexpress.com",
-  "chase.com",
-  "citi.com",
-  "bankofamerica.com",
-  "capitalone.com",
-  "wellsfargo.com",
-  "discover.com",
-  "usbank.com",
-  "barclaycardus.com",
-  "biltrewards.com",
-];
 
 const changeTypeValidator = v.union(
   v.literal("patch"),
@@ -68,10 +62,7 @@ function config() {
     perRunCap: num("FRESHNESS_PER_RUN_CAP", 25),
     // Off by default: first deploy runs in shadow (record, don't write).
     autoApplyEnabled: process.env.AUTO_APPLY_ENABLED === "true",
-    allowlist: (process.env.ISSUER_DOMAIN_ALLOWLIST
-      ? process.env.ISSUER_DOMAIN_ALLOWLIST.split(",").map((s: string) => s.trim())
-      : DEFAULT_ALLOWLIST
-    ).filter(Boolean),
+    allowlist: issuerAllowlist(process.env.ISSUER_DOMAIN_ALLOWLIST),
   };
 }
 
@@ -251,9 +242,14 @@ export const verifyOneCard = internalAction({
       allowlist: cfg.allowlist,
     };
     const changes: PipelineChange[] = [];
+    // Fields the model actually reported this run — the mutation retires stale
+    // pending reviews for these (an old proposal the model no longer makes is
+    // outdated). Omitted fields are left untouched.
+    const evaluatedFields: string[] = [];
 
     // Scalar: annual fee.
     if (profile.annualFee !== undefined) {
+      evaluatedFields.push("annualFee");
       const sc = diffScalar(
         "annualFee",
         detail.annualFee,
@@ -276,6 +272,7 @@ export const verifyOneCard = internalAction({
     ];
     for (const [field, current, proposed] of arrayDiffs) {
       if (proposed === undefined) continue;
+      evaluatedFields.push(field);
       for (const c of diffNamedArray(field, current, proposed)) {
         const proposedItem = "proposed" in c ? (c.proposed as any) : undefined;
         const change: PipelineChange = {
@@ -298,6 +295,7 @@ export const verifyOneCard = internalAction({
     await ctx.runMutation(internal.freshness.applyFreshnessChanges, {
       cardKey,
       changes,
+      evaluatedFields,
       autoEnabled: cfg.autoApplyEnabled,
     });
   },
@@ -325,7 +323,11 @@ const ARRAY_FIELDS = new Set(["spendBonusCategory", "benefit"]);
 
 // Apply the auto-approved changes (when enabled), enqueue scalar changes that
 // need review, and audit every gated change — all in one atomic mutation so the
-// TTL never advances past a partial write.
+// TTL never advances past a partial write. Review-loop integrity rules:
+// a manually pinned field (source:"manual" provenance — a human confirmed or
+// rejected a review for it) never auto-applies; a proposal identical to one a
+// reviewer already rejected is suppressed (audited, not re-enqueued); pending
+// reviews whose diff the model no longer proposes are retired.
 export const applyFreshnessChanges = internalMutation({
   args: {
     cardKey: v.string(),
@@ -341,9 +343,11 @@ export const applyFreshnessChanges = internalMutation({
         autoApply: v.boolean(),
       }),
     ),
+    // Fields the extraction actually reported this run (drives retirement).
+    evaluatedFields: v.optional(v.array(v.string())),
     autoEnabled: v.boolean(),
   },
-  handler: async (ctx, { cardKey, changes, autoEnabled }) => {
+  handler: async (ctx, { cardKey, changes, evaluatedFields, autoEnabled }) => {
     const detail = await ctx.db
       .query("cardDetails")
       .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
@@ -351,8 +355,47 @@ export const applyFreshnessChanges = internalMutation({
     if (!detail) return;
 
     const now = Date.now();
-    const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
     const provenance = [...(detail.fieldProvenance ?? [])];
+
+    // Rejected rows feed value-level suppression; bounded per card.
+    const reviewRows = await ctx.db
+      .query("cardDataReview")
+      .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
+      .take(500);
+    const rejectedRows: RejectedRow[] = reviewRows.filter(
+      (r) => r.status === "rejected",
+    );
+    const manualPinOf = (field: string) =>
+      (detail.fieldProvenance ?? []).find(
+        (p) => p.field === field && p.source === "manual",
+      );
+    // Keys (field + normalized item name) of reviews enqueued THIS run — the
+    // retirement pass below deletes every other pending row for an evaluated
+    // field, so resolved/auto-applied/suppressed proposals don't linger.
+    const reviewKey = (field: string, itemName?: string) =>
+      `${field} ${norm(itemName ?? "")}`;
+    const keepKeys = new Set<string>();
+    // Whether a change (with its stored-shape proposed value) was already
+    // rejected by a reviewer, or re-proposes a manually pinned value.
+    const isSuppressed = (
+      ch: { field: string; changeType: "patch" | "add" | "remove"; name?: string },
+      storedProposed: unknown,
+    ) => {
+      if (
+        matchesRejected(rejectedRows, {
+          field: ch.field,
+          name: ch.name,
+          changeType: ch.changeType,
+          proposed: storedProposed,
+        })
+      )
+        return true;
+      const pin = manualPinOf(ch.field);
+      return (
+        pin !== undefined &&
+        canonicalValue(storedProposed) === canonicalValue(pin.value)
+      );
+    };
     const patchDoc: Record<string, unknown> = {};
     let scalarTouched = false;
     let categoriesTouched = false;
@@ -393,6 +436,7 @@ export const applyFreshnessChanges = internalMutation({
       proposed: unknown;
       confidence?: number;
       sourceUrl?: string;
+      wouldAutoApply: boolean;
       note: string;
     }) => {
       const pending = await ctx.db
@@ -419,13 +463,15 @@ export const applyFreshnessChanges = internalMutation({
         ],
         confidence: opts.confidence,
         sourceUrl: opts.sourceUrl,
+        wouldAutoApply: opts.wouldAutoApply,
         note: opts.note,
         status: "pending",
         createdAt: now,
       });
+      keepKeys.add(reviewKey(opts.field, opts.itemName));
     };
 
-    const audit = async (ch: any, mode: "auto" | "shadow") => {
+    const audit = async (ch: any, mode: "auto" | "shadow" | "suppressed") => {
       await ctx.db.insert("cardDataAudit", {
         cardKey,
         field: ch.field,
@@ -434,6 +480,7 @@ export const applyFreshnessChanges = internalMutation({
         after: ch.proposed,
         confidence: ch.confidence,
         sourceUrl: ch.sourceUrl,
+        wouldAutoApply: ch.autoApply,
         mode,
         appliedAt: now,
       });
@@ -441,7 +488,14 @@ export const applyFreshnessChanges = internalMutation({
 
     // ── Scalars: per-field auto-apply or review ──
     for (const ch of changes.filter((c) => !ARRAY_FIELDS.has(c.field))) {
-      const willApply = ch.autoApply && autoEnabled;
+      if (isSuppressed(ch, ch.proposed)) {
+        await audit(ch, "suppressed");
+        continue;
+      }
+      // Manual provenance outranks web: a human-pinned field never auto-applies
+      // (and upsertProv must not replace the pin) — the change goes to review.
+      const willApply =
+        ch.autoApply && autoEnabled && manualPinOf(ch.field) === undefined;
       if (willApply) {
         patchDoc[ch.field] = ch.proposed;
         scalarTouched = true;
@@ -453,6 +507,7 @@ export const applyFreshnessChanges = internalMutation({
           proposed: ch.proposed,
           confidence: ch.confidence,
           sourceUrl: ch.sourceUrl,
+          wouldAutoApply: ch.autoApply,
           note: `freshness: ${ch.changeType} ${ch.field}`,
         });
       }
@@ -480,14 +535,21 @@ export const applyFreshnessChanges = internalMutation({
         working.find((i) => nameOf(i) === norm(name));
       let touched = false;
 
+      const fieldPinned = manualPinOf(field) !== undefined;
       for (const ch of chs) {
-        const willApply = ch.autoApply && autoEnabled;
         const storedItem =
           ch.changeType === "remove"
             ? undefined
             : toStored(ch.proposed as NamedItem);
         const existing = findStored(ch.name ?? "");
 
+        if (isSuppressed(ch, storedItem)) {
+          await audit(ch, "suppressed");
+          continue;
+        }
+        // A human-curated (manually pinned) array field never auto-applies —
+        // every delta surfaces as a review instead.
+        const willApply = ch.autoApply && autoEnabled && !fieldPinned;
         if (willApply) {
           working = applyItemDelta(
             working,
@@ -504,6 +566,7 @@ export const applyFreshnessChanges = internalMutation({
             proposed: storedItem,
             confidence: ch.confidence,
             sourceUrl: ch.sourceUrl,
+            wouldAutoApply: ch.autoApply,
             note: `freshness: ${ch.changeType} ${field} "${ch.name ?? ""}"`,
           });
         }
@@ -519,6 +582,24 @@ export const applyFreshnessChanges = internalMutation({
         upsertProv(field, working, rep.confidence, rep.sourceUrl);
         if (field === "benefit") benefitsTouched = true;
         else categoriesTouched = true;
+      }
+    }
+
+    // ── Retire stale pendings: a pending review for an evaluated field whose
+    //    (field, item) the model did NOT re-propose this run describes a diff
+    //    that no longer exists (data since fixed, item auto-applied, or the
+    //    extraction stopped reporting it) — delete it. Fields the model omitted
+    //    are not in evaluatedFields, so their pendings are left untouched. ──
+    if (evaluatedFields && evaluatedFields.length > 0) {
+      const pendingNow = await ctx.db
+        .query("cardDataReview")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
+        .take(500);
+      for (const row of pendingNow) {
+        if (row.status !== "pending") continue;
+        if (!evaluatedFields.includes(row.field)) continue;
+        if (!keepKeys.has(reviewKey(row.field, row.itemName)))
+          await ctx.db.delete(row._id);
       }
     }
 

@@ -123,6 +123,10 @@ export default defineSchema({
     observations: v.array(reviewObservationValidator), // what each source said
     confidence: v.optional(v.number()), // 0-1 from the web-verify step
     sourceUrl: v.optional(v.string()), // issuer page the proposal came from
+    // The auto-apply gate's verdict when this row was enqueued. In shadow mode
+    // (AUTO_APPLY_ENABLED off) rows with wouldAutoApply:true are the ones the
+    // pipeline WOULD have written — reviewer verdicts on them measure precision.
+    wouldAutoApply: v.optional(v.boolean()),
     note: v.optional(v.string()), // model's short justification
     status: reviewStatusValidator,
     createdAt: v.number(),
@@ -148,8 +152,16 @@ export default defineSchema({
     after: v.optional(v.any()),
     confidence: v.optional(v.number()),
     sourceUrl: v.optional(v.string()),
-    // "auto" = written to cardDetails; "shadow" = kill switch off, recorded only.
-    mode: v.union(v.literal("auto"), v.literal("shadow")),
+    // The gate's verdict for this change (independent of the kill switch).
+    wouldAutoApply: v.optional(v.boolean()),
+    // "auto" = written to cardDetails; "shadow" = not written (gate said review,
+    // or kill switch off); "suppressed" = matched a reviewer-rejected proposal
+    // or a manual pin, so it was not re-enqueued.
+    mode: v.union(
+      v.literal("auto"),
+      v.literal("shadow"),
+      v.literal("suppressed"),
+    ),
     appliedAt: v.number(),
   })
     .index("by_cardKey", ["cardKey"])
