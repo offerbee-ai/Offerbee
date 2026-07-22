@@ -148,6 +148,13 @@ export default defineSchema({
     .index("by_cardKey", ["cardKey"])
     .index("by_appliedAt", ["appliedAt"]),
 
+  // ── Small key/value bookkeeping for background pipelines (e.g. the freshness
+  //    scan's rotating pagination cursor over userCards). ──
+  pipelineState: defineTable({
+    key: v.string(),
+    cursor: v.union(v.string(), v.null()),
+  }).index("by_key", ["key"]),
+
   // ── User wallet: the cards a user owns ──
   userCards: defineTable({
     userId: v.string(),

@@ -93,38 +93,61 @@ export const getCardForFreshness = internalQuery({
   },
 });
 
-// Wallet cardKeys due for re-verification, STALEST first. Driven from the OWNED
-// set (userCards) — not the by_lastVerifiedAt index — so unowned catalog rows
-// (which pollute the front of that index as never-verified) can never consume
-// the run budget and starve owned cards. Every run reconsiders all distinct
-// owned cards and returns the stalest `limit` that are past TTL, so no card is
-// permanently skipped. The take() cap bounds cost; it is logged if hit.
-const OWNED_SCAN_CAP = 8000;
+// Wallet-scan pagination cursor, persisted so the daily run advances through
+// the ENTIRE userCards table across runs (round-robin) rather than re-reading a
+// fixed prefix — no wallet is ever permanently skipped, at any table size.
+const CURSOR_KEY = "freshness-wallet-scan";
 
-export const getWalletCardsDue = internalQuery({
-  args: { ttlMs: v.number(), limit: v.number() },
-  handler: async (ctx, { ttlMs, limit }) => {
+export const getFreshnessCursor = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const row = await ctx.db
+      .query("pipelineState")
+      .withIndex("by_key", (q) => q.eq("key", CURSOR_KEY))
+      .unique();
+    return row?.cursor ?? null;
+  },
+});
+
+export const setFreshnessCursor = internalMutation({
+  args: { cursor: v.union(v.string(), v.null()) },
+  handler: async (ctx, { cursor }) => {
+    const row = await ctx.db
+      .query("pipelineState")
+      .withIndex("by_key", (q) => q.eq("key", CURSOR_KEY))
+      .unique();
+    if (row) await ctx.db.patch(row._id, { cursor });
+    else await ctx.db.insert("pipelineState", { key: CURSOR_KEY, cursor });
+  },
+});
+
+// One page of userCards from the persisted cursor; returns the owned cardKeys in
+// that page whose data is past TTL, plus the next cursor. The batch driver walks
+// pages run-over-run and wraps at the end, so every card is eventually visited.
+export const getWalletCardsDuePage = internalQuery({
+  args: {
+    cursor: v.union(v.string(), v.null()),
+    ttlMs: v.number(),
+    pageSize: v.number(),
+  },
+  handler: async (ctx, { cursor, ttlMs, pageSize }) => {
     const cutoff = Date.now() - ttlMs;
-    const owned = await ctx.db.query("userCards").take(OWNED_SCAN_CAP);
-    if (owned.length === OWNED_SCAN_CAP) {
-      console.warn(
-        `freshness: userCards scan hit cap ${OWNED_SCAN_CAP}; some wallets may be unseen this run`,
-      );
-    }
+    const page = await ctx.db
+      .query("userCards")
+      .paginate({ cursor, numItems: pageSize });
     const seen = new Set<string>();
-    const candidates: Array<{ cardKey: string; last: number }> = [];
-    for (const uc of owned) {
+    const due: string[] = [];
+    for (const uc of page.page) {
       if (seen.has(uc.cardKey)) continue;
       seen.add(uc.cardKey);
       const d = await ctx.db
         .query("cardDetails")
         .withIndex("by_cardKey", (q) => q.eq("cardKey", uc.cardKey))
         .unique();
-      const last = d?.lastVerifiedAt ?? 0; // never-verified sorts stalest
-      if (last < cutoff) candidates.push({ cardKey: uc.cardKey, last });
+      const last = d?.lastVerifiedAt ?? 0; // never-verified is always due
+      if (last < cutoff) due.push(uc.cardKey);
     }
-    candidates.sort((a, b) => a.last - b.last); // stalest first
-    return candidates.slice(0, limit).map((c) => c.cardKey);
+    return { due, nextCursor: page.continueCursor, isDone: page.isDone };
   },
 });
 
@@ -502,15 +525,20 @@ export const verifyWalletBatch = internalAction({
   args: {},
   handler: async (ctx) => {
     const cfg = config();
-    const due = await ctx.runQuery(internal.freshness.getWalletCardsDue, {
-      ttlMs: cfg.ttlMs,
-      limit: cfg.perRunCap,
-    });
+    const cursor = await ctx.runQuery(internal.freshness.getFreshnessCursor, {});
+    const { due, nextCursor, isDone } = await ctx.runQuery(
+      internal.freshness.getWalletCardsDuePage,
+      { cursor, ttlMs: cfg.ttlMs, pageSize: cfg.perRunCap },
+    );
     for (const cardKey of due) {
       await ctx.scheduler.runAfter(0, internal.freshness.verifyOneCard, {
         cardKey,
       });
     }
+    // Advance the cursor; wrap to the start when the table is exhausted.
+    await ctx.runMutation(internal.freshness.setFreshnessCursor, {
+      cursor: isDone ? null : nextCursor,
+    });
     if (due.length > 0) {
       console.info(`freshness: scheduled ${due.length} card verification(s)`);
     }
