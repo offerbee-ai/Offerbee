@@ -9,16 +9,22 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as autoApplyGate from "../autoApplyGate.js";
 import type * as benefitCycles from "../benefitCycles.js";
 import type * as benefitOverrides from "../benefitOverrides.js";
 import type * as benefitParser from "../benefitParser.js";
 import type * as benefits from "../benefits.js";
 import type * as billing from "../billing.js";
 import type * as billingCore from "../billingCore.js";
+import type * as cardDataDiff from "../cardDataDiff.js";
+import type * as cardExtractionParse from "../cardExtractionParse.js";
+import type * as cardFieldMap from "../cardFieldMap.js";
+import type * as cardSourceSelect from "../cardSourceSelect.js";
 import type * as catalog from "../catalog.js";
 import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
+import type * as freshness from "../freshness.js";
 import type * as http from "../http.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
@@ -32,6 +38,7 @@ import type * as plaidLlm from "../plaidLlm.js";
 import type * as plaidMatch from "../plaidMatch.js";
 import type * as plaidNormalize from "../plaidNormalize.js";
 import type * as profileName from "../profileName.js";
+import type * as provenanceGuard from "../provenanceGuard.js";
 import type * as push from "../push.js";
 import type * as pushQuietHours from "../pushQuietHours.js";
 import type * as rapidapi from "../rapidapi.js";
@@ -53,16 +60,22 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  autoApplyGate: typeof autoApplyGate;
   benefitCycles: typeof benefitCycles;
   benefitOverrides: typeof benefitOverrides;
   benefitParser: typeof benefitParser;
   benefits: typeof benefits;
   billing: typeof billing;
   billingCore: typeof billingCore;
+  cardDataDiff: typeof cardDataDiff;
+  cardExtractionParse: typeof cardExtractionParse;
+  cardFieldMap: typeof cardFieldMap;
+  cardSourceSelect: typeof cardSourceSelect;
   catalog: typeof catalog;
   catalogSync: typeof catalogSync;
   crons: typeof crons;
   email: typeof email;
+  freshness: typeof freshness;
   http: typeof http;
   migrations: typeof migrations;
   notifications: typeof notifications;
@@ -76,6 +89,7 @@ declare const fullApi: ApiFromModules<{
   plaidMatch: typeof plaidMatch;
   plaidNormalize: typeof plaidNormalize;
   profileName: typeof profileName;
+  provenanceGuard: typeof provenanceGuard;
   push: typeof push;
   pushQuietHours: typeof pushQuietHours;
   rapidapi: typeof rapidapi;

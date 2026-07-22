@@ -61,4 +61,14 @@ crons.cron(
   { cursor: null },
 );
 
+// Daily card-data freshness: LLM web-verify every wallet card past its TTL and
+// auto-apply (or, in shadow mode, record) confident corrections. See
+// freshness.ts and docs/plans/2026-07-22-auto-card-data-freshness-plan.md.
+crons.interval(
+  "verify card data",
+  { hours: 24 },
+  internal.freshness.verifyWalletBatch,
+  {},
+);
+
 export default crons;

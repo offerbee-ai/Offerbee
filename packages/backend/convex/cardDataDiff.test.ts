@@ -88,6 +88,15 @@ describe("diffNamedArray", () => {
     expect(changes).toEqual([]);
   });
 
+  it("ignores confidence/sourceUrl metadata when detecting changes", () => {
+    const changes = diffNamedArray(
+      "spendBonusCategory",
+      [{ name: "Gas", multiplier: 4 }],
+      [{ name: "Gas", multiplier: 4, confidence: 0.9, sourceUrl: "https://citi.com" }],
+    );
+    expect(changes).toEqual([]);
+  });
+
   it("matches names case-insensitively and trimmed", () => {
     const changes = diffNamedArray(
       "spendBonusCategory",

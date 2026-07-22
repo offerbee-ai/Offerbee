@@ -20,6 +20,14 @@ describe("parseExtraction", () => {
     expect(p?.annualFee).toBe(695);
   });
 
+  it("captures annualFee confidence and sourceUrl for the gate", () => {
+    const p = parseExtraction(
+      '{"annualFee": {"value": 695, "confidence": 0.92, "sourceUrl": "https://americanexpress.com"}}',
+    );
+    expect(p?.annualFeeConfidence).toBe(0.92);
+    expect(p?.annualFeeSourceUrl).toBe("https://americanexpress.com");
+  });
+
   it("extracts JSON from a markdown fence with surrounding prose", () => {
     const raw =
       "Here are the terms:\n```json\n" +

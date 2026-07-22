@@ -46,11 +46,18 @@ export function diffScalar(
 
 const norm = (name: string) => name.trim().toLowerCase().replace(/\s+/g, " ");
 
-// Stable stringify (sorted keys) with the name normalized, so case/whitespace
-// drift in the name alone is not counted as a meaningful change.
+// Extraction metadata that rides along on proposed items but is not part of the
+// card's actual data — excluded from change detection so a differing confidence
+// or sourceUrl alone never looks like a content change.
+const META_KEYS = new Set(["confidence", "sourceUrl", "group"]);
+
+// Stable stringify (sorted keys, metadata excluded) with the name normalized,
+// so case/whitespace drift in the name alone is not a meaningful change.
 function canonical(item: NamedItem): string {
   const withNormName: Record<string, unknown> = { ...item, name: norm(item.name) };
-  const keys = Object.keys(withNormName).sort();
+  const keys = Object.keys(withNormName)
+    .filter((k) => !META_KEYS.has(k))
+    .sort();
   return JSON.stringify(keys.map((k) => [k, withNormName[k]]));
 }
 

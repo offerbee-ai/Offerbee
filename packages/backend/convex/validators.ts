@@ -61,7 +61,16 @@ export const dataSourceValidator = v.union(
 
 // A scalar field value we cross-check and verify. Kept to the primitive shapes
 // the tracked fields actually use (fees are numbers, bonus amounts number|string).
-export const fieldValueValidator = v.union(v.number(), v.string(), v.boolean());
+// Scalars for the classic per-field cross-check, plus arrays so the freshness
+// pipeline can propose/record whole-array corrections (spendBonusCategory,
+// benefit). Widening a union is backward-compatible: existing scalar rows still
+// validate.
+export const fieldValueValidator = v.union(
+  v.number(),
+  v.string(),
+  v.boolean(),
+  v.array(v.any()),
+);
 
 // Per-field provenance stored on a cardDetails row.
 export const fieldProvenanceValidator = v.object({

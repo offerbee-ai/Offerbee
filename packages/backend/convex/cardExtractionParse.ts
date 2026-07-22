@@ -9,6 +9,8 @@ import type { NamedItem } from "./cardDataDiff";
 
 export type ExtractedProfile = {
   annualFee?: number;
+  annualFeeConfidence?: number;
+  annualFeeSourceUrl?: string;
   earnCategories: NamedItem[];
   benefits: NamedItem[];
 };
@@ -37,8 +39,17 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
 
   const profile: ExtractedProfile = { earnCategories: [], benefits: [] };
 
-  const af = toNum(obj.annualFee?.value ?? obj.annualFee);
-  if (af !== undefined) profile.annualFee = af;
+  const afNode = obj.annualFee;
+  const af = toNum(afNode?.value ?? afNode);
+  if (af !== undefined) {
+    profile.annualFee = af;
+    if (afNode && typeof afNode === "object") {
+      if (typeof afNode.confidence === "number")
+        profile.annualFeeConfidence = afNode.confidence;
+      if (typeof afNode.sourceUrl === "string")
+        profile.annualFeeSourceUrl = afNode.sourceUrl;
+    }
+  }
 
   if (Array.isArray(obj.earnCategories)) {
     profile.earnCategories = obj.earnCategories
