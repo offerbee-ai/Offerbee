@@ -211,6 +211,130 @@ export default function CardDetailScreen() {
           ))}
         </Card>
       )}
+
+      {/* Catalog card details — mirrors the web card-detail sections. Annual
+          fee is shown inline under the card art, so the Fees card here only
+          surfaces the foreign-transaction fee. */}
+      {detail && (
+        <>
+          {detail.isFxFee ? (
+            <>
+              <SectionLabel>Fees</SectionLabel>
+              <Card>
+                <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text variant="body" color="secondary">
+                    Foreign transaction fee
+                  </Text>
+                  <Text variant="mono" color="ink">
+                    {detail.fxFee}%
+                  </Text>
+                </View>
+              </Card>
+            </>
+          ) : null}
+
+          {detail.isSignupBonus ? (
+            <>
+              <SectionLabel>Signup bonus</SectionLabel>
+              <Card>
+                <Text variant="body" color="ink">
+                  {detail.signupBonusAmount} {detail.signupBonusType}
+                  {detail.signupBonusSpend ? ` after $${detail.signupBonusSpend} spend` : ""}
+                  {detail.signupBonusLength
+                    ? ` in ${detail.signupBonusLength} ${detail.signupBonusLengthPeriod ?? "months"}`
+                    : ""}
+                </Text>
+                {detail.signupBonusDesc ? (
+                  <Text variant="subtext" color="secondary" style={{ marginTop: spacing.xs }}>
+                    {detail.signupBonusDesc}
+                  </Text>
+                ) : null}
+              </Card>
+            </>
+          ) : null}
+
+          {detail.spendBonusCategory && detail.spendBonusCategory.length > 0 ? (
+            <>
+              <SectionLabel
+                right={
+                  <Text variant="sectionLabel" color="tertiary">
+                    {detail.spendBonusCategory.length}
+                  </Text>
+                }
+              >
+                Bonus categories
+              </SectionLabel>
+              <Card>
+                {detail.spendBonusCategory.map((c, i) => {
+                  const limits = [
+                    c.isSpendLimit && c.spendLimit
+                      ? `up to $${c.spendLimit.toLocaleString()}${c.spendLimitResetPeriod ? `/${c.spendLimitResetPeriod.toLowerCase()}` : ""}`
+                      : null,
+                    c.isDateLimit && c.limitEndDate ? `through ${c.limitEndDate}` : null,
+                  ].filter(Boolean);
+                  return (
+                    <View key={i} style={{ marginTop: i > 0 ? spacing.md : 0 }}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                          gap: spacing.sm,
+                        }}
+                      >
+                        <Text variant="body" color="ink" style={{ flex: 1 }}>
+                          {c.spendBonusCategoryName ?? c.spendBonusCategoryType ?? "Category"}
+                        </Text>
+                        {c.earnMultiplier !== undefined ? (
+                          <Badge tone="accent" label={`${c.earnMultiplier}x`} />
+                        ) : null}
+                      </View>
+                      {c.spendBonusDesc ? (
+                        <Text variant="subtext" color="secondary" style={{ marginTop: 2 }}>
+                          {c.spendBonusDesc}
+                        </Text>
+                      ) : null}
+                      {limits.length > 0 ? (
+                        <Text variant="caption" color="tertiary" style={{ marginTop: 2 }}>
+                          {limits.join(" · ")}
+                        </Text>
+                      ) : null}
+                    </View>
+                  );
+                })}
+              </Card>
+            </>
+          ) : null}
+
+          {detail.benefit && detail.benefit.length > 0 ? (
+            <>
+              <SectionLabel
+                right={
+                  <Text variant="sectionLabel" color="tertiary">
+                    {detail.benefit.length}
+                  </Text>
+                }
+              >
+                Benefits
+              </SectionLabel>
+              <Card>
+                {detail.benefit.map((b, i) => (
+                  <View key={i} style={{ marginTop: i > 0 ? spacing.md : 0 }}>
+                    <Text variant="body" color="ink">
+                      {b.benefitTitle}
+                    </Text>
+                    {b.benefitDesc ? (
+                      <Text variant="subtext" color="secondary" style={{ marginTop: 2 }}>
+                        {b.benefitDesc}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))}
+              </Card>
+            </>
+          ) : null}
+        </>
+      )}
     </Screen>
   );
 }
