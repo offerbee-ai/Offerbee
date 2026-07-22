@@ -11,8 +11,10 @@ export type ExtractedProfile = {
   annualFee?: number;
   annualFeeConfidence?: number;
   annualFeeSourceUrl?: string;
-  earnCategories: NamedItem[];
-  benefits: NamedItem[];
+  // undefined = the model omitted the field (do NOT diff → no bogus removals);
+  // [] = the model explicitly reported no items (a real removal signal).
+  earnCategories?: NamedItem[];
+  benefits?: NamedItem[];
 };
 
 function toNum(x: unknown): number | undefined {
@@ -37,7 +39,7 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
     return null;
   }
 
-  const profile: ExtractedProfile = { earnCategories: [], benefits: [] };
+  const profile: ExtractedProfile = {};
 
   const afNode = obj.annualFee;
   const af = toNum(afNode?.value ?? afNode);
@@ -54,7 +56,16 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
   if (Array.isArray(obj.earnCategories)) {
     profile.earnCategories = obj.earnCategories
       .filter((c: any) => c && typeof c.name === "string")
-      .map((c: any) => ({ ...c }));
+      .map((c: any) => {
+        const out: NamedItem = { ...c };
+        // Coerce numeric terms so the gate's bounds checks apply (LLMs often
+        // return "5" / "7000" as strings).
+        const m = toNum(c.multiplier);
+        if (m !== undefined) out.multiplier = m;
+        const sl = toNum(c.spendLimit);
+        if (sl !== undefined) out.spendLimit = sl;
+        return out;
+      });
   }
 
   if (Array.isArray(obj.benefits)) {

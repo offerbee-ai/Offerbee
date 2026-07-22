@@ -56,9 +56,21 @@ describe("parseExtraction", () => {
     expect(p?.benefits?.[0]).toMatchObject({ name: "Lounge Access", desc: "Centurion" });
   });
 
-  it("defaults arrays to empty when absent", () => {
+  it("leaves arrays undefined when absent (not an empty removal set)", () => {
     const p = parseExtraction('{"annualFee": {"value": 95, "confidence": 1}}');
+    expect(p?.earnCategories).toBeUndefined();
+    expect(p?.benefits).toBeUndefined();
+  });
+
+  it("keeps an explicit empty array as empty (real removal signal)", () => {
+    const p = parseExtraction('{"earnCategories": []}');
     expect(p?.earnCategories).toEqual([]);
-    expect(p?.benefits).toEqual([]);
+  });
+
+  it("coerces string multiplier / spendLimit to numbers so bounds apply", () => {
+    const p = parseExtraction(
+      '{"earnCategories": [{"name": "Gas", "multiplier": "5", "spendLimit": "7000", "confidence": 0.9}]}',
+    );
+    expect(p?.earnCategories?.[0]).toMatchObject({ multiplier: 5, spendLimit: 7000 });
   });
 });

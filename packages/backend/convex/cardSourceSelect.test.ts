@@ -56,6 +56,15 @@ describe("card data source selection", () => {
     expect(r.domain).toBe("citi.com");
   });
 
+  it("does NOT trust a lookalike domain containing the issuer name", () => {
+    const r = selectSource({
+      cardUrl: "https://chase-rewards.example/apply",
+      cardIssuer: "Chase",
+      allowlist: [],
+    });
+    expect(r.mode).toBe("web-search");
+  });
+
   it("falls back when a malformed cardUrl cannot be parsed", () => {
     const r = selectSource({
       cardUrl: "not a url",

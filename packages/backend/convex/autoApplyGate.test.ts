@@ -76,4 +76,32 @@ describe("autoApplyGate", () => {
     );
     expect(d.autoApply).toBe(false);
   });
+
+  it("rejects a non-numeric multiplier", () => {
+    const d = gateChange(
+      { field: "spendBonusCategory", changeType: "add", proposed: { name: "Gas", multiplier: "5", confidence: 0.95, sourceUrl: "https://citi.com" } },
+      CFG,
+    );
+    expect(d.autoApply).toBe(false);
+    expect(d.reason).toMatch(/bound|multiplier/i);
+  });
+
+  const CFG_STRICT = { confidenceThreshold: 0.85, cardIssuer: "Citi", allowlist: ["citi.com"] };
+
+  it("rejects a citation that is not an issuer-authoritative domain", () => {
+    const d = gateChange(
+      { field: "annualFee", changeType: "patch", proposed: 0, confidence: 0.95, sourceUrl: "https://somerandomblog.com/citi-costco" },
+      CFG_STRICT,
+    );
+    expect(d.autoApply).toBe(false);
+    expect(d.reason).toMatch(/issuer|domain|source/i);
+  });
+
+  it("accepts an issuer-domain citation under a strict config", () => {
+    const d = gateChange(
+      { field: "annualFee", changeType: "patch", proposed: 0, confidence: 0.95, sourceUrl: "https://www.citi.com/credit-cards/x" },
+      CFG_STRICT,
+    );
+    expect(d.autoApply).toBe(true);
+  });
 });

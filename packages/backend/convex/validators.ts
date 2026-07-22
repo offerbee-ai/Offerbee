@@ -70,6 +70,7 @@ export const fieldValueValidator = v.union(
   v.string(),
   v.boolean(),
   v.array(v.any()),
+  v.record(v.string(), v.any()), // a single array-item delta (category/benefit)
 );
 
 // Per-field provenance stored on a cardDetails row.

@@ -60,11 +60,13 @@ function config() {
     model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
     confidenceThreshold: num("CONFIDENCE_AUTO_APPLY", 0.85),
     ttlMs: num("CARD_VERIFY_TTL_DAYS", 7) * 24 * 60 * 60 * 1000,
+    // After a failed extraction, retry this soon instead of waiting a full TTL.
+    failureRetryMs: num("FRESHNESS_FAILURE_RETRY_HOURS", 6) * 60 * 60 * 1000,
     perRunCap: num("FRESHNESS_PER_RUN_CAP", 25),
     // Off by default: first deploy runs in shadow (record, don't write).
     autoApplyEnabled: process.env.AUTO_APPLY_ENABLED === "true",
     allowlist: (process.env.ISSUER_DOMAIN_ALLOWLIST
-      ? process.env.ISSUER_DOMAIN_ALLOWLIST.split(",").map((s) => s.trim())
+      ? process.env.ISSUER_DOMAIN_ALLOWLIST.split(",").map((s: string) => s.trim())
       : DEFAULT_ALLOWLIST
     ).filter(Boolean),
   };
@@ -91,27 +93,30 @@ export const getCardForFreshness = internalQuery({
   },
 });
 
-// Distinct wallet cardKeys due for re-verification (missing or past TTL).
-// Bounded scan on both sides so one run stays cheap.
+// Wallet cardKeys due for re-verification, OLDEST-verified first. Walking the
+// by_lastVerifiedAt index ascending means never-verified rows come first, then
+// the stalest — so cards rotate through and none is permanently starved. We stop
+// as soon as we reach a card still within TTL (all later ones are fresher) or
+// hit the scan cap. Only owned cards (userCards.by_cardKey) are returned.
 export const getWalletCardsDue = internalQuery({
   args: { ttlMs: v.number(), limit: v.number() },
   handler: async (ctx, { ttlMs, limit }) => {
-    const now = Date.now();
-    const owned = await ctx.db.query("userCards").take(3000);
-    const seen = new Set<string>();
+    const cutoff = Date.now() - ttlMs;
     const due: string[] = [];
     let scanned = 0;
-    for (const uc of owned) {
-      if (seen.has(uc.cardKey)) continue;
-      seen.add(uc.cardKey);
-      if (scanned >= 500 || due.length >= limit) break;
+    for await (const d of ctx.db
+      .query("cardDetails")
+      .withIndex("by_lastVerifiedAt")
+      .order("asc")) {
+      if (due.length >= limit || scanned >= 2000) break;
       scanned++;
-      const detail = await ctx.db
-        .query("cardDetails")
-        .withIndex("by_cardKey", (q) => q.eq("cardKey", uc.cardKey))
-        .unique();
-      const last = detail?.lastVerifiedAt;
-      if (last === undefined || last < now - ttlMs) due.push(uc.cardKey);
+      // Ascending: once we reach a card still inside its TTL, the rest are too.
+      if (d.lastVerifiedAt !== undefined && d.lastVerifiedAt >= cutoff) break;
+      const owned = await ctx.db
+        .query("userCards")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", d.cardKey))
+        .first();
+      if (owned) due.push(d.cardKey);
     }
     return due;
   },
@@ -199,11 +204,20 @@ export const verifyOneCard = internalAction({
     );
     const profile = raw ? parseExtraction(raw) : null;
     if (!profile) {
-      // Couldn't verify — stamp the TTL so we don't retry-storm this card.
-      await ctx.runMutation(internal.freshness.markVerified, { cardKey });
+      // Extraction failed (no key / API error / unparseable). Do NOT consume the
+      // full TTL — set a short backoff so a transient failure retries soon.
+      await ctx.runMutation(internal.freshness.markVerified, {
+        cardKey,
+        verifiedAt: Date.now() - cfg.ttlMs + cfg.failureRetryMs,
+      });
       return;
     }
 
+    const gateCfg = {
+      confidenceThreshold: cfg.confidenceThreshold,
+      cardIssuer: detail.cardIssuer,
+      allowlist: cfg.allowlist,
+    };
     const changes: PipelineChange[] = [];
 
     // Scalar: annual fee.
@@ -215,16 +229,12 @@ export const verifyOneCard = internalAction({
         profile.annualFeeConfidence ?? 0,
         profile.annualFeeSourceUrl ?? selection.url,
       );
-      if (sc) {
-        const gate = gateChange(sc, {
-          confidenceThreshold: cfg.confidenceThreshold,
-        });
-        changes.push({ ...sc, autoApply: gate.autoApply });
-      }
+      if (sc) changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
     }
 
-    // Arrays: earn categories + benefits, normalized to named items.
-    const arrayDiffs: Array<[string, NamedItem[], NamedItem[]]> = [
+    // Arrays: earn categories + benefits. Only diff a field the model actually
+    // returned — an omitted (undefined) array must not read as "remove all".
+    const arrayDiffs: Array<[string, NamedItem[], NamedItem[] | undefined]> = [
       [
         "spendBonusCategory",
         detail.spendBonusCategory.map(categoryToNamed),
@@ -233,72 +243,55 @@ export const verifyOneCard = internalAction({
       ["benefit", detail.benefit.map(benefitToNamed), profile.benefits],
     ];
     for (const [field, current, proposed] of arrayDiffs) {
+      if (proposed === undefined) continue;
       for (const c of diffNamedArray(field, current, proposed)) {
-        const gate = gateChange(c as any, {
-          confidenceThreshold: cfg.confidenceThreshold,
-        });
-        changes.push({
+        const proposedItem = "proposed" in c ? (c.proposed as any) : undefined;
+        const change: PipelineChange = {
           field: c.field,
           changeType: c.changeType,
           name: c.name,
           current: "current" in c ? c.current : undefined,
-          proposed: "proposed" in c ? c.proposed : undefined,
-          confidence:
-            "proposed" in c && c.proposed
-              ? (c.proposed as any).confidence
-              : undefined,
-          sourceUrl:
-            "proposed" in c && c.proposed
-              ? (c.proposed as any).sourceUrl
-              : undefined,
-          autoApply: gate.autoApply,
-        });
+          proposed: proposedItem,
+          confidence: proposedItem?.confidence,
+          sourceUrl: proposedItem?.sourceUrl,
+          autoApply: false,
+        };
+        change.autoApply = gateChange(change, gateCfg).autoApply;
+        changes.push(change);
       }
     }
 
-    if (changes.length === 0) {
-      await ctx.runMutation(internal.freshness.markVerified, { cardKey });
-      return;
-    }
-
-    const needReview = await ctx.runMutation(
-      internal.freshness.applyFreshnessChanges,
-      { cardKey, changes, autoEnabled: cfg.autoApplyEnabled },
-    );
-
-    // Route the rest (or all, in shadow mode) to the human review queue.
-    const now = Date.now();
-    for (const ch of needReview) {
-      await ctx.runMutation(internal.review.enqueueReview, {
-        cardKey,
-        field: ch.field,
-        currentValue: ch.current as any,
-        proposedValue: ch.proposed as any,
-        reason: "web-correction",
-        observations: [{ source: "web", value: ch.proposed as any }],
-        confidence: ch.confidence,
-        sourceUrl: ch.sourceUrl,
-        note: `freshness: ${ch.changeType} ${ch.field}${ch.name ? ` (${ch.name})` : ""}`,
-        createdAt: now,
-      });
-    }
+    // One atomic mutation: apply auto-approved changes, enqueue the rest for
+    // review, audit everything, and advance the TTL — no partial-write window.
+    await ctx.runMutation(internal.freshness.applyFreshnessChanges, {
+      cardKey,
+      changes,
+      autoEnabled: cfg.autoApplyEnabled,
+    });
   },
 });
 
-// Bump only the TTL marker (no changes / couldn't verify).
+// Set the TTL marker (no changes, or couldn't verify). `verifiedAt` lets the
+// caller set a short-backoff timestamp on failure instead of a full TTL.
 export const markVerified = internalMutation({
-  args: { cardKey: v.string() },
-  handler: async (ctx, { cardKey }) => {
+  args: { cardKey: v.string(), verifiedAt: v.optional(v.number()) },
+  handler: async (ctx, { cardKey, verifiedAt }) => {
     const d = await ctx.db
       .query("cardDetails")
       .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
       .unique();
-    if (d) await ctx.db.patch(d._id, { lastVerifiedAt: Date.now() });
+    if (d) await ctx.db.patch(d._id, { lastVerifiedAt: verifiedAt ?? Date.now() });
   },
 });
 
-// Apply the auto-approved changes (when enabled), audit every gated change, and
-// return the changes that still need human review.
+// Array fields hold whole-array corrections; the scalar-shaped review queue
+// (and confirmReview) can't represent a single-item delta, so those are
+// auto-apply-only (gated + audited). Scalars route to the human review queue.
+const ARRAY_FIELDS = new Set(["spendBonusCategory", "benefit"]);
+
+// Apply the auto-approved changes (when enabled), enqueue scalar changes that
+// need review, and audit every gated change — all in one atomic mutation so the
+// TTL never advances past a partial write.
 export const applyFreshnessChanges = internalMutation({
   args: {
     cardKey: v.string(),
@@ -321,7 +314,7 @@ export const applyFreshnessChanges = internalMutation({
       .query("cardDetails")
       .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
       .unique();
-    if (!detail) return [] as PipelineChange[];
+    if (!detail) return;
 
     const now = Date.now();
     const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
@@ -333,7 +326,6 @@ export const applyFreshnessChanges = internalMutation({
     let scalarTouched = false;
     const patchDoc: Record<string, unknown> = {};
     const provenance = [...(detail.fieldProvenance ?? [])];
-    const needReview: PipelineChange[] = [];
 
     const upsertProv = (field: string, value: unknown, ch: any) => {
       const others = provenance.filter((p) => p.field !== field);
@@ -385,9 +377,32 @@ export const applyFreshnessChanges = internalMutation({
           benefits = applyArrayOp(benefits, ch, namedToBenefit, ["benefitTitle"]);
           benefitsTouched = true;
         }
-      } else {
-        needReview.push(ch);
+      } else if (!ARRAY_FIELDS.has(ch.field)) {
+        // Scalar not auto-applied → human review queue (dedupe pending per field).
+        const pending = await ctx.db
+          .query("cardDataReview")
+          .withIndex("by_cardKey_and_field", (q) =>
+            q.eq("cardKey", cardKey).eq("field", ch.field),
+          )
+          .collect();
+        for (const r of pending) {
+          if (r.status === "pending") await ctx.db.delete(r._id);
+        }
+        await ctx.db.insert("cardDataReview", {
+          cardKey,
+          field: ch.field,
+          currentValue: ch.current as any,
+          proposedValue: ch.proposed as any,
+          reason: "web-correction",
+          observations: [{ source: "web", value: ch.proposed as any }],
+          confidence: ch.confidence,
+          sourceUrl: ch.sourceUrl,
+          note: `freshness: ${ch.changeType} ${ch.field}`,
+          status: "pending",
+          createdAt: now,
+        });
       }
+      // (Array changes not auto-applied are recorded in the audit only.)
 
       await ctx.db.insert("cardDataAudit", {
         cardKey,
@@ -425,8 +440,6 @@ export const applyFreshnessChanges = internalMutation({
         cardKey,
       });
     }
-
-    return needReview;
   },
 });
 

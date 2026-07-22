@@ -5,7 +5,16 @@
 // safety rule). Pure module — unit-testable. The kill switch and per-run
 // removal cap live in the pipeline action, not here.
 
-export type GateConfig = { confidenceThreshold: number };
+import { isIssuerAuthoritativeUrl } from "./cardSourceSelect";
+
+// When cardIssuer + allowlist are supplied, the change's sourceUrl must be an
+// issuer-authoritative domain to auto-apply — a confident extraction citing a
+// blog / affiliate / lookalike is routed to review instead.
+export type GateConfig = {
+  confidenceThreshold: number;
+  cardIssuer?: string;
+  allowlist?: string[];
+};
 
 export type Change = {
   field: string;
@@ -40,8 +49,12 @@ function boundsError(change: Change): string | null {
   }
 
   if (p && typeof p === "object") {
+    if ("multiplier" in p && typeof p.multiplier !== "number")
+      return "non-numeric multiplier out of bounds";
     if (typeof p.multiplier === "number" && !inRange(p.multiplier, MULTIPLIER_BOUNDS))
       return "multiplier out of bounds";
+    if ("spendLimit" in p && typeof p.spendLimit !== "number")
+      return "non-numeric spendLimit out of bounds";
     for (const v of Object.values(p)) {
       if (typeof v === "number" && v < 0) return "negative value out of bounds";
     }
@@ -61,6 +74,13 @@ export function gateChange(change: Change, cfg: GateConfig): GateDecision {
 
   const url = change.sourceUrl ?? change.proposed?.sourceUrl;
   if (!url) return { autoApply: false, reason: "no source url" };
+
+  if (
+    cfg.cardIssuer &&
+    cfg.allowlist &&
+    !isIssuerAuthoritativeUrl(url, cfg.cardIssuer, cfg.allowlist)
+  )
+    return { autoApply: false, reason: "citation not an issuer domain" };
 
   const bound = boundsError(change);
   if (bound) return { autoApply: false, reason: bound };
