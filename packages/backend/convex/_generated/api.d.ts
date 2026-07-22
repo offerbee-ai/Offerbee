@@ -9,6 +9,8 @@
  */
 
 import type * as arrayDelta from "../arrayDelta.js";
+import type * as audit from "../audit.js";
+import type * as auditRevert from "../auditRevert.js";
 import type * as auth from "../auth.js";
 import type * as autoApplyGate from "../autoApplyGate.js";
 import type * as benefitCycles from "../benefitCycles.js";
@@ -26,6 +28,8 @@ import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as freshness from "../freshness.js";
+import type * as freshnessConfig from "../freshnessConfig.js";
+import type * as freshnessPlan from "../freshnessPlan.js";
 import type * as http from "../http.js";
 import type * as migrations from "../migrations.js";
 import type * as notifications from "../notifications.js";
@@ -46,6 +50,7 @@ import type * as rapidapi from "../rapidapi.js";
 import type * as reminderRules from "../reminderRules.js";
 import type * as reminders from "../reminders.js";
 import type * as review from "../review.js";
+import type * as reviewSuppress from "../reviewSuppress.js";
 import type * as tips from "../tips.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
@@ -61,6 +66,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   arrayDelta: typeof arrayDelta;
+  audit: typeof audit;
+  auditRevert: typeof auditRevert;
   auth: typeof auth;
   autoApplyGate: typeof autoApplyGate;
   benefitCycles: typeof benefitCycles;
@@ -78,6 +85,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   email: typeof email;
   freshness: typeof freshness;
+  freshnessConfig: typeof freshnessConfig;
+  freshnessPlan: typeof freshnessPlan;
   http: typeof http;
   migrations: typeof migrations;
   notifications: typeof notifications;
@@ -98,6 +107,7 @@ declare const fullApi: ApiFromModules<{
   reminderRules: typeof reminderRules;
   reminders: typeof reminders;
   review: typeof review;
+  reviewSuppress: typeof reviewSuppress;
   tips: typeof tips;
   users: typeof users;
   utils: typeof utils;

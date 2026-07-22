@@ -157,12 +157,14 @@ export default defineSchema({
     // "auto" = written to cardDetails; "shadow" = not written (gate said review,
     // or kill switch off); "suppressed" = matched a reviewer-rejected proposal
     // or a manual pin, so it was not re-enqueued; "suspect" = an array field
-    // dropped whole by the mass-removal guard (before = the untouched items).
+    // dropped whole by the mass-removal guard (before = the untouched items);
+    // "revert" = an admin undid a previous auto/revert row (audit.revertAudit).
     mode: v.union(
       v.literal("auto"),
       v.literal("shadow"),
       v.literal("suppressed"),
       v.literal("suspect"),
+      v.literal("revert"),
     ),
     appliedAt: v.number(),
   })

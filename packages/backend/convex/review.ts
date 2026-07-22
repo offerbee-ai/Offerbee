@@ -14,8 +14,9 @@ import { isIssuerAuthoritativeUrl } from "./cardSourceSelect";
 import { issuerAllowlist } from "./freshnessConfig";
 
 // Array fields whose reviews carry a single item delta (changeType + itemName)
-// rather than a scalar value. Name keys mirror the stored item shapes.
-const ARRAY_FIELD_NAME_KEYS: Record<string, string[]> = {
+// rather than a scalar value. Name keys mirror the stored item shapes. Also
+// used by audit.ts to invert audited item changes for revert.
+export const ARRAY_FIELD_NAME_KEYS: Record<string, string[]> = {
   spendBonusCategory: ["spendBonusCategoryName", "spendBonusCategoryType"],
   benefit: ["benefitTitle"],
 };

@@ -1,7 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import {
+  useAction,
+  useMutation,
+  usePaginatedQuery,
+  useQuery,
+} from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 import type { Id } from "@packages/backend/convex/_generated/dataModel";
 import { Button, Card, EmptyState, Pill, Spinner } from "@/components/app/ui";
@@ -74,6 +79,7 @@ export default function ReviewPage() {
   const [running, setRunning] = useState(false);
   const [runMsg, setRunMsg] = useState<string | null>(null);
   const [activeCard, setActiveCard] = useState<string | null>(null);
+  const [view, setView] = useState<"queue" | "history">("queue");
 
   // Group pending findings by card.
   const groups = useMemo(() => {
@@ -166,14 +172,46 @@ export default function ReviewPage() {
       />
     );
 
-  if (reviews.length === 0)
+  const ViewToggle = (
+    <div className="flex rounded-full border border-hairline bg-field p-0.5">
+      {(["queue", "history"] as const).map((k) => (
+        <button
+          key={k}
+          onClick={() => setView(k)}
+          className={`rounded-full px-3 py-1 text-[13px] font-medium transition ${
+            view === k ? "bg-accent text-white" : "text-body hover:text-ink"
+          }`}
+        >
+          {k === "queue" ? "Queue" : "History"}
+        </button>
+      ))}
+    </div>
+  );
+
+  if (view === "history")
     return (
       <div>
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex items-center justify-between gap-3">
           <h1 className="font-display text-[28px] font-semibold text-ink">
             Data review
           </h1>
-          {RunButton}
+          {ViewToggle}
+        </div>
+        <HistoryView />
+      </div>
+    );
+
+  if (reviews.length === 0)
+    return (
+      <div>
+        <div className="mb-6 flex items-center justify-between gap-3">
+          <h1 className="font-display text-[28px] font-semibold text-ink">
+            Data review
+          </h1>
+          <div className="flex items-center gap-3">
+            {ViewToggle}
+            {RunButton}
+          </div>
         </div>
         {runMsg && <p className="mb-6 text-[14px] text-body">{runMsg}</p>}
         {VerifyingBanner}
@@ -221,6 +259,7 @@ export default function ReviewPage() {
           Data review
         </h1>
         <div className="flex items-center gap-3">
+          {ViewToggle}
           <Pill tone="warning">{reviews.length} pending</Pill>
           <Button
             variant="secondary"
@@ -374,6 +413,199 @@ export default function ReviewPage() {
             </Card>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+const MODE_LABEL: Record<string, string> = {
+  auto: "Auto-applied",
+  shadow: "Shadow",
+  suppressed: "Suppressed",
+  suspect: "Suspect",
+  revert: "Reverted",
+};
+const MODE_TONE: Record<string, "accent" | "warning" | "neutral"> = {
+  auto: "accent",
+  shadow: "neutral",
+  suppressed: "neutral",
+  suspect: "warning",
+  revert: "warning",
+};
+
+// Audit rows carry array items in the diff's named shape ({ name, ... }) and
+// scalars verbatim — render either compactly.
+function fmtAuditValue(field: string, value: unknown): string {
+  if (value === undefined || value === null) return "—";
+  if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? "" : "s"}`;
+  if (typeof value === "object") {
+    const v = value as Record<string, unknown>;
+    const name = typeof v.name === "string" ? v.name : "";
+    const bits: string[] = [];
+    if (v.multiplier != null) bits.push(`${v.multiplier}x`);
+    if (typeof v.desc === "string") bits.push(truncate(v.desc, 80));
+    return [name, bits.join(" · ")].filter(Boolean).join(" — ") || "—";
+  }
+  return fmtScalar(field, value as Scalar);
+}
+
+// Pipeline run + audit history with shadow-precision measurement and per-row
+// revert for applied changes.
+function HistoryView() {
+  const runs = useQuery(api.audit.listRecentRuns);
+  const precision = useQuery(api.audit.shadowPrecision);
+  const {
+    results: audits,
+    status: auditStatus,
+    loadMore,
+  } = usePaginatedQuery(api.audit.listAudit, {}, { initialNumItems: 25 });
+  const revert = useMutation(api.audit.revertAudit);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const runRevert = async (auditId: Id<"cardDataAudit">) => {
+    if (!window.confirm("Revert this change on the live card data?")) return;
+    setBusyId(auditId);
+    setMsg(null);
+    try {
+      await revert({ auditId });
+      setMsg("Reverted — the previous value is back and pinned as manual.");
+    } catch (e: any) {
+      console.error("revert failed", e);
+      setMsg(e?.message ?? "Revert failed. Check the logs.");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (runs === undefined || precision === undefined)
+    return (
+      <div className="flex justify-center py-24">
+        <Spinner />
+      </div>
+    );
+
+  const pct =
+    precision?.precision != null ? Math.round(precision.precision * 100) : null;
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* Shadow precision — the go/no-go for enabling AUTO_APPLY_ENABLED */}
+      <Card className="flex flex-col gap-1">
+        <p className="font-mono text-[11px] uppercase tracking-[0.08em] text-tertiary">
+          Shadow precision
+        </p>
+        <p className="text-[15px] text-body">
+          {precision === null || precision.confirmed + precision.rejected === 0 ? (
+            "No reviewer verdicts on gate-passing findings yet — review some findings to measure precision."
+          ) : (
+            <>
+              <span className="font-semibold text-ink">{pct}%</span> of
+              would-auto-apply findings confirmed by a reviewer (
+              {precision.confirmed} confirmed · {precision.rejected} rejected ·{" "}
+              {precision.stale} stale · {precision.pending} pending).
+              {" "}Target ≥95% before enabling AUTO_APPLY_ENABLED.
+            </>
+          )}
+        </p>
+      </Card>
+
+      {/* Recent runs */}
+      <div>
+        <p className="mb-2 font-semibold text-ink">Recent runs</p>
+        {runs.length === 0 ? (
+          <p className="text-[14px] text-secondary">No pipeline runs yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {runs.map((r) => (
+              <div
+                key={r._id}
+                className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-card border border-hairline bg-field px-4 py-2 text-[13px] text-body"
+              >
+                <span className="font-medium text-ink">
+                  {new Date(r.startedAt).toLocaleString()}
+                </span>
+                <Pill tone={r.source === "cron" ? "neutral" : "accent"}>
+                  {r.source}
+                </Pill>
+                <span>{r.scheduled} scheduled</span>
+                <span>{r.extracted} extracted</span>
+                {r.failed > 0 && (
+                  <span className="text-warning">{r.failed} failed</span>
+                )}
+                <span>{r.autoApplied} auto-applied</span>
+                <span>{r.enqueued} queued</span>
+                {r.suppressed > 0 && <span>{r.suppressed} suppressed</span>}
+                {r.suspect > 0 && (
+                  <span className="text-warning">{r.suspect} suspect</span>
+                )}
+                {r.finishedAt === undefined && <Spinner />}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Audit trail */}
+      <div>
+        <p className="mb-2 font-semibold text-ink">Change history</p>
+        {msg && <p className="mb-3 text-[13px] text-secondary">{msg}</p>}
+        {audits.length === 0 && auditStatus !== "LoadingFirstPage" ? (
+          <p className="text-[14px] text-secondary">No audited changes yet.</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {audits.map((a) => (
+              <Card key={a._id} className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-ink">{a.cardName}</span>
+                    <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-tertiary">
+                      {FIELD_LABELS[a.field] ?? a.field}
+                    </span>
+                    <Pill tone={CHANGE_TONE[a.changeType] ?? "neutral"}>
+                      {CHANGE_LABEL[a.changeType] ?? a.changeType}
+                    </Pill>
+                    <Pill tone={MODE_TONE[a.mode] ?? "neutral"}>
+                      {MODE_LABEL[a.mode] ?? a.mode}
+                    </Pill>
+                  </div>
+                  <span className="text-[12px] text-tertiary">
+                    {new Date(a.appliedAt).toLocaleString()}
+                    {typeof a.confidence === "number" &&
+                      ` · ${Math.round(a.confidence * 100)}%`}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[14px]">
+                  <span className="text-secondary line-through">
+                    {fmtAuditValue(a.field, a.before)}
+                  </span>
+                  <span className="text-tertiary">→</span>
+                  <span className="font-medium text-ink">
+                    {fmtAuditValue(a.field, a.after)}
+                  </span>
+                </div>
+                {(a.mode === "auto" || a.mode === "revert") && (
+                  <div>
+                    <Button
+                      variant="secondary"
+                      disabled={busyId !== null}
+                      onClick={() => runRevert(a._id)}
+                    >
+                      {busyId === a._id ? "Reverting…" : "Revert"}
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            ))}
+          </div>
+        )}
+        {auditStatus === "CanLoadMore" && (
+          <div className="mt-3">
+            <Button variant="secondary" onClick={() => loadMore(25)}>
+              Load more
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   );
