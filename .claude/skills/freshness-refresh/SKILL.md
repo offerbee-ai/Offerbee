@@ -55,13 +55,51 @@ on every `convex run` when asked to refresh those.
    - Omit `signupBonus` entirely if the card has none.
    - One benefits entry per distinct benefit; short titles (they are the
      dedupe key), short descs.
-   - **Enumerate EVERY benefit and earn category the page states — do not
-     summarize or stop early.** Premium travel cards (Platinum, Sapphire
-     Reserve) commonly list 25-40 benefits: statement credits, lounge access,
-     elite statuses, travel insurances, purchase/return protections. A page
-     that clearly lists dozens but yields only ~12 means you under-extracted —
-     re-read the full page text and capture the rest before submitting.
+   - **Title format must be stable and canonical: do NOT put the dollar amount
+     in the title.** Use `"Resy Credit"`, not `"$400 Resy Credit"`; put the
+     amount in `desc`. Titles are the dedupe key — an amount in the title makes
+     the same benefit churn (phantom remove+add) when the amount is phrased
+     differently next run.
    - Confidence honestly per field; `sourceUrl` = the final page URL.
+
+   ### Extract COMPLETELY — this is the hard part on premium cards
+
+   One-pass reading of a huge page reliably misses ~20% of benefits. Do NOT
+   sweep the page once and stop. Follow this procedure — it is mandatory for
+   any page longer than ~15k characters (every premium travel card):
+
+   a. **Walk the page section by section.** Premium pages group benefits into
+      sections — e.g. Amex: "Premium Travel", "Dining & Entertainment",
+      "Shopping & Wellness"; Chase: Travel, Dining, Lounge/Statement Credits,
+      Protections & Insurance, plus partner/promo blocks. Enumerate every
+      benefit WITHIN a section before moving to the next. Do not jump around.
+
+   b. **Anchor to the page's own declared counts.** These pages print their
+      benefit counts, e.g. `All Premium Travel Benefits (19)`,
+      `Dining & Entertainment (7)`, `Shopping & Wellness (9)`. Find every such
+      `(N)` and make sure you captured ~N from that section. **If your count
+      for a section is short of the page's declared N, you missed some — go
+      back and re-read that section before continuing.** This is your
+      completeness checklist; use it.
+
+   c. **Self-critique pass before you submit (loop until dry).** After a draft,
+      re-read the FULL page text once more with your extracted title list in
+      hand and ask only: "which benefits or earn categories on this page are
+      NOT in my list?" Add every one you find. Repeat until a pass finds
+      nothing new. A narrow "what did I miss?" read has far higher recall than
+      the first "list everything" sweep.
+
+   d. **Scan the deep sections, not just the top grid.** The most-missed
+      benefits live below the primary benefit grid: partnership/co-brand
+      credits, promotional earn multipliers, elite statuses, and travel
+      insurances buried in fine print. Concrete misses seen on Sapphire
+      Reserve when this step was skipped: Southwest Airlines credit, A-List
+      status, Lyft credits, Peloton, Hyatt Explorist status, Shops at Chase
+      credit. Do not stop at the marquee statement credits.
+
+   A premium card that yields fewer benefits than the page's summed section
+   counts is under-extracted — treat that as a failed extraction and redo the
+   short sections, exactly as you would re-read a page that failed to fetch.
 
 4. **Per card — submit.** Build the args with Python to avoid quote-escaping
    bugs (`profileJson` is a JSON string inside JSON):
