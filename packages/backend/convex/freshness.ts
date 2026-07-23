@@ -704,11 +704,13 @@ export const listRefreshCandidates = internalQuery({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {
     const cap = Math.min(limit ?? 25, 100);
-    // Wallet-first: freshness only covers owned cards, and the wallet is small
-    // — walking cardDetails.by_lastVerifiedAt instead would scan the (much
-    // larger) never-verified unowned catalog before reaching any wallet card.
-    const owned = await ctx.db.query("userCards").take(1000);
-    const keys = [...new Set(owned.map((c) => c.cardKey))];
+    // Wallet-first: freshness only covers owned cards, and distinct owned
+    // cardKeys are few — walking cardDetails.by_lastVerifiedAt instead would
+    // scan the (much larger) never-verified unowned catalog before reaching
+    // any wallet card. Stream the whole table so dedup happens across every
+    // row, not a truncated prefix.
+    const keys = new Set<string>();
+    for await (const c of ctx.db.query("userCards")) keys.add(c.cardKey);
     const out: Array<{
       cardKey: string;
       cardName: string;
@@ -751,6 +753,20 @@ export const processExternalProfile = internalAction({
       return {
         ok: false,
         error: "profileJson did not parse as an extraction profile",
+      };
+    // A profile with no recognized fields must not advance the verify TTL —
+    // running the pipeline on it would mark the card verified for a full TTL
+    // without any data having been checked.
+    const hasAnyField =
+      profile.annualFee !== undefined ||
+      profile.fxFee !== undefined ||
+      profile.signupBonus !== undefined ||
+      profile.earnCategories !== undefined ||
+      profile.benefits !== undefined;
+    if (!hasAnyField)
+      return {
+        ok: false,
+        error: "profile contains no recognized fields; nothing to verify",
       };
     const selection = selectSource({
       cardUrl: detail.cardUrl,
