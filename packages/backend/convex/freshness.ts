@@ -700,10 +700,16 @@ async function runProfilePipeline(
 
 // Wallet cards most overdue for verification, oldest first — the work list
 // for an external refresh session. Read-only: does not claim or patch.
+// Returns { candidates, nextCursorKey }: when more than one page of distinct
+// owned cardKeys exists, pass nextCursorKey back as cursorKey to cover the
+// rest — later keys are never silently dropped.
 export const listRefreshCandidates = internalQuery({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
+  args: { limit: v.optional(v.number()), cursorKey: v.optional(v.string()) },
+  handler: async (ctx, { limit, cursorKey }) => {
     const cap = Math.min(limit ?? 25, 100);
+    // Bounds one page's reads (distinct keys walked + one cardDetails read
+    // each) comfortably under Convex's per-query document limit.
+    const maxKeys = 1000;
     // Wallet-first: freshness only covers owned cards, and distinct owned
     // cardKeys are few (catalog-bounded) — walking cardDetails.by_lastVerifiedAt
     // instead would scan the (much larger) never-verified unowned catalog
@@ -711,8 +717,9 @@ export const listRefreshCandidates = internalQuery({
     // DISTINCT key at a time: reads scale with distinct cards, not with
     // userCards rows, so a large user base can't hit the per-query read limit.
     const keys: string[] = [];
-    let cursor = "";
-    while (keys.length < 1000) {
+    let cursor = cursorKey ?? "";
+    let exhausted = true;
+    while (keys.length < maxKeys) {
       const next = await ctx.db
         .query("userCards")
         .withIndex("by_cardKey", (q) => q.gt("cardKey", cursor))
@@ -721,6 +728,7 @@ export const listRefreshCandidates = internalQuery({
       keys.push(next.cardKey);
       cursor = next.cardKey;
     }
+    if (keys.length >= maxKeys) exhausted = false;
     const out: Array<{
       cardKey: string;
       cardName: string;
@@ -743,7 +751,11 @@ export const listRefreshCandidates = internalQuery({
       });
     }
     out.sort((a, b) => (a.lastVerifiedAt ?? 0) - (b.lastVerifiedAt ?? 0));
-    return out.slice(0, cap);
+    return {
+      candidates: out.slice(0, cap),
+      // Non-null when distinct keys remain beyond this page.
+      nextCursorKey: exhausted ? null : cursor,
+    };
   },
 });
 

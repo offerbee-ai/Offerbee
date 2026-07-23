@@ -21,6 +21,11 @@ on every `convex run` when asked to refresh those.
    npx convex run freshness:listRefreshCandidates '{"limit": 15}'
    ```
 
+   The response is `{candidates: [...], nextCursorKey}`. Work through
+   `candidates`. `nextCursorKey` is non-null only when the deployment has
+   more than one page of distinct owned cards (1000+) — pass it back as
+   `cursorKey` to cover the rest; normally it is null and you ignore it.
+
 2. **Per card — fetch the page.** Use the card's `cardUrl`. Fetch with a
    browser User-Agent. If the URL redirects, note the final URL. If the page
    is unreachable or is a JS-only shell, skip the card and say so in the
