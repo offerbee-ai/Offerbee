@@ -1,0 +1,21 @@
+# CodeRabbit configuration — https://docs.coderabbit.ai/reference/configuration
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# This repo's integration branch (and GitHub default branch) is `preview`, not
+# `main`. CodeRabbit only auto-reviews its configured default branch unless
+# other base branches are listed explicitly, which is why PRs targeting
+# `preview` were being skipped ("Auto reviews are disabled on base/target
+# branches other than the default branch"). Listing `preview` here forces
+# auto-review on every PR that targets it.
+language: en-US
+reviews:
+  profile: chill
+  request_changes_workflow: false
+  high_level_summary: true
+  review_status: true
+  poem: false
+  auto_review:
+    enabled: true
+    drafts: false
+    base_branches:
+      - preview
