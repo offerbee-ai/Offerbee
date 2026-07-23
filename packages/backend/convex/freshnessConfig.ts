@@ -16,6 +16,8 @@ export const DEFAULT_ALLOWLIST = [
   "biltrewards.com",
   // biltrewards.com/card 308-redirects here (2025 rebrand); both are Bilt's.
   "bilt.com",
+  // Hosts the official page for the Amex Platinum for Schwab co-brand.
+  "schwab.com",
 ];
 
 // The configured allowlist: ISSUER_DOMAIN_ALLOWLIST (comma-separated) when set,

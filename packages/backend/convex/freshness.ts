@@ -3,17 +3,24 @@ import {
   internalAction,
   internalMutation,
   internalQuery,
+  type ActionCtx,
 } from "./_generated/server";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { requireAdmin } from "./auth";
 import { missingEnvVariableUrl } from "./utils";
 import {
   selectSource,
   cleanIssuerUrl,
   isIssuerAuthoritativeUrl,
+  type SourceSelection,
 } from "./cardSourceSelect";
-import { parseExtraction, toNum } from "./cardExtractionParse";
+import {
+  parseExtraction,
+  toNum,
+  type ExtractedProfile,
+} from "./cardExtractionParse";
 import {
   diffScalar,
   diffNamedArray,
@@ -363,6 +370,23 @@ type PipelineChange = {
   autoApply: boolean;
 };
 
+// Shape returned by getCardForFreshness.
+type FreshnessDetail = {
+  cardKey: string;
+  cardName: string;
+  cardIssuer: string;
+  cardUrl?: string;
+  annualFee?: number;
+  fxFee?: number;
+  signupBonusAmount?: number | string;
+  signupBonusSpend?: number;
+  signupBonusLength?: number | string;
+  signupBonusLengthPeriod?: string;
+  signupBonusDesc?: string;
+  spendBonusCategory: any[];
+  benefit: any[];
+};
+
 // Verify one card end-to-end.
 export const verifyOneCard = internalAction({
   args: { cardKey: v.string(), runId: v.optional(v.id("pipelineRuns")) },
@@ -390,7 +414,11 @@ export const verifyOneCard = internalAction({
     // page as issuer-cited, so only an authoritative final host may be used.
     const page =
       fetched &&
-      isIssuerAuthoritativeUrl(fetched.finalUrl, detail.cardIssuer, cfg.allowlist)
+      isIssuerAuthoritativeUrl(
+        fetched.finalUrl,
+        detail.cardIssuer,
+        cfg.allowlist,
+      )
         ? fetched
         : null;
     if (selection.mode === "issuer-url" && !page)
@@ -418,184 +446,322 @@ export const verifyOneCard = internalAction({
       return;
     }
 
-    const gateCfg = {
-      confidenceThreshold: cfg.confidenceThreshold,
-      cardIssuer: detail.cardIssuer,
-      allowlist: cfg.allowlist,
-      // Never auto-applied until shadow precision proves the extraction on
-      // these; they still surface as review proposals.
-      reviewOnlyFields: SIGNUP_REVIEW_ONLY,
-    };
-    const changes: PipelineChange[] = [];
-    // Fields the model actually reported this run — the mutation retires stale
-    // pending reviews for these (an old proposal the model no longer makes is
-    // outdated). Omitted fields are left untouched.
-    const evaluatedFields: string[] = [];
-    // Array fields whose diff proposed removing most of the items — the whole
-    // extraction for that field is untrustworthy (see isMassRemoval).
-    const suspectFields: string[] = [];
+    await runProfilePipeline(ctx, {
+      detail,
+      profile,
+      selection,
+      cfg,
+      runId,
+      arrayPolicy: "guard",
+    });
+  },
+});
 
-    const pushScalar = (
-      field: string,
-      current: unknown,
-      proposed: unknown,
-      confidence: number,
-      sourceUrl?: string,
-    ) => {
-      evaluatedFields.push(field);
-      const sc = diffScalar(field, current, proposed, confidence, sourceUrl);
-      if (sc) changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
-    };
+// Shared post-extraction pipeline: diff a profile against stored data, gate
+// each change, and hand everything to the atomic applyFreshnessChanges
+// mutation. Used by the daily pipeline (verifyOneCard) and by external agent
+// submissions (processExternalProfile). arrayPolicy "guard" keeps the
+// mass-removal guard — an extraction wiping a populated array is a failed
+// read; "review-rebuild" is for external whole-array rebuilds: no guard, and
+// array changes never auto-apply (every item goes to the review queue).
+async function runProfilePipeline(
+  ctx: ActionCtx,
+  {
+    detail,
+    profile,
+    selection,
+    cfg,
+    runId,
+    arrayPolicy,
+  }: {
+    detail: FreshnessDetail;
+    profile: ExtractedProfile;
+    selection: SourceSelection;
+    cfg: ReturnType<typeof config>;
+    runId?: Id<"pipelineRuns">;
+    arrayPolicy: "guard" | "review-rebuild";
+  },
+) {
+  const cardKey = detail.cardKey;
+  const gateCfg = {
+    confidenceThreshold: cfg.confidenceThreshold,
+    cardIssuer: detail.cardIssuer,
+    allowlist: cfg.allowlist,
+    // Never auto-applied until shadow precision proves the extraction on
+    // these; they still surface as review proposals.
+    reviewOnlyFields: SIGNUP_REVIEW_ONLY,
+  };
+  const changes: PipelineChange[] = [];
+  // Fields the model actually reported this run — the mutation retires stale
+  // pending reviews for these (an old proposal the model no longer makes is
+  // outdated). Omitted fields are left untouched.
+  const evaluatedFields: string[] = [];
+  // Array fields whose diff proposed removing most of the items — the whole
+  // extraction for that field is untrustworthy (see isMassRemoval).
+  const suspectFields: string[] = [];
 
-    // Scalars: annual fee + foreign transaction fee.
-    if (profile.annualFee !== undefined) {
-      pushScalar(
-        "annualFee",
-        detail.annualFee,
-        profile.annualFee,
-        profile.annualFeeConfidence ?? 0,
-        profile.annualFeeSourceUrl ?? selection.url,
-      );
-    }
-    if (profile.fxFee !== undefined) {
-      pushScalar(
-        "fxFee",
-        detail.fxFee,
-        profile.fxFee,
-        profile.fxFeeConfidence ?? 0,
-        profile.fxFeeSourceUrl ?? selection.url,
-      );
-    }
+  const pushScalar = (
+    field: string,
+    current: unknown,
+    proposed: unknown,
+    confidence: number,
+    sourceUrl?: string,
+  ) => {
+    evaluatedFields.push(field);
+    const sc = diffScalar(field, current, proposed, confidence, sourceUrl);
+    if (sc)
+      changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
+  };
 
-    // Signup-bonus block (review-only via the gate). signupBonusAmount is
-    // number|string in the catalog — compare numerically so "60000" vs 60000
-    // never reads as a change.
-    if (profile.signupBonus !== undefined) {
-      const sb = profile.signupBonus;
-      const conf = sb.confidence ?? 0;
-      const url = sb.sourceUrl ?? selection.url;
-      if (sb.amount !== undefined) {
-        // Numeric equivalence guard: the catalog stores number|string, so a
-        // stored "60000" vs extracted 60000 must not read as a change. The
-        // change itself keeps the REAL stored value (staleness checks compare
-        // it against the live field verbatim).
-        if (toNum(detail.signupBonusAmount) === sb.amount)
-          evaluatedFields.push("signupBonusAmount");
-        else
-          pushScalar(
-            "signupBonusAmount",
-            detail.signupBonusAmount,
-            sb.amount,
-            conf,
-            url,
-          );
-      }
-      if (sb.spend !== undefined)
-        pushScalar("signupBonusSpend", detail.signupBonusSpend, sb.spend, conf, url);
-      if (sb.length !== undefined)
-        pushScalar("signupBonusLength", detail.signupBonusLength, sb.length, conf, url);
-      if (sb.lengthPeriod !== undefined)
+  // Scalars: annual fee + foreign transaction fee.
+  if (profile.annualFee !== undefined) {
+    pushScalar(
+      "annualFee",
+      detail.annualFee,
+      profile.annualFee,
+      profile.annualFeeConfidence ?? 0,
+      profile.annualFeeSourceUrl ?? selection.url,
+    );
+  }
+  if (profile.fxFee !== undefined) {
+    pushScalar(
+      "fxFee",
+      detail.fxFee,
+      profile.fxFee,
+      profile.fxFeeConfidence ?? 0,
+      profile.fxFeeSourceUrl ?? selection.url,
+    );
+  }
+
+  // Signup-bonus block (review-only via the gate). signupBonusAmount is
+  // number|string in the catalog — compare numerically so "60000" vs 60000
+  // never reads as a change.
+  if (profile.signupBonus !== undefined) {
+    const sb = profile.signupBonus;
+    const conf = sb.confidence ?? 0;
+    const url = sb.sourceUrl ?? selection.url;
+    if (sb.amount !== undefined) {
+      // Numeric equivalence guard: the catalog stores number|string, so a
+      // stored "60000" vs extracted 60000 must not read as a change. The
+      // change itself keeps the REAL stored value (staleness checks compare
+      // it against the live field verbatim).
+      if (toNum(detail.signupBonusAmount) === sb.amount)
+        evaluatedFields.push("signupBonusAmount");
+      else
         pushScalar(
-          "signupBonusLengthPeriod",
-          detail.signupBonusLengthPeriod,
-          sb.lengthPeriod,
+          "signupBonusAmount",
+          detail.signupBonusAmount,
+          sb.amount,
           conf,
           url,
         );
-      if (sb.desc !== undefined)
-        pushScalar("signupBonusDesc", detail.signupBonusDesc, sb.desc, conf, url);
     }
+    if (sb.spend !== undefined)
+      pushScalar(
+        "signupBonusSpend",
+        detail.signupBonusSpend,
+        sb.spend,
+        conf,
+        url,
+      );
+    if (sb.length !== undefined)
+      pushScalar(
+        "signupBonusLength",
+        detail.signupBonusLength,
+        sb.length,
+        conf,
+        url,
+      );
+    if (sb.lengthPeriod !== undefined)
+      pushScalar(
+        "signupBonusLengthPeriod",
+        detail.signupBonusLengthPeriod,
+        sb.lengthPeriod,
+        conf,
+        url,
+      );
+    if (sb.desc !== undefined)
+      pushScalar("signupBonusDesc", detail.signupBonusDesc, sb.desc, conf, url);
+  }
 
-    // URL self-heal: when the stored cardUrl was unusable (web-search mode) and
-    // the extraction cites an issuer-authoritative page confidently, propose it
-    // as the new cardUrl — the next run goes straight to the source.
-    if (selection.mode === "web-search") {
-      const candidates: Array<{ url?: string; confidence?: number }> = [
-        { url: profile.annualFeeSourceUrl, confidence: profile.annualFeeConfidence },
-        { url: profile.fxFeeSourceUrl, confidence: profile.fxFeeConfidence },
-        {
-          url: profile.signupBonus?.sourceUrl,
-          confidence: profile.signupBonus?.confidence,
-        },
-        ...(profile.earnCategories ?? []).map((c: any) => ({
-          url: c.sourceUrl,
-          confidence: c.confidence,
-        })),
-        ...(profile.benefits ?? []).map((b: any) => ({
-          url: b.sourceUrl,
-          confidence: b.confidence,
-        })),
-      ];
-      const best = candidates
-        .filter(
-          (c): c is { url: string; confidence: number } =>
-            typeof c.url === "string" &&
-            (c.confidence ?? 0) >= cfg.confidenceThreshold &&
-            isIssuerAuthoritativeUrl(c.url, detail.cardIssuer, cfg.allowlist),
-        )
-        .sort((a, b) => b.confidence - a.confidence)[0];
-      const clean = best ? cleanIssuerUrl(best.url) : null;
-      if (clean && clean !== detail.cardUrl) {
-        const sc = diffScalar(
-          "cardUrl",
-          detail.cardUrl,
-          clean,
-          best!.confidence,
-          clean,
-        );
-        if (sc)
-          changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
-      }
-    }
-
-    // Arrays: earn categories + benefits. Only diff a field the model actually
-    // returned — an omitted (undefined) array must not read as "remove all".
-    const arrayDiffs: Array<[string, NamedItem[], NamedItem[] | undefined]> = [
-      [
-        "spendBonusCategory",
-        detail.spendBonusCategory.map(categoryToNamed),
-        profile.earnCategories,
-      ],
-      ["benefit", detail.benefit.map(benefitToNamed), profile.benefits],
+  // URL self-heal: when the stored cardUrl was unusable (web-search mode) and
+  // the extraction cites an issuer-authoritative page confidently, propose it
+  // as the new cardUrl — the next run goes straight to the source.
+  if (selection.mode === "web-search") {
+    const candidates: Array<{ url?: string; confidence?: number }> = [
+      {
+        url: profile.annualFeeSourceUrl,
+        confidence: profile.annualFeeConfidence,
+      },
+      { url: profile.fxFeeSourceUrl, confidence: profile.fxFeeConfidence },
+      {
+        url: profile.signupBonus?.sourceUrl,
+        confidence: profile.signupBonus?.confidence,
+      },
+      ...(profile.earnCategories ?? []).map((c: any) => ({
+        url: c.sourceUrl,
+        confidence: c.confidence,
+      })),
+      ...(profile.benefits ?? []).map((b: any) => ({
+        url: b.sourceUrl,
+        confidence: b.confidence,
+      })),
     ];
-    for (const [field, current, proposed] of arrayDiffs) {
-      if (proposed === undefined) continue;
-      const fieldChanges = diffNamedArray(field, current, proposed);
-      // Mass-removal guard: an extraction wiping out most of a populated array
-      // is a failed read, not a real delisting — drop ALL of the field's
-      // changes (not just removals) and retry on the short backoff.
-      if (isMassRemoval(current.length, fieldChanges)) {
-        suspectFields.push(field);
-        continue;
-      }
-      evaluatedFields.push(field);
-      for (const c of fieldChanges) {
-        const proposedItem = "proposed" in c ? (c.proposed as any) : undefined;
-        const change: PipelineChange = {
-          field: c.field,
-          changeType: c.changeType,
-          name: c.name,
-          current: "current" in c ? c.current : undefined,
-          proposed: proposedItem,
-          confidence: proposedItem?.confidence,
-          sourceUrl: proposedItem?.sourceUrl,
-          autoApply: false,
-        };
-        change.autoApply = gateChange(change, gateCfg).autoApply;
-        changes.push(change);
-      }
+    const best = candidates
+      .filter(
+        (c): c is { url: string; confidence: number } =>
+          typeof c.url === "string" &&
+          (c.confidence ?? 0) >= cfg.confidenceThreshold &&
+          isIssuerAuthoritativeUrl(c.url, detail.cardIssuer, cfg.allowlist),
+      )
+      .sort((a, b) => b.confidence - a.confidence)[0];
+    const clean = best ? cleanIssuerUrl(best.url) : null;
+    if (clean && clean !== detail.cardUrl) {
+      const sc = diffScalar(
+        "cardUrl",
+        detail.cardUrl,
+        clean,
+        best!.confidence,
+        clean,
+      );
+      if (sc)
+        changes.push({ ...sc, autoApply: gateChange(sc, gateCfg).autoApply });
     }
+  }
 
-    // One atomic mutation: apply auto-approved changes, enqueue the rest for
-    // review, audit everything, and advance the TTL — no partial-write window.
-    await ctx.runMutation(internal.freshness.applyFreshnessChanges, {
+  // Arrays: earn categories + benefits. Only diff a field the model actually
+  // returned — an omitted (undefined) array must not read as "remove all".
+  const arrayDiffs: Array<[string, NamedItem[], NamedItem[] | undefined]> = [
+    [
+      "spendBonusCategory",
+      detail.spendBonusCategory.map(categoryToNamed),
+      profile.earnCategories,
+    ],
+    ["benefit", detail.benefit.map(benefitToNamed), profile.benefits],
+  ];
+  for (const [field, current, proposed] of arrayDiffs) {
+    if (proposed === undefined) continue;
+    const fieldChanges = diffNamedArray(field, current, proposed);
+    // Mass-removal guard: an extraction wiping out most of a populated array
+    // is a failed read, not a real delisting — drop ALL of the field's
+    // changes (not just removals) and retry on the short backoff. External
+    // rebuilds skip it: their removals are deliberate and review-gated.
+    if (
+      arrayPolicy === "guard" &&
+      isMassRemoval(current.length, fieldChanges)
+    ) {
+      suspectFields.push(field);
+      continue;
+    }
+    evaluatedFields.push(field);
+    for (const c of fieldChanges) {
+      const proposedItem = "proposed" in c ? (c.proposed as any) : undefined;
+      const change: PipelineChange = {
+        field: c.field,
+        changeType: c.changeType,
+        name: c.name,
+        current: "current" in c ? c.current : undefined,
+        proposed: proposedItem,
+        confidence: proposedItem?.confidence,
+        sourceUrl: proposedItem?.sourceUrl,
+        autoApply: false,
+      };
+      change.autoApply =
+        arrayPolicy === "review-rebuild"
+          ? false
+          : gateChange(change, gateCfg).autoApply;
+      changes.push(change);
+    }
+  }
+
+  // One atomic mutation: apply auto-approved changes, enqueue the rest for
+  // review, audit everything, and advance the TTL — no partial-write window.
+  await ctx.runMutation(internal.freshness.applyFreshnessChanges, {
+    cardKey,
+    changes,
+    evaluatedFields,
+    suspectFields,
+    autoEnabled: cfg.autoApplyEnabled,
+    runId,
+  });
+}
+
+// ── External refresh surface ─────────────────────────────────────────────────
+// An agent outside Convex (e.g. a weekly Claude Code session billed to a
+// subscription instead of per-token API) runs the extraction itself and
+// submits the profile JSON here. The server-side pipeline stays authoritative:
+// suppression, gating, provenance, audit, and the review queue all apply.
+// Array fields never auto-apply on this path (arrayPolicy "review-rebuild"),
+// which also skips the mass-removal guard so junk stored arrays can converge
+// through human review.
+
+// Wallet cards most overdue for verification, oldest first — the work list
+// for an external refresh session. Read-only: does not claim or patch.
+export const listRefreshCandidates = internalQuery({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const cap = Math.min(limit ?? 25, 100);
+    // Wallet-first: freshness only covers owned cards, and the wallet is small
+    // — walking cardDetails.by_lastVerifiedAt instead would scan the (much
+    // larger) never-verified unowned catalog before reaching any wallet card.
+    const owned = await ctx.db.query("userCards").take(1000);
+    const keys = [...new Set(owned.map((c) => c.cardKey))];
+    const out: Array<{
+      cardKey: string;
+      cardName: string;
+      cardIssuer: string;
+      cardUrl: string | null;
+      lastVerifiedAt: number | null;
+    }> = [];
+    for (const cardKey of keys) {
+      const d = await ctx.db
+        .query("cardDetails")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
+        .first();
+      if (!d) continue;
+      out.push({
+        cardKey: d.cardKey,
+        cardName: d.cardName,
+        cardIssuer: d.cardIssuer,
+        cardUrl: d.cardUrl ?? null,
+        lastVerifiedAt: d.lastVerifiedAt ?? null,
+      });
+    }
+    out.sort((a, b) => (a.lastVerifiedAt ?? 0) - (b.lastVerifiedAt ?? 0));
+    return out.slice(0, cap);
+  },
+});
+
+// Accepts one card's extraction profile (same JSON schema the daily pipeline
+// prompts for — parseExtraction validates it) and runs the shared pipeline.
+export const processExternalProfile = internalAction({
+  args: { cardKey: v.string(), profileJson: v.string() },
+  handler: async (ctx, { cardKey, profileJson }) => {
+    const cfg = config();
+    const detail = await ctx.runQuery(internal.freshness.getCardForFreshness, {
       cardKey,
-      changes,
-      evaluatedFields,
-      suspectFields,
-      autoEnabled: cfg.autoApplyEnabled,
-      runId,
     });
+    if (!detail)
+      return { ok: false, error: `no cardDetails row for '${cardKey}'` };
+    const profile = parseExtraction(profileJson);
+    if (!profile)
+      return {
+        ok: false,
+        error: "profileJson did not parse as an extraction profile",
+      };
+    const selection = selectSource({
+      cardUrl: detail.cardUrl,
+      cardIssuer: detail.cardIssuer,
+      allowlist: cfg.allowlist,
+    });
+    await runProfilePipeline(ctx, {
+      detail,
+      profile,
+      selection,
+      cfg,
+      arrayPolicy: "review-rebuild",
+    });
+    return { ok: true };
   },
 });
 
@@ -612,7 +778,8 @@ export const markVerified = internalMutation({
       .query("cardDetails")
       .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
       .unique();
-    if (d) await ctx.db.patch(d._id, { lastVerifiedAt: verifiedAt ?? Date.now() });
+    if (d)
+      await ctx.db.patch(d._id, { lastVerifiedAt: verifiedAt ?? Date.now() });
     await bumpRun(ctx, runId, { failed: 1 });
   },
 });
@@ -689,7 +856,11 @@ export const applyFreshnessChanges = internalMutation({
     // Whether a change (with its stored-shape proposed value) was already
     // rejected by a reviewer, or re-proposes a manually pinned value.
     const isSuppressed = (
-      ch: { field: string; changeType: "patch" | "add" | "remove"; name?: string },
+      ch: {
+        field: string;
+        changeType: "patch" | "add" | "remove";
+        name?: string;
+      },
       storedProposed: unknown,
     ) => {
       if (
@@ -734,7 +905,9 @@ export const applyFreshnessChanges = internalMutation({
     const nameOfIn =
       (nameKeys: string[]) =>
       (item: any): string =>
-        norm(String(nameKeys.map((k) => item?.[k]).find((x) => x != null) ?? ""));
+        norm(
+          String(nameKeys.map((k) => item?.[k]).find((x) => x != null) ?? ""),
+        );
 
     // Enqueue a review row, replacing the matching pending one. Scalars dedupe by
     // field; array item deltas dedupe by (field, itemName) so each item is its
@@ -885,7 +1058,11 @@ export const applyFreshnessChanges = internalMutation({
         if (willApply) {
           working = applyItemDelta(
             working,
-            { changeType: ch.changeType, itemName: ch.name ?? "", item: storedItem },
+            {
+              changeType: ch.changeType,
+              itemName: ch.name ?? "",
+              item: storedItem,
+            },
             [...nameKeys],
           );
           touched = true;
@@ -1028,8 +1205,7 @@ export const verifyWalletBatch = internalAction({
     const done = processed ?? 0;
     const batch = planBatch(done, cfg.dailyCap, cfg.perRunCap);
     if (batch <= 0) {
-      if (runId)
-        await ctx.runMutation(internal.freshness.finishRun, { runId });
+      if (runId) await ctx.runMutation(internal.freshness.finishRun, { runId });
       console.info(`freshness: daily cap reached after ${done} card(s)`);
       return;
     }
@@ -1053,7 +1229,9 @@ export const verifyWalletBatch = internalAction({
         runId: run,
         deltas: { scheduled: cardKeys.length },
       });
-      console.info(`freshness: scheduled ${cardKeys.length} card verification(s)`);
+      console.info(
+        `freshness: scheduled ${cardKeys.length} card verification(s)`,
+      );
     }
 
     if (cardKeys.length === batch) {
