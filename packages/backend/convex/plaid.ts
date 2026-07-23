@@ -66,6 +66,21 @@ async function plaidRequest<T>(
   return json as T;
 }
 
+// Fetch a Plaid webhook verification key (EC P-256 public JWK) by its key id.
+// The /plaid/webhook endpoint uses this to verify the Plaid-Verification JWS
+// (see plaidWebhookVerify.ts). Plaid rotates keys, so callers look it up by the
+// JWT's `kid`. A plain exported helper (not a Convex function) — the httpAction
+// runs in the action runtime and can call it directly.
+export async function plaidGetWebhookVerificationKey(
+  keyId: string,
+): Promise<Record<string, unknown>> {
+  const resp = await plaidRequest<{ key: Record<string, unknown> }>(
+    "/webhook_verification_key/get",
+    { key_id: keyId },
+  );
+  return resp.key;
+}
+
 // ── Status ──────────────────────────────────────────────────────────────────
 
 export const plaidConfigured = query({

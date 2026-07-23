@@ -4,6 +4,8 @@ import { internal } from "./_generated/api";
 import Stripe from "stripe";
 import { subscriptionPatchFromStripe } from "./billingCore";
 import type { StripeSubscriptionLike } from "./billingCore";
+import { plaidGetWebhookVerificationKey } from "./plaid";
+import { verifyPlaidWebhook } from "./plaidWebhookVerify";
 
 // Convex HTTP endpoints (served on the deployment's .convex.site host).
 
@@ -13,18 +15,40 @@ const http = httpRouter();
 // `webhook` URL in plaid.createLinkToken. The cron (crons.ts) is the baseline;
 // this just makes syncs prompt.
 //
-// SECURITY (fast-follow): verify the `Plaid-Verification` JWT
-// (POST /webhook_verification_key/get → ES256 verify + request_body_sha256).
-// Until then the endpoint only *triggers a sync* for a given item_id — it never
-// returns data to the caller — so the worst case is an unauthenticated sync
-// trigger (bounded), not a data leak.
+// SECURITY: production webhooks are signature-verified via the `Plaid-Verification`
+// JWS (see plaidWebhookVerify.ts). Sandbox webhooks are unsigned, so verification
+// only runs when PLAID_ENV=production. Rollout is shadow-by-default — verify and
+// log, but reject (401) only when PLAID_WEBHOOK_ENFORCE=true — so a verification
+// bug can't silently break webhook delivery; flip enforcement on after confirming
+// real webhooks pass in the logs.
 http.route({
   path: "/plaid/webhook",
   method: "POST",
   handler: httpAction(async (ctx, request) => {
+    // Read the raw body once — the signature is over these exact bytes.
+    const rawBody = await request.text();
+
+    if (process.env.PLAID_ENV === "production") {
+      const result = await verifyPlaidWebhook({
+        token: request.headers.get("Plaid-Verification"),
+        rawBody,
+        fetchKey: (kid) => plaidGetWebhookVerificationKey(kid),
+      });
+      const enforce = process.env.PLAID_WEBHOOK_ENFORCE === "true";
+      if (result.ok) {
+        console.log("[plaid webhook] verification ok");
+      } else {
+        console.error(
+          `[plaid webhook] verification failed (${result.reason})` +
+            (enforce ? " — rejected" : " — shadow mode, allowing"),
+        );
+        if (enforce) return new Response("invalid signature", { status: 401 });
+      }
+    }
+
     let body: any;
     try {
-      body = await request.json();
+      body = JSON.parse(rawBody);
     } catch {
       return new Response("bad request", { status: 400 });
     }
