@@ -61,12 +61,18 @@ crons.cron(
   { cursor: null },
 );
 
-// Daily card-data freshness: LLM web-verify every wallet card past its TTL and
-// auto-apply (or, in shadow mode, record) confident corrections. See
-// freshness.ts and docs/plans/2026-07-22-auto-card-data-freshness-plan.md.
-crons.interval(
+// Daily card-data freshness: LLM web-verify every wallet card past its TTL
+// (internal TTL 14d, INTERNAL_VERIFY_TTL_DAYS) and auto-apply (or, in shadow
+// mode, record) confident corrections. See freshness.ts and
+// docs/plans/2026-07-22-auto-card-data-freshness-plan.md.
+//
+// Pinned to 22:00 UTC daily (fixed clock, no deploy-drift) — 2pm PST, ~8h
+// after the weekly external /freshness-refresh so the free skill gets first
+// crack and this per-token cron only mops up stragglers. NOTE: UTC is DST-
+// insensitive, so this lands at 3pm Pacific during PDT.
+crons.cron(
   "verify card data",
-  { hours: 24 },
+  "0 22 * * *",
   internal.freshness.verifyWalletBatch,
   {},
 );
