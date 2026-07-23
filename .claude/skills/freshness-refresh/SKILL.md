@@ -30,8 +30,11 @@ on every `convex run` when asked to refresh those.
    runs overlap, both can pick the same due card until the first submission
    lands. Don't run overlapping refreshes; the daily routine is a single run.)
 
-   **If `candidates` is empty, every owned card is still fresh.** Stop here
-   and report "nothing due this week" — do not force-refresh fresh cards.
+   **If `candidates` is empty and `truncated` is false, every scanned owned
+   card is still fresh.** Stop here and report "nothing due this week" — do
+   not force-refresh fresh cards. If `candidates` is empty but `truncated`
+   is true, the scan was partial (see below) — report partial coverage; do
+   not claim nothing is due.
    (To audit owned cards regardless of freshness, pass
    `'{"includeFresh": true}'` — but note it still returns at most `limit`
    (default 25, max 100), so raise `limit` for a bigger wallet. Never use it
