@@ -13,6 +13,7 @@
 // Pure module — unit-testable. No Convex imports.
 
 import { norm, META_KEYS } from "./cardDataDiff";
+import { toNum } from "./cardExtractionParse";
 
 // Stable stringify for comparing field values across runs: object keys sorted,
 // extraction metadata (confidence/sourceUrl/group) dropped, and every string
@@ -113,8 +114,25 @@ export function reviewIsStale(
   const isItemDelta =
     !!nameKeys && !!review.changeType && review.itemName !== undefined;
 
-  if (!isItemDelta)
-    return canonicalValue(liveValue) !== canonicalValue(review.currentValue);
+  if (!isItemDelta) {
+    if (canonicalValue(liveValue) === canonicalValue(review.currentValue))
+      return false;
+    // Type-flip tolerance: signupBonusAmount is number|string in the catalog,
+    // so a RapidAPI refresh can return the SAME amount as the other JS type
+    // ("60000" vs 60000). A cross-type numeric match is not staleness — same
+    // coercion the pipeline's diff uses (toNum).
+    const typeFlip =
+      (typeof liveValue === "string" &&
+        typeof review.currentValue === "number") ||
+      (typeof liveValue === "number" &&
+        typeof review.currentValue === "string");
+    if (typeFlip) {
+      const live = toNum(liveValue);
+      if (live !== undefined && live === toNum(review.currentValue))
+        return false;
+    }
+    return true;
+  }
 
   const arr = Array.isArray(liveValue) ? liveValue : [];
   const key = normName(review.itemName);

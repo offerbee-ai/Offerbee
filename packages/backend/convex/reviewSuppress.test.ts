@@ -178,6 +178,43 @@ describe("reviewIsStale", () => {
     ).toBe(true);
   });
 
+  it("scalar: a number|string type flip of the same amount is not stale", () => {
+    expect(
+      reviewIsStale("60000", {
+        field: "signupBonusAmount",
+        currentValue: 60000,
+        proposedValue: 75000,
+      }),
+    ).toBe(false);
+    expect(
+      reviewIsStale(60000, {
+        field: "signupBonusAmount",
+        currentValue: "60,000",
+        proposedValue: 75000,
+      }),
+    ).toBe(false);
+  });
+
+  it("scalar: a cross-type DIFFERENT amount is still stale", () => {
+    expect(
+      reviewIsStale("80000", {
+        field: "signupBonusAmount",
+        currentValue: 60000,
+        proposedValue: 75000,
+      }),
+    ).toBe(true);
+  });
+
+  it("scalar: a non-numeric string never matches a number", () => {
+    expect(
+      reviewIsStale("two free nights", {
+        field: "signupBonusAmount",
+        currentValue: 60000,
+        proposedValue: 75000,
+      }),
+    ).toBe(true);
+  });
+
   const live = [
     { benefitTitle: "Lounge Access", benefitDesc: "Priority Pass" },
     { benefitTitle: "Free Night", benefitDesc: "Annual certificate" },
