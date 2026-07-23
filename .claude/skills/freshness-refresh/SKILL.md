@@ -1,6 +1,6 @@
 ---
 name: freshness-refresh
-description: Weekly card-data refresh run by Claude Code itself (subscription-billed, no OpenRouter cost). Lists the wallet cards most overdue for verification, fetches each card's official issuer page, extracts the terms, and submits them to the server-side freshness pipeline (suppression, gating, audit, and review queue all still apply). Trigger - /freshness-refresh, "refresh card data", "weekly data refresh".
+description: Weekly card-data refresh run by Claude Code itself (subscription-billed, no OpenRouter cost). Lists the wallet cards due for verification (TTL-gated to once per week per card), fetches each card's official issuer page, extracts the terms, and submits them to the server-side freshness pipeline (suppression, gating, audit, and review queue all still apply). Trigger - /freshness-refresh, "refresh card data", "weekly data refresh".
 ---
 
 # Freshness refresh (external extraction)
@@ -15,14 +15,31 @@ on every `convex run` when asked to refresh those.
 
 ## Workflow
 
-1. **Get the work list** (oldest-verified wallet cards first):
+1. **Get the work list** (cards actually due for a refresh):
 
    ```sh
    npx convex run freshness:listRefreshCandidates '{"limit": 15}'
    ```
 
    The response is `{candidates: [...], truncated}`. Work through
-   `candidates` — the oldest-verified cards across the whole wallet.
+   `candidates` — owned cards **due** for re-verification, oldest-first.
+   The query TTL-gates server-side: a card verified within the last
+   `CARD_VERIFY_TTL_DAYS` (1 week) is fresh and is **not** returned, so
+   sequential runs refresh each card at most once per week — the same TTL the
+   cron uses. (The gate is a read-only filter, not a lease: if two refresh
+   runs overlap, both can pick the same due card until the first submission
+   lands. Don't run overlapping refreshes; the daily routine is a single run.)
+
+   **If `candidates` is empty and `truncated` is false, every scanned owned
+   card is still fresh.** Stop here and report "nothing due this week" — do
+   not force-refresh fresh cards. If `candidates` is empty but `truncated`
+   is true, the scan was partial (see below) — report partial coverage; do
+   not claim nothing is due.
+   (To audit owned cards regardless of freshness, pass
+   `'{"includeFresh": true}'` — but note it still returns at most `limit`
+   (default 25, max 100), so raise `limit` for a bigger wallet. Never use it
+   for a routine refresh.)
+
    `truncated` is false in any realistic deployment; if it is ever true,
    say so in the summary (it means distinct owned cards exceeded the
    query's 4,000-key walk ceiling and coverage was partial).
