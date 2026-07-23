@@ -157,3 +157,45 @@ describe("fetchIssuerPage", () => {
     expect(page!.text.length).toBe(1_000);
   });
 });
+
+// Mega issuer pages (Chase/Amex accordions) render each benefit block 2-3×.
+// stripHtml collapses repeated substantial lines so the benefit-dense tail
+// survives the char cap, while short structural lines pass through.
+describe("stripHtml block dedup", () => {
+  it("drops an accordion repeat of the same heading+description block", () => {
+    const title = "Dining Credit";
+    const desc =
+      "Earn up to a total of $10 in statement credits monthly at eligible partners";
+    // The same benefit block rendered twice (summary + expanded detail).
+    const text = stripHtml(
+      `<p>${title}</p><p>${desc}</p><div>unrelated section</div>` +
+        `<p>${title}</p><p>${desc}</p>`,
+    );
+    expect(text.split(desc).length - 1).toBe(1); // description kept once
+  });
+
+  it("KEEPS an identical description under a different heading", () => {
+    // Two distinct benefits that happen to share wording must both survive.
+    const desc = "Earn up to $10 in statement credits each month after enrollment";
+    const text = stripHtml(
+      `<p>$120 Dining Credit</p><p>${desc}</p>` +
+        `<p>$84 Dunkin Credit</p><p>${desc}</p>`,
+    );
+    expect(text.split(desc).length - 1).toBe(2); // shared desc kept for both
+    expect(text).toContain("$120 Dining Credit");
+    expect(text).toContain("$84 Dunkin Credit");
+  });
+
+  it("keeps short repeated structural lines (headers, markers)", () => {
+    const text = stripHtml(`<p>4X POINTS</p><p>On Dining</p><p>4X POINTS</p><p>On Travel</p>`);
+    expect(text.split("4X POINTS").length - 1).toBe(2); // short line kept both times
+  });
+
+  it("does not merge distinct long benefit lines", () => {
+    const a = "Up to $200 in Uber Cash each calendar year for eligible US rides";
+    const b = "Up to $189 CLEAR Plus credit each calendar year after you enroll";
+    const text = stripHtml(`<p>${a}</p><p>${b}</p>`);
+    expect(text).toContain(a);
+    expect(text).toContain(b);
+  });
+});
