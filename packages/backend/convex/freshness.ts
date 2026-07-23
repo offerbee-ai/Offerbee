@@ -40,8 +40,9 @@ import {
 } from "./cardFieldMap";
 
 // Daily card-data freshness pipeline. For each card in a user's wallet that is
-// past its verify TTL, ask an LLM (OpenRouter, deepseek default) to read the
-// current terms from the web — preferring the card's official issuer page — and
+// past its verify TTL, fetch the card's official issuer page and ask an LLM
+// (OpenRouter, haiku-4.5 default) to extract the current terms from its full
+// text (falling back to LLM web search when the page can't be fetched), then
 // diff them against what we store. Confident, cited, in-bounds changes are
 // auto-applied (fees, earn categories, benefits); everything else falls back to
 // the human review queue. AUTO_APPLY_ENABLED gates whether confident changes are
@@ -56,7 +57,12 @@ import {
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENROUTER_SIGNUP_URL = "https://openrouter.ai/keys";
-const DEFAULT_MODEL = "deepseek/deepseek-v4-flash";
+// Bake-off 2026-07-22 on fetched issuer pages (6 cards): haiku matched
+// sonnet-5 on fee accuracy (5/6) at 0.35x the cost and half the latency, with
+// 92% of its benefits recall; deepseek-v4-flash missed fees (3/6), returned an
+// empty extraction for one card, and stalls under load. Override per
+// deployment with OPENROUTER_MODEL.
+const DEFAULT_MODEL = "anthropic/claude-haiku-4.5";
 
 const changeTypeValidator = v.union(
   v.literal("patch"),
