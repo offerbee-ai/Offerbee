@@ -709,6 +709,7 @@ export const getItemForSync = internalQuery({
       userId: item.userId,
       accessToken: item.accessToken,
       cursor: item.cursor ?? null,
+      status: item.status,
     };
   },
 });
@@ -894,6 +895,38 @@ export const syncItem = internalAction({
         })),
       });
     }
+  },
+});
+
+// Cron per-item step: force Plaid to re-poll the institution, then sync.
+//
+// The bare /transactions/sync (what syncItem does) only returns data Plaid has
+// ALREADY fetched on its own cadence — so a credit can post at the bank and sit
+// unsynced for a day+ until the user taps Refresh (the only place that called
+// /transactions/refresh). This makes the safety-net cron active: it forces the
+// re-poll itself. Fresh data lands via the SYNC_UPDATES_AVAILABLE webhook →
+// syncItem; the immediate sync below surfaces anything already cached, and a
+// missed webhook self-heals on the next cron run (refresh + immediate sync pull
+// the now-cached delta). NOT folded into syncItem — that's the webhook target,
+// so a refresh there would loop (refresh → webhook → syncItem → refresh).
+export const refreshAndSyncItem = internalAction({
+  args: { itemId: v.string() },
+  handler: async (ctx, { itemId }) => {
+    const item = await ctx.runQuery(internal.plaid.getItemForSync, { itemId });
+    if (!item) return;
+    // Only healthy Items — /transactions/refresh throws on login_required/error.
+    // Swallow per-item errors so one bad Item can't abort the batch.
+    if (item.status === "active") {
+      try {
+        await plaidRequest("/transactions/refresh", {
+          access_token: item.accessToken,
+        });
+        console.log(`[plaid refresh] cron item=${itemId} requested`);
+      } catch (e) {
+        console.error(`[plaid refresh] cron item=${itemId} failed`, e);
+      }
+    }
+    await ctx.scheduler.runAfter(0, internal.plaid.syncItem, { itemId });
   },
 });
 
@@ -1085,7 +1118,7 @@ export const getItemsPage = internalQuery({
   },
 });
 
-// Cron entry: page all Items, spacing each sync to respect rate limits.
+// Cron entry: page all Items, spacing each refresh+sync to respect rate limits.
 export const syncAllItems = internalAction({
   args: { cursor: v.union(v.string(), v.null()) },
   handler: async (ctx, { cursor }) => {
@@ -1097,9 +1130,15 @@ export const syncAllItems = internalAction({
     // the action can return before they commit and the jobs are dropped. This
     // was fire-and-forget (`void`) and the cron silently synced nothing;
     // items only updated via webhooks/manual refresh.
+    //
+    // refreshAndSyncItem (not syncItem) so the cron forces Plaid to re-poll each
+    // institution — otherwise it only reads Plaid's already-cached delta and can
+    // miss recently-posted transactions until the user hits manual Refresh.
     await Promise.all(
       page.itemIds.map((itemId, i) =>
-        ctx.scheduler.runAfter(i * 1500, internal.plaid.syncItem, { itemId }),
+        ctx.scheduler.runAfter(i * 1500, internal.plaid.refreshAndSyncItem, {
+          itemId,
+        }),
       ),
     );
     console.log(
