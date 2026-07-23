@@ -14,7 +14,8 @@
     "Resy Credit": {
       "brandKey": "resy",
       "query": "Resy restaurant",
-      "note": "$10/mo at Resy-booked U.S. restaurants; query is approximate — Resy is a booking network, not a single brand storefront"
+      "kind": "online",
+      "note": "$10/mo at Resy-booked U.S. restaurants; Resy is a reservation network, not a storefront, so no brand geo query can identify redeemable locations — excluded from location matching by kind:online until a per-restaurant approach exists"
     }
   },
   "amex-platinum": {

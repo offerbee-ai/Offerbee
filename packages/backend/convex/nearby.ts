@@ -19,6 +19,9 @@ import { planBrandQueries, type UsableBenefit } from "./nearbyMatch";
 import { fetchNearbyPlacesByBrand, type NearbyPlace } from "./geoService";
 
 const MAX_BENEFITS_SCAN = 500;
+// The geo service clamps to its own MaxSearchRadius (16 km); bound the caller
+// here too so an arbitrarily large radius can't force a global per-brand scan.
+const MAX_RADIUS_METERS = 16_000;
 const roundCents = (n: number) => Math.round(n * 100) / 100;
 
 // Internal: the user's non-archived, non-snoozed benefits that still have
@@ -33,47 +36,60 @@ export const usableBenefits = internalQuery({
       .query("userCards")
       .withIndex("by_userId", (q) => q.eq("userId", userId))
       .take(200);
-    const cardName = new Map<Id<"userCards">, string>();
-    for (const uc of userCards) {
-      const detail = await ctx.db
-        .query("cardDetails")
-        .withIndex("by_cardKey", (q) => q.eq("cardKey", uc.cardKey))
-        .unique();
-      cardName.set(uc._id, uc.nickname ?? detail?.cardName ?? uc.cardKey);
-    }
+    // Resolve card names in parallel — sequential awaits here are an N+1 that a
+    // power user could push into the query's wall-clock deadline.
+    const cardName = new Map<Id<"userCards">, string>(
+      await Promise.all(
+        userCards.map(async (uc) => {
+          const detail = await ctx.db
+            .query("cardDetails")
+            .withIndex("by_cardKey", (q) => q.eq("cardKey", uc.cardKey))
+            .unique();
+          return [
+            uc._id,
+            uc.nickname ?? detail?.cardName ?? uc.cardKey,
+          ] as const;
+        }),
+      ),
+    );
 
     const benefits = (
       await ctx.db
         .query("userBenefits")
         .withIndex("by_userId", (q) => q.eq("userId", userId))
         .take(MAX_BENEFITS_SCAN)
-    ).filter((b) => b.archivedAt === undefined);
+    ).filter(
+      (b) =>
+        b.archivedAt === undefined &&
+        !(b.snoozedUntil !== undefined && b.snoozedUntil > now),
+    );
 
-    const usable: UsableBenefit[] = [];
-    for (const b of benefits) {
-      if (b.snoozedUntil !== undefined && b.snoozedUntil > now) continue;
-      const pk = periodKey(b.cycle, now);
-      const rows = await ctx.db
-        .query("benefitUsages")
-        .withIndex("by_userBenefitId_and_periodKey", (q) =>
-          q.eq("userBenefitId", b._id).eq("periodKey", pk),
-        )
-        .take(50);
-      const used = rows.reduce((a, r) => a + r.amount, 0);
-      const remaining = roundCents(b.amount - used);
-      if (remaining <= 0) continue;
-      usable.push({
-        id: b._id,
-        cardKey: b.cardKey,
-        benefitTitle: b.benefitTitle,
-        title: b.title,
-        cardName: cardName.get(b.userCardId) ?? b.cardKey,
-        remaining,
-        cycle: b.cycle,
-        resetAt: periodEnd(b.cycle, now),
-      });
-    }
-    return usable;
+    // Per-benefit usage lookups in parallel, for the same reason.
+    const usable = await Promise.all(
+      benefits.map(async (b): Promise<UsableBenefit | null> => {
+        const pk = periodKey(b.cycle, now);
+        const rows = await ctx.db
+          .query("benefitUsages")
+          .withIndex("by_userBenefitId_and_periodKey", (q) =>
+            q.eq("userBenefitId", b._id).eq("periodKey", pk),
+          )
+          .take(50);
+        const used = rows.reduce((a, r) => a + r.amount, 0);
+        const remaining = roundCents(b.amount - used);
+        if (remaining <= 0) return null;
+        return {
+          id: b._id,
+          cardKey: b.cardKey,
+          benefitTitle: b.benefitTitle,
+          title: b.title,
+          cardName: cardName.get(b.userCardId) ?? b.cardKey,
+          remaining,
+          cycle: b.cycle,
+          resetAt: periodEnd(b.cycle, now),
+        };
+      }),
+    );
+    return usable.filter((u): u is UsableBenefit => u !== null);
   },
 });
 
@@ -99,6 +115,16 @@ export const nearbyBenefits = action({
       throw new Error("lat/lng out of range");
     }
 
+    // Clamp the radius: drop invalid/non-positive values to the client default,
+    // cap the rest so a caller can't request a global scan per brand.
+    let radiusMeters = args.radiusMeters;
+    if (radiusMeters !== undefined) {
+      radiusMeters =
+        !Number.isFinite(radiusMeters) || radiusMeters <= 0
+          ? undefined
+          : Math.min(radiusMeters, MAX_RADIUS_METERS);
+    }
+
     const benefits = await ctx.runQuery(internal.nearby.usableBenefits, {
       userId,
     });
@@ -109,7 +135,7 @@ export const nearbyBenefits = action({
       brands: plans.map((p) => p.query),
       lat: args.lat,
       lng: args.lng,
-      radiusMeters: args.radiusMeters,
+      radiusMeters,
       localTime: args.localTime,
     });
     const placesByQuery = new Map(geo.map((g) => [g.query, g.places]));

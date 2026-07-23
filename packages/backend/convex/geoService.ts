@@ -9,6 +9,13 @@ import { missingEnvVariableUrl } from "./utils";
 
 const GEO_SERVICE_DOCS_URL =
   "https://github.com/timwangmusic/Vacation-Planner#running-with-docker-compose";
+// The endpoint requires a PAT — mint one via the service's POST /v1/create-token.
+const GEO_SERVICE_TOKEN_DOCS_URL =
+  "https://github.com/timwangmusic/Vacation-Planner (POST /v1/create-token)";
+
+// Fail fast rather than hold a Convex function slot open if the geo service
+// (cold cache -> live Google Maps fan-out) stalls.
+const GEO_SERVICE_TIMEOUT_MS = 15_000;
 
 // One normalized merchant location.
 export type NearbyPlace = {
@@ -71,21 +78,41 @@ export async function fetchNearbyPlacesByBrand(
   }
   if (req.brands.length === 0) return [];
 
-  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // The endpoint requires a PAT; an absent token would just yield an opaque 401,
+  // so fail early with an actionable message like every other credential here.
   const token = process.env.GEO_SERVICE_TOKEN;
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (!token) {
+    throw new Error(
+      missingEnvVariableUrl("GEO_SERVICE_TOKEN", GEO_SERVICE_TOKEN_DOCS_URL),
+    );
+  }
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
 
-  const res = await fetch(`${base.replace(/\/$/, "")}/v1/nearby-places`, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      brands: req.brands,
-      location: { latitude: req.lat, longitude: req.lng },
-      radius: req.radiusMeters ?? 3000,
-      limit: req.limitPerBrand ?? 3,
-      ...(req.localTime ? { localTime: req.localTime } : {}),
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${base.replace(/\/$/, "")}/v1/nearby-places`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        brands: req.brands,
+        location: { latitude: req.lat, longitude: req.lng },
+        radius: req.radiusMeters ?? 3000,
+        limit: req.limitPerBrand ?? 3,
+        ...(req.localTime ? { localTime: req.localTime } : {}),
+      }),
+      signal: AbortSignal.timeout(GEO_SERVICE_TIMEOUT_MS),
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new Error(
+        `geo service /v1/nearby-places timed out after ${GEO_SERVICE_TIMEOUT_MS}ms`,
+      );
+    }
+    throw e;
+  }
 
   const json = (await res.json().catch(() => ({}))) as RawResponse & {
     error?: string;
