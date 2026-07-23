@@ -123,6 +123,10 @@ export default defineSchema({
     observations: v.array(reviewObservationValidator), // what each source said
     confidence: v.optional(v.number()), // 0-1 from the web-verify step
     sourceUrl: v.optional(v.string()), // issuer page the proposal came from
+    // The auto-apply gate's verdict when this row was enqueued. In shadow mode
+    // (AUTO_APPLY_ENABLED off) rows with wouldAutoApply:true are the ones the
+    // pipeline WOULD have written — reviewer verdicts on them measure precision.
+    wouldAutoApply: v.optional(v.boolean()),
     note: v.optional(v.string()), // model's short justification
     status: reviewStatusValidator,
     createdAt: v.number(),
@@ -148,19 +152,49 @@ export default defineSchema({
     after: v.optional(v.any()),
     confidence: v.optional(v.number()),
     sourceUrl: v.optional(v.string()),
-    // "auto" = written to cardDetails; "shadow" = kill switch off, recorded only.
-    mode: v.union(v.literal("auto"), v.literal("shadow")),
+    // The gate's verdict for this change (independent of the kill switch).
+    wouldAutoApply: v.optional(v.boolean()),
+    // "auto" = written to cardDetails; "shadow" = not written (gate said review,
+    // or kill switch off); "suppressed" = matched a reviewer-rejected proposal
+    // or a manual pin, so it was not re-enqueued; "suspect" = an array field
+    // dropped whole by the mass-removal guard (before = the untouched items);
+    // "revert" = an admin undid a previous auto/revert row (audit.revertAudit).
+    mode: v.union(
+      v.literal("auto"),
+      v.literal("shadow"),
+      v.literal("suppressed"),
+      v.literal("suspect"),
+      v.literal("revert"),
+    ),
     appliedAt: v.number(),
   })
     .index("by_cardKey", ["cardKey"])
     .index("by_appliedAt", ["appliedAt"]),
 
-  // ── Small key/value bookkeeping for background pipelines (e.g. the freshness
-  //    scan's rotating pagination cursor over userCards). ──
+  // ── Small key/value bookkeeping for background pipelines. RETIRED: the
+  //    freshness scan's cursor moved to claim-based selection (freshness.ts's
+  //    claimDueCards); drop this table once existing rows are cleared. ──
   pipelineState: defineTable({
     key: v.string(),
     cursor: v.union(v.string(), v.null()),
   }).index("by_key", ["key"]),
+
+  // ── One row per freshness-pipeline run (a full cron chain or a manual
+  //    wallet verify): counters for the admin History view. Dedicated
+  //    high-churn table per the churn-separation guideline. ──
+  pipelineRuns: defineTable({
+    pipeline: v.string(), // "freshness"
+    source: v.union(v.literal("cron"), v.literal("manual")),
+    startedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    scheduled: v.number(), // cards claimed across the whole chain
+    extracted: v.number(), // successful LLM extractions
+    failed: v.number(), // extraction failures (retry via short backoff)
+    autoApplied: v.number(), // changes written to cardDetails
+    enqueued: v.number(), // changes routed to the review queue
+    suppressed: v.number(), // changes matching a rejected proposal / manual pin
+    suspect: v.number(), // array fields dropped by the mass-removal guard
+  }).index("by_pipeline_and_startedAt", ["pipeline", "startedAt"]),
 
   // ── User wallet: the cards a user owns ──
   userCards: defineTable({

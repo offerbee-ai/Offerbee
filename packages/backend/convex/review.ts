@@ -9,84 +9,15 @@ import type { Doc } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
 import { isAdmin, requireAdmin } from "./auth";
 import { applyItemDelta } from "./arrayDelta";
+import { reviewIsStale } from "./reviewSuppress";
+import { isIssuerAuthoritativeUrl } from "./cardSourceSelect";
+import { issuerAllowlist } from "./freshnessConfig";
 
 // Array fields whose reviews carry a single item delta (changeType + itemName)
-// rather than a scalar value. Name keys mirror the stored item shapes.
-const ARRAY_FIELD_NAME_KEYS: Record<string, string[]> = {
-  spendBonusCategory: ["spendBonusCategoryName", "spendBonusCategoryType"],
-  benefit: ["benefitTitle"],
-};
-import {
-  dataSourceValidator,
-  fieldProvenanceValidator,
-  fieldValueValidator,
-  reviewObservationValidator,
-  reviewReasonValidator,
-} from "./validators";
+// rather than a scalar value — defined once in cardFieldMap.ts.
+import { ARRAY_FIELD_NAME_KEYS } from "./cardFieldMap";
 
-// ── Internal writes used by the verification pipeline (verify.ts) ────────────
-
-// Record where a cross-checked field's value came from, without changing the
-// value itself. Upserts the entry for that field in cardDetails.fieldProvenance.
-export const recordProvenance = internalMutation({
-  args: {
-    cardKey: v.string(),
-    entry: fieldProvenanceValidator,
-  },
-  handler: async (ctx, { cardKey, entry }) => {
-    const detail = await ctx.db
-      .query("cardDetails")
-      .withIndex("by_cardKey", (q) => q.eq("cardKey", cardKey))
-      .unique();
-    if (!detail) return;
-    const others = (detail.fieldProvenance ?? []).filter(
-      (p) => p.field !== entry.field,
-    );
-    await ctx.db.patch(detail._id, { fieldProvenance: [...others, entry] });
-
-    // Recording provenance means this field is now resolved (sources agree, or
-    // web confirmed the current value) — retire any stale pending review for it
-    // so a later verification can't be contradicted by an old queued proposal.
-    const stale = await ctx.db
-      .query("cardDataReview")
-      .withIndex("by_cardKey_and_field", (q) =>
-        q.eq("cardKey", cardKey).eq("field", entry.field),
-      )
-      .collect();
-    for (const row of stale) {
-      if (row.status === "pending") await ctx.db.delete(row._id);
-    }
-  },
-});
-
-// Queue a proposed correction for human confirmation. Idempotent per
-// (cardKey, field): a still-pending item for the same field is replaced.
-export const enqueueReview = internalMutation({
-  args: {
-    cardKey: v.string(),
-    field: v.string(),
-    currentValue: v.optional(fieldValueValidator),
-    proposedValue: v.optional(fieldValueValidator),
-    reason: reviewReasonValidator,
-    observations: v.array(reviewObservationValidator),
-    confidence: v.optional(v.number()),
-    sourceUrl: v.optional(v.string()),
-    note: v.optional(v.string()),
-    createdAt: v.number(),
-  },
-  handler: async (ctx, args) => {
-    const existing = await ctx.db
-      .query("cardDataReview")
-      .withIndex("by_cardKey_and_field", (q) =>
-        q.eq("cardKey", args.cardKey).eq("field", args.field),
-      )
-      .collect();
-    for (const row of existing) {
-      if (row.status === "pending") await ctx.db.delete(row._id);
-    }
-    await ctx.db.insert("cardDataReview", { ...args, status: "pending" });
-  },
-});
+// ── Internal maintenance ─────────────────────────────────────────────────────
 
 // Maintenance: clear pending review proposals (e.g. after changing the proposal
 // shape). Internal — run via `convex run review:clearPendingReviews`.
@@ -151,20 +82,49 @@ export const pendingReviewCount = query({
 });
 
 // Apply one pending review to cardDetails and close it. Shared by single-confirm
-// and bulk auto-confirm. Assumes the row is still pending.
+// and bulk auto-confirm. Assumes the row is still pending. If the live data
+// changed after the proposal was enqueued (concurrent RapidAPI refresh,
+// auto-apply, or another admin), the row is closed as "stale" instead of
+// applied — confirming it verbatim would clobber the newer value.
 async function applyConfirmedReview(
   ctx: MutationCtx,
   review: Doc<"cardDataReview">,
   userId: string,
-) {
+): Promise<{ applied: boolean; stale: boolean }> {
   const detail = await ctx.db
     .query("cardDetails")
     .withIndex("by_cardKey", (q) => q.eq("cardKey", review.cardKey))
     .unique();
-  if (detail) {
+  // Card gone (deleted after the proposal was enqueued): there is nothing to
+  // apply the review to — close it as stale, NOT confirmed, so the no-op never
+  // reads as a human verdict in shadow-precision numbers.
+  if (!detail) {
+    await ctx.db.patch(review._id, {
+      status: "stale",
+      reviewedAt: Date.now(),
+      reviewedBy: userId,
+    });
+    return { applied: false, stale: true };
+  }
+  {
     const nameKeys = ARRAY_FIELD_NAME_KEYS[review.field];
     const isItemDelta =
       !!nameKeys && !!review.changeType && review.itemName !== undefined;
+
+    if (
+      reviewIsStale(
+        (detail as any)[review.field],
+        review,
+        isItemDelta ? nameKeys : undefined,
+      )
+    ) {
+      await ctx.db.patch(review._id, {
+        status: "stale",
+        reviewedAt: Date.now(),
+        reviewedBy: userId,
+      });
+      return { applied: false, stale: true };
+    }
 
     // For an array item delta, apply just that delta to the live array;
     // otherwise write the scalar value verbatim.
@@ -212,10 +172,13 @@ async function applyConfirmedReview(
     reviewedAt: Date.now(),
     reviewedBy: userId,
   });
+  return { applied: true, stale: false };
 }
 
 // Accept a proposal: write the value to cardDetails, stamp manual provenance,
 // close the review, and re-scan offers for the card since fees/bonuses changed.
+// Returns { applied, stale } — stale means the live data changed since the
+// proposal and the row was closed without applying.
 export const confirmReview = mutation({
   args: { reviewId: v.id("cardDataReview") },
   handler: async (ctx, { reviewId }) => {
@@ -224,18 +187,23 @@ export const confirmReview = mutation({
     if (!review) throw new Error(`Review '${reviewId}' not found`);
     if (review.status !== "pending")
       throw new Error(`Review '${reviewId}' is already ${review.status}`);
-    await applyConfirmedReview(ctx, review, userId);
+    return await applyConfirmedReview(ctx, review, userId);
   },
 });
 
 // Bulk auto-confirm every pending proposal at or above a confidence threshold
-// (default 0.9). Removals carry no confidence, so they are never bulk-confirmed
-// and stay for manual review. Returns how many were applied.
+// (default 0.9) whose citation is an issuer-authoritative domain — a confident
+// extraction citing a blog/affiliate stays for manual review. Removals are
+// skipped EXPLICITLY (never bulk-delete), not just because they happen to lack
+// confidence today — a future pipeline stage may well attach one. Rows whose
+// live data changed since the proposal are closed as stale, not applied.
+// Returns how many were applied.
 export const confirmHighConfidence = mutation({
   args: { minConfidence: v.optional(v.number()) },
   handler: async (ctx, { minConfidence }) => {
     const userId = await requireAdmin(ctx);
     const threshold = minConfidence ?? 0.9;
+    const allowlist = issuerAllowlist(process.env.ISSUER_DOMAIN_ALLOWLIST);
     // Bounded scan so one mutation stays within Convex's read/time limits; a very
     // large queue just takes another click. Ordered oldest-first for stable
     // progress across calls.
@@ -246,13 +214,33 @@ export const confirmHighConfidence = mutation({
       .order("asc")
       .take(SCAN_CAP);
     let applied = 0;
+    let stale = 0;
     for (const review of pending) {
-      if ((review.confidence ?? 0) >= threshold) {
-        await applyConfirmedReview(ctx, review, userId);
-        applied++;
-      }
+      // Removals never bulk-confirm regardless of confidence — a wrong removal
+      // deletes real user-facing data (the "never bulk-delete" rule).
+      if (review.changeType === "remove") continue;
+      if ((review.confidence ?? 0) < threshold) continue;
+      const detail = await ctx.db
+        .query("cardDetails")
+        .withIndex("by_cardKey", (q) => q.eq("cardKey", review.cardKey))
+        .unique();
+      if (
+        !detail ||
+        !review.sourceUrl ||
+        !isIssuerAuthoritativeUrl(review.sourceUrl, detail.cardIssuer, allowlist)
+      )
+        continue;
+      const res = await applyConfirmedReview(ctx, review, userId);
+      if (res.applied) applied++;
+      else if (res.stale) stale++;
     }
-    return { applied, threshold, scanned: pending.length, more: pending.length === SCAN_CAP };
+    return {
+      applied,
+      stale,
+      threshold,
+      scanned: pending.length,
+      more: pending.length === SCAN_CAP,
+    };
   },
 });
 

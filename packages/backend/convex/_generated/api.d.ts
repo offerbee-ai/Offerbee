@@ -9,6 +9,8 @@
  */
 
 import type * as arrayDelta from "../arrayDelta.js";
+import type * as audit from "../audit.js";
+import type * as auditRevert from "../auditRevert.js";
 import type * as auth from "../auth.js";
 import type * as autoApplyGate from "../autoApplyGate.js";
 import type * as benefitCycles from "../benefitCycles.js";
@@ -27,6 +29,8 @@ import type * as catalogSync from "../catalogSync.js";
 import type * as crons from "../crons.js";
 import type * as email from "../email.js";
 import type * as freshness from "../freshness.js";
+import type * as freshnessConfig from "../freshnessConfig.js";
+import type * as freshnessPlan from "../freshnessPlan.js";
 import type * as geoService from "../geoService.js";
 import type * as http from "../http.js";
 import type * as migrations from "../migrations.js";
@@ -36,6 +40,7 @@ import type * as notifications from "../notifications.js";
 import type * as offers from "../offers.js";
 import type * as onboarding from "../onboarding.js";
 import type * as onboardingCatalog from "../onboardingCatalog.js";
+import type * as pageFetch from "../pageFetch.js";
 import type * as plaid from "../plaid.js";
 import type * as plaidCardMap from "../plaidCardMap.js";
 import type * as plaidDetect from "../plaidDetect.js";
@@ -50,11 +55,11 @@ import type * as rapidapi from "../rapidapi.js";
 import type * as reminderRules from "../reminderRules.js";
 import type * as reminders from "../reminders.js";
 import type * as review from "../review.js";
+import type * as reviewSuppress from "../reviewSuppress.js";
 import type * as tips from "../tips.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 import type * as validators from "../validators.js";
-import type * as verify from "../verify.js";
 import type * as wallet from "../wallet.js";
 
 import type {
@@ -65,6 +70,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   arrayDelta: typeof arrayDelta;
+  audit: typeof audit;
+  auditRevert: typeof auditRevert;
   auth: typeof auth;
   autoApplyGate: typeof autoApplyGate;
   benefitCycles: typeof benefitCycles;
@@ -83,6 +90,8 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   email: typeof email;
   freshness: typeof freshness;
+  freshnessConfig: typeof freshnessConfig;
+  freshnessPlan: typeof freshnessPlan;
   geoService: typeof geoService;
   http: typeof http;
   migrations: typeof migrations;
@@ -92,6 +101,7 @@ declare const fullApi: ApiFromModules<{
   offers: typeof offers;
   onboarding: typeof onboarding;
   onboardingCatalog: typeof onboardingCatalog;
+  pageFetch: typeof pageFetch;
   plaid: typeof plaid;
   plaidCardMap: typeof plaidCardMap;
   plaidDetect: typeof plaidDetect;
@@ -106,11 +116,11 @@ declare const fullApi: ApiFromModules<{
   reminderRules: typeof reminderRules;
   reminders: typeof reminders;
   review: typeof review;
+  reviewSuppress: typeof reviewSuppress;
   tips: typeof tips;
   users: typeof users;
   utils: typeof utils;
   validators: typeof validators;
-  verify: typeof verify;
   wallet: typeof wallet;
 }>;
 

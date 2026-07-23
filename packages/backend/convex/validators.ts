@@ -87,6 +87,9 @@ export const reviewStatusValidator = v.union(
   v.literal("pending"),
   v.literal("confirmed"),
   v.literal("rejected"),
+  // The live data changed after this proposal was enqueued — confirming it
+  // verbatim would clobber the newer value, so the row was closed unapplied.
+  v.literal("stale"),
 );
 
 // Why a field landed in the review queue.

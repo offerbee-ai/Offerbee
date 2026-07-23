@@ -24,8 +24,10 @@ crons.interval(
   {},
 );
 
-// Baseline Plaid transaction sync (webhook is the low-latency trigger; this is
-// the safety net so Items stay current even without webhooks).
+// Baseline Plaid transaction sync. Forces /transactions/refresh per Item so it
+// actively pulls recently-posted transactions (the webhook is the low-latency
+// trigger, but Plaid's own fetch cadence can lag a day+ — without a forced
+// refresh a posted credit could sit unsynced until the user tapped Refresh).
 crons.interval(
   "sync plaid transactions",
   { hours: 6 },

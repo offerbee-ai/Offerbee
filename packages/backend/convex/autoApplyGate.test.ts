@@ -105,3 +105,53 @@ describe("autoApplyGate", () => {
     expect(d.autoApply).toBe(true);
   });
 });
+
+describe("reviewOnlyFields", () => {
+  it("routes a review-only field to review regardless of confidence/citation", () => {
+    const d = gateChange(
+      {
+        field: "signupBonusAmount",
+        changeType: "patch",
+        current: 60000,
+        proposed: 75000,
+        confidence: 0.99,
+        sourceUrl: "https://chase.com/sapphire",
+      },
+      { confidenceThreshold: 0.85, reviewOnlyFields: ["signupBonusAmount"] },
+    );
+    expect(d.autoApply).toBe(false);
+    expect(d.reason).toMatch(/review-only/i);
+  });
+
+  it("does not affect other fields", () => {
+    const d = gateChange(
+      {
+        field: "fxFee",
+        changeType: "patch",
+        current: 3,
+        proposed: 0,
+        confidence: 0.95,
+        sourceUrl: "https://chase.com/x",
+      },
+      { confidenceThreshold: 0.85, reviewOnlyFields: ["signupBonusAmount"] },
+    );
+    expect(d.autoApply).toBe(true);
+  });
+});
+
+describe("cardUrl self-heal changes", () => {
+  it("a string-proposed scalar (cardUrl) passes bounds and auto-applies when cited", () => {
+    const d = gateChange(
+      {
+        field: "cardUrl",
+        changeType: "patch",
+        current: "https://junk.example/aff",
+        proposed: "https://citi.com/costco-anywhere",
+        confidence: 0.95,
+        sourceUrl: "https://citi.com/costco-anywhere",
+      },
+      { confidenceThreshold: 0.85, cardIssuer: "Citi", allowlist: ["citi.com"] },
+    );
+    expect(d.autoApply).toBe(true);
+  });
+});
