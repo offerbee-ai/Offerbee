@@ -21,3 +21,33 @@ export function isRetryableStatus(status: number): boolean {
 export function retryDelayMs(attempt: number): number {
   return 2000 * 2 ** attempt;
 }
+
+// One owned card's freshness state, as listRefreshCandidates surfaces it.
+export type FreshnessCandidate = {
+  cardKey: string;
+  cardName: string;
+  cardIssuer: string;
+  cardUrl: string | null;
+  lastVerifiedAt: number | null;
+};
+
+// TTL gate for the external refresh path (the Claude-Code /freshness-refresh
+// skill). Keeps only cards DUE for re-verification — never verified, or last
+// verified before the TTL window elapsed — ranked oldest-first, capped at
+// `limit`. A card verified within the last `ttlMs` is fresh and dropped, so the
+// external pipeline re-checks each card at most once per TTL (1 week by
+// default), matching the cron's claimDueCards. `now`/`ttlMs` are injected for
+// testability. Strict `<` cutoff mirrors claimDueCards (a card exactly at the
+// cutoff is treated as still fresh).
+export function selectDueCandidates(
+  cards: FreshnessCandidate[],
+  now: number,
+  ttlMs: number,
+  limit: number,
+): FreshnessCandidate[] {
+  const cutoff = now - ttlMs;
+  return cards
+    .filter((c) => c.lastVerifiedAt == null || c.lastVerifiedAt < cutoff)
+    .sort((a, b) => (a.lastVerifiedAt ?? 0) - (b.lastVerifiedAt ?? 0))
+    .slice(0, limit);
+}

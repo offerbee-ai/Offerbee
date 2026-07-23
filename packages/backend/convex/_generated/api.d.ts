@@ -36,6 +36,7 @@ import type * as notifications from "../notifications.js";
 import type * as offers from "../offers.js";
 import type * as onboarding from "../onboarding.js";
 import type * as onboardingCatalog from "../onboardingCatalog.js";
+import type * as pageFetch from "../pageFetch.js";
 import type * as plaid from "../plaid.js";
 import type * as plaidCardMap from "../plaidCardMap.js";
 import type * as plaidDetect from "../plaidDetect.js";
@@ -92,6 +93,7 @@ declare const fullApi: ApiFromModules<{
   offers: typeof offers;
   onboarding: typeof onboarding;
   onboardingCatalog: typeof onboardingCatalog;
+  pageFetch: typeof pageFetch;
   plaid: typeof plaid;
   plaidCardMap: typeof plaidCardMap;
   plaidDetect: typeof plaidDetect;

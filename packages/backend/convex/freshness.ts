@@ -38,7 +38,12 @@ import {
 } from "./reviewSuppress";
 import { issuerAllowlist } from "./freshnessConfig";
 import { fetchIssuerPage, type FetchedPage } from "./pageFetch";
-import { planBatch, isRetryableStatus, retryDelayMs } from "./freshnessPlan";
+import {
+  planBatch,
+  isRetryableStatus,
+  retryDelayMs,
+  selectDueCandidates,
+} from "./freshnessPlan";
 import {
   ARRAY_FIELD_NAME_KEYS,
   categoryToNamed,
@@ -716,8 +721,17 @@ async function runProfilePipeline(
 // where distinct keys exceeded the walk ceiling, so partial coverage is
 // observable rather than silent.
 export const listRefreshCandidates = internalQuery({
-  args: { limit: v.optional(v.number()) },
-  handler: async (ctx, { limit }) => {
+  args: {
+    limit: v.optional(v.number()),
+    // TTL window (ms) for the due gate; defaults to the pipeline's configured
+    // CARD_VERIFY_TTL_DAYS (1 week). Cards verified within it are dropped.
+    ttlMs: v.optional(v.number()),
+    // Escape hatch for admin "show every owned card" views: return all cards
+    // regardless of freshness. The external refresh skill leaves this off so it
+    // re-checks each card at most once per TTL.
+    includeFresh: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { limit, ttlMs, includeFresh }) => {
     const cap = Math.min(limit ?? 25, 100);
     // Wallet-first: freshness only covers owned cards, and distinct owned
     // cardKeys are catalog-bounded (a few thousand at the theoretical max) —
@@ -762,8 +776,17 @@ export const listRefreshCandidates = internalQuery({
         lastVerifiedAt: d.lastVerifiedAt ?? null,
       });
     }
-    out.sort((a, b) => (a.lastVerifiedAt ?? 0) - (b.lastVerifiedAt ?? 0));
-    return { candidates: out.slice(0, cap), truncated };
+    // Default: TTL-gate to cards actually due for re-verification (never
+    // verified, or last verified before the TTL window), oldest-first. This
+    // keeps the external /freshness-refresh skill from re-fetching cards that
+    // are still fresh — each card is refreshed at most once per TTL (1 week),
+    // matching the cron. includeFresh returns the full owned set for admin views.
+    const candidates = includeFresh
+      ? out
+          .sort((a, b) => (a.lastVerifiedAt ?? 0) - (b.lastVerifiedAt ?? 0))
+          .slice(0, cap)
+      : selectDueCandidates(out, Date.now(), ttlMs ?? config().ttlMs, cap);
+    return { candidates, truncated };
   },
 });
 

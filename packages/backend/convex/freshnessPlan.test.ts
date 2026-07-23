@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { planBatch, isRetryableStatus, retryDelayMs } from "./freshnessPlan";
+import {
+  planBatch,
+  isRetryableStatus,
+  retryDelayMs,
+  selectDueCandidates,
+  type FreshnessCandidate,
+} from "./freshnessPlan";
 
 describe("planBatch", () => {
   it("claims the full per-run cap while budget remains", () => {
@@ -40,5 +46,83 @@ describe("retryDelayMs", () => {
     expect(retryDelayMs(0)).toBe(2000);
     expect(retryDelayMs(1)).toBe(4000);
     expect(retryDelayMs(2)).toBe(8000);
+  });
+});
+
+describe("selectDueCandidates", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const WEEK = 7 * DAY;
+  const NOW = 1_000_000_000_000;
+  const cutoff = NOW - WEEK;
+
+  const card = (
+    cardKey: string,
+    lastVerifiedAt: number | null,
+  ): FreshnessCandidate => ({
+    cardKey,
+    cardName: cardKey,
+    cardIssuer: "issuer",
+    cardUrl: null,
+    lastVerifiedAt,
+  });
+
+  it("drops cards verified within the TTL window (fresh)", () => {
+    const out = selectDueCandidates(
+      [card("fresh", NOW - 1 * DAY), card("due", NOW - 8 * DAY)],
+      NOW,
+      WEEK,
+      15,
+    );
+    expect(out.map((c) => c.cardKey)).toEqual(["due"]);
+  });
+
+  it("keeps never-verified cards and ranks them oldest-first", () => {
+    const out = selectDueCandidates(
+      [card("due", NOW - 8 * DAY), card("never", null)],
+      NOW,
+      WEEK,
+      15,
+    );
+    expect(out.map((c) => c.cardKey)).toEqual(["never", "due"]);
+  });
+
+  it("treats a card exactly at the cutoff as still fresh (strict <, matches cron)", () => {
+    const out = selectDueCandidates([card("edge", cutoff)], NOW, WEEK, 15);
+    expect(out).toHaveLength(0);
+  });
+
+  it("sorts due cards oldest-first", () => {
+    const out = selectDueCandidates(
+      [
+        card("recent-due", NOW - 8 * DAY),
+        card("older-due", NOW - 30 * DAY),
+        card("oldest-due", NOW - 90 * DAY),
+      ],
+      NOW,
+      WEEK,
+      15,
+    );
+    expect(out.map((c) => c.cardKey)).toEqual([
+      "oldest-due",
+      "older-due",
+      "recent-due",
+    ]);
+  });
+
+  it("caps the result at the limit", () => {
+    const many = Array.from({ length: 20 }, (_, i) =>
+      card(`c${i}`, NOW - (8 + i) * DAY),
+    );
+    expect(selectDueCandidates(many, NOW, WEEK, 15)).toHaveLength(15);
+  });
+
+  it("returns empty when every card is fresh", () => {
+    const out = selectDueCandidates(
+      [card("a", NOW - 1 * DAY), card("b", NOW - 6 * DAY)],
+      NOW,
+      WEEK,
+      15,
+    );
+    expect(out).toHaveLength(0);
   });
 });

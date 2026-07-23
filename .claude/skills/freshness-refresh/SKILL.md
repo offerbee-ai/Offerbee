@@ -1,6 +1,6 @@
 ---
 name: freshness-refresh
-description: Weekly card-data refresh run by Claude Code itself (subscription-billed, no OpenRouter cost). Lists the wallet cards most overdue for verification, fetches each card's official issuer page, extracts the terms, and submits them to the server-side freshness pipeline (suppression, gating, audit, and review queue all still apply). Trigger - /freshness-refresh, "refresh card data", "weekly data refresh".
+description: Weekly card-data refresh run by Claude Code itself (subscription-billed, no OpenRouter cost). Lists the wallet cards due for verification (TTL-gated to once per week per card), fetches each card's official issuer page, extracts the terms, and submits them to the server-side freshness pipeline (suppression, gating, audit, and review queue all still apply). Trigger - /freshness-refresh, "refresh card data", "weekly data refresh".
 ---
 
 # Freshness refresh (external extraction)
@@ -15,14 +15,23 @@ on every `convex run` when asked to refresh those.
 
 ## Workflow
 
-1. **Get the work list** (oldest-verified wallet cards first):
+1. **Get the work list** (cards actually due for a refresh):
 
    ```sh
    npx convex run freshness:listRefreshCandidates '{"limit": 15}'
    ```
 
    The response is `{candidates: [...], truncated}`. Work through
-   `candidates` — the oldest-verified cards across the whole wallet.
+   `candidates` — owned cards **due** for re-verification, oldest-first.
+   The query TTL-gates server-side: a card verified within the last
+   `CARD_VERIFY_TTL_DAYS` (1 week) is fresh and is **not** returned, so each
+   card is refreshed at most once per week — the same TTL the cron uses.
+
+   **If `candidates` is empty, every owned card is still fresh.** Stop here
+   and report "nothing due this week" — do not force-refresh fresh cards.
+   (To audit the full owned set regardless of freshness, pass
+   `'{"includeFresh": true}'`, but never do this for a routine refresh.)
+
    `truncated` is false in any realistic deployment; if it is ever true,
    say so in the summary (it means distinct owned cards exceeded the
    query's 4,000-key walk ceiling and coverage was partial).
