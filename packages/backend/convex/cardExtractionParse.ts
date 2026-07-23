@@ -102,9 +102,21 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
       }
     }
     if (typeof sbNode.desc === "string") sb.desc = sbNode.desc;
-    if (typeof sbNode.confidence === "number") sb.confidence = sbNode.confidence;
-    if (typeof sbNode.sourceUrl === "string") sb.sourceUrl = sbNode.sourceUrl;
-    if (Object.keys(sb).length > 0) profile.signupBonus = sb;
+    // The block only counts as reported when it carries at least one VALUE —
+    // a metadata-only object (confidence/sourceUrl alone) verifies nothing
+    // and must not read as an evaluated field downstream.
+    const hasValue =
+      sb.amount !== undefined ||
+      sb.spend !== undefined ||
+      sb.length !== undefined ||
+      sb.lengthPeriod !== undefined ||
+      sb.desc !== undefined;
+    if (hasValue) {
+      if (typeof sbNode.confidence === "number")
+        sb.confidence = sbNode.confidence;
+      if (typeof sbNode.sourceUrl === "string") sb.sourceUrl = sbNode.sourceUrl;
+      profile.signupBonus = sb;
+    }
   }
 
   if (Array.isArray(obj.earnCategories)) {

@@ -130,3 +130,27 @@ describe("fxFee and signupBonus coverage", () => {
     expect(parseExtraction('{"signupBonus": {}}')?.signupBonus).toBeUndefined();
   });
 });
+
+// A signupBonus object carrying only metadata (confidence/sourceUrl) verifies
+// nothing — it must be dropped so downstream presence checks (external
+// submissions' empty-profile guard, evaluatedFields) don't count it.
+describe("metadata-only signupBonus", () => {
+  it("drops a signupBonus with no value fields", () => {
+    const p = parseExtraction(
+      JSON.stringify({
+        signupBonus: { confidence: 0.9, sourceUrl: "https://chase.com/x" },
+      }),
+    );
+    expect(p).not.toBeNull();
+    expect(p!.signupBonus).toBeUndefined();
+  });
+
+  it("keeps a signupBonus with at least one value field", () => {
+    const p = parseExtraction(
+      JSON.stringify({
+        signupBonus: { amount: 60000, confidence: 0.9 },
+      }),
+    );
+    expect(p!.signupBonus).toEqual({ amount: 60000, confidence: 0.9 });
+  });
+});
