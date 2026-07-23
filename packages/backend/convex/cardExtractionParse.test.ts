@@ -167,3 +167,30 @@ describe("empty-string signupBonus fields", () => {
     expect(p!.signupBonus).toBeUndefined();
   });
 });
+
+// A non-empty array whose every entry lacked a usable name filters to empty —
+// that is a failed read, not the explicit "[] = page lists none" removal
+// signal, and must stay unreported.
+describe("filtered-to-empty arrays", () => {
+  it("leaves benefits unreported when all entries are nameless", () => {
+    const p = parseExtraction(
+      JSON.stringify({ benefits: [{ desc: "no title here" }] }),
+    );
+    expect(p!.benefits).toBeUndefined();
+  });
+
+  it("leaves earnCategories unreported when all entries are nameless", () => {
+    const p = parseExtraction(
+      JSON.stringify({ earnCategories: [{ multiplier: 3 }] }),
+    );
+    expect(p!.earnCategories).toBeUndefined();
+  });
+
+  it("keeps explicitly empty arrays as a removal signal", () => {
+    const p = parseExtraction(
+      JSON.stringify({ benefits: [], earnCategories: [] }),
+    );
+    expect(p!.benefits).toEqual([]);
+    expect(p!.earnCategories).toEqual([]);
+  });
+});

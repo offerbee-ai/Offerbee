@@ -123,7 +123,7 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
   }
 
   if (Array.isArray(obj.earnCategories)) {
-    profile.earnCategories = obj.earnCategories
+    const items = obj.earnCategories
       .filter((c: any) => c && typeof c.name === "string")
       .map((c: any) => {
         const out: NamedItem = { ...c };
@@ -135,10 +135,15 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
         if (sl !== undefined) out.spendLimit = sl;
         return out;
       });
+    // [] as SUBMITTED is an explicit "page lists none" (a removal signal);
+    // a non-empty array whose every entry lacked a usable name is a failed
+    // read and must stay unreported — never let it impersonate the former.
+    if (obj.earnCategories.length === 0 || items.length > 0)
+      profile.earnCategories = items;
   }
 
   if (Array.isArray(obj.benefits)) {
-    profile.benefits = obj.benefits
+    const items = obj.benefits
       .map((b: any): NamedItem | null => {
         const name =
           typeof b?.name === "string"
@@ -151,6 +156,9 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
         return { ...rest, name };
       })
       .filter((b: NamedItem | null): b is NamedItem => b !== null);
+    // Same rule as earnCategories: filtered-to-empty ≠ explicitly empty.
+    if (obj.benefits.length === 0 || items.length > 0)
+      profile.benefits = items;
   }
 
   return profile;
