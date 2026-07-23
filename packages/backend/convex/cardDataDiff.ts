@@ -57,7 +57,7 @@ export const norm = (name: string) =>
     .trim()
     .toLowerCase()
     .replace(/[®™©]/g, "")
-    .replace(/^(?:up to\s+)?\$[\d,]+(?:\.\d+)?\s*/, "")
+    .replace(/^(?:up to\s+)?\$[\d,]+(?:\.\d+)?(?=\s|$)\s*/, "")
     .replace(/\s+/g, " ")
     .trim();
 

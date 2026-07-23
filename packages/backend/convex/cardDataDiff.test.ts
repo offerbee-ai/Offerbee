@@ -162,6 +162,11 @@ describe("norm canonicalization", () => {
   it("strips trademark symbols", () => {
     expect(norm("IHG One Rewards Platinum Elite Status®")).toBe(norm("IHG One Rewards Platinum Elite Status"));
   });
+  it("requires a delimiter after the leading amount (no false merge)", () => {
+    expect(norm("$500Credit")).toBe("$500credit"); // glued amount NOT stripped
+    expect(norm("$500Credit")).not.toBe(norm("Credit"));
+    expect(norm("$500 Credit")).toBe("credit"); // real delimiter still stripped
+  });
   it("does not merge distinct benefits or strip mid-title amounts", () => {
     expect(norm("$300 Annual Travel Credit")).not.toBe(norm("$300 Annual Dining Credit"));
     expect(norm("Credit for up to $100")).toBe("credit for up to $100"); // amount not leading

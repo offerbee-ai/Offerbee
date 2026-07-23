@@ -982,7 +982,13 @@ export const applyFreshnessChanges = internalMutation({
         .take(50);
       for (const r of pending) {
         if (r.status !== "pending") continue;
-        if (opts.itemName === undefined || r.itemName === opts.itemName)
+        // Match by normalized name (same key the diff + retirement pass use),
+        // so a retitled item — "$500 X" now proposed as "X" — replaces its old
+        // pending row instead of leaving a duplicate behind.
+        if (
+          opts.itemName === undefined ||
+          norm(r.itemName ?? "") === norm(opts.itemName)
+        )
           await ctx.db.delete(r._id);
       }
       await ctx.db.insert("cardDataReview", {
