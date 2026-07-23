@@ -74,20 +74,31 @@ on every `convex run` when asked to refresh those.
       Protections & Insurance, plus partner/promo blocks. Enumerate every
       benefit WITHIN a section before moving to the next. Do not jump around.
 
-   b. **Anchor to the page's own declared counts.** These pages print their
-      benefit counts, e.g. `All Premium Travel Benefits (19)`,
-      `Dining & Entertainment (7)`, `Shopping & Wellness (9)`. Find every such
-      `(N)` and make sure you captured ~N from that section. **If your count
-      for a section is short of the page's declared N, you missed some — go
-      back and re-read that section before continuing.** This is your
-      completeness checklist; use it.
+   b. **Anchor to the page's own declared section counts — carefully.** Amex
+      pages print labeled benefit counts, e.g. `All Premium Travel Benefits
+      (19)`, `Dining & Entertainment (7)`, `Shopping & Wellness (9)`. Trust a
+      count ONLY when it is attached to a benefit-section label like that.
+      **A bare `(N)` is not a benefit count** — pages are full of unrelated
+      parentheticals (`All Cards (42)`, `Southwest (5)` in nav/brand menus,
+      footnote markers). Do not anchor to those. Many issuers (Chase) print no
+      labeled counts at all — then skip this step and rely on (a) and (c).
 
-   c. **Self-critique pass before you submit (loop until dry).** After a draft,
-      re-read the FULL page text once more with your extracted title list in
-      hand and ask only: "which benefits or earn categories on this page are
-      NOT in my list?" Add every one you find. Repeat until a pass finds
-      nothing new. A narrow "what did I miss?" read has far higher recall than
-      the first "list everything" sweep.
+      A labeled count is a **re-read trigger, never a fill target.** If a
+      section's label says (19) and you captured 12, re-read *that section* for
+      benefits you skipped — but only add ones with explicit supporting text on
+      the page. **Never invent, duplicate, or split a benefit to reach a
+      number.** Under-counting a section is fine; fabricating to hit N is not.
+
+   c. **Self-critique pass before you submit (bounded).** After a draft,
+      re-read the FULL page text with your extracted title list in hand and ask
+      only: "which benefits or earn categories on this page — with explicit
+      page text — are NOT in my list?" Add each (canonical title, no
+      duplicates). Run this at most **2 additional passes**; stop earlier if a
+      pass adds nothing. If after 2 passes a labeled section count still looks
+      short, do NOT keep looping or pad it — note the specific gap in your
+      summary (e.g. "Premium Travel: page says 19, captured 17") and submit
+      what the page actually supports. A narrow "what did I miss?" read has far
+      higher recall than the first "list everything" sweep.
 
    d. **Scan the deep sections, not just the top grid.** The most-missed
       benefits live below the primary benefit grid: partnership/co-brand
