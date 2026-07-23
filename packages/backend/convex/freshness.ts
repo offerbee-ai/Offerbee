@@ -705,12 +705,22 @@ export const listRefreshCandidates = internalQuery({
   handler: async (ctx, { limit }) => {
     const cap = Math.min(limit ?? 25, 100);
     // Wallet-first: freshness only covers owned cards, and distinct owned
-    // cardKeys are few — walking cardDetails.by_lastVerifiedAt instead would
-    // scan the (much larger) never-verified unowned catalog before reaching
-    // any wallet card. Stream the whole table so dedup happens across every
-    // row, not a truncated prefix.
-    const keys = new Set<string>();
-    for await (const c of ctx.db.query("userCards")) keys.add(c.cardKey);
+    // cardKeys are few (catalog-bounded) — walking cardDetails.by_lastVerifiedAt
+    // instead would scan the (much larger) never-verified unowned catalog
+    // before reaching any wallet card. Skip along the by_cardKey index one
+    // DISTINCT key at a time: reads scale with distinct cards, not with
+    // userCards rows, so a large user base can't hit the per-query read limit.
+    const keys: string[] = [];
+    let cursor = "";
+    while (keys.length < 1000) {
+      const next = await ctx.db
+        .query("userCards")
+        .withIndex("by_cardKey", (q) => q.gt("cardKey", cursor))
+        .first();
+      if (!next) break;
+      keys.push(next.cardKey);
+      cursor = next.cardKey;
+    }
     const out: Array<{
       cardKey: string;
       cardName: string;
