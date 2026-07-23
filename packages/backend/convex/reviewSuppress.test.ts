@@ -20,6 +20,15 @@ describe("canonicalValue", () => {
     );
   });
 
+  it("treats numeric strings and numbers as the same value (signupBonusAmount is number|string)", () => {
+    expect(canonicalValue("60000")).toBe(canonicalValue(60000));
+    expect(canonicalValue(" 60000 ")).toBe(canonicalValue(60000));
+    expect(canonicalValue("2.5")).toBe(canonicalValue(2.5));
+    // Non-pure-numeric strings stay strings — no false merges.
+    expect(canonicalValue("60,000 points")).not.toBe(canonicalValue(60000));
+    expect(canonicalValue("")).not.toBe(canonicalValue(0));
+  });
+
   it("ignores extraction metadata keys (confidence/sourceUrl/group)", () => {
     expect(
       canonicalValue({ name: "gas", multiplier: 5, confidence: 0.9, sourceUrl: "https://x.com" }),

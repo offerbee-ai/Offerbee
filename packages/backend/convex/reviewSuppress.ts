@@ -19,7 +19,14 @@ import { toNum } from "./cardExtractionParse";
 // extraction metadata (confidence/sourceUrl/group) dropped, and every string
 // whitespace/case-normalized so formatting drift alone never breaks a match.
 export function canonicalValue(value: unknown): string {
-  if (typeof value === "string") return JSON.stringify(norm(value));
+  if (typeof value === "string") {
+    // signupBonusAmount is number|string in the schema, and sources flip
+    // between "60000" and 60000 for the same value — canonicalize pure numeric
+    // strings as numbers so a type flip alone never reads as a data change.
+    const t = value.trim();
+    if (t !== "" && /^-?\d+(\.\d+)?$/.test(t)) return JSON.stringify(Number(t));
+    return JSON.stringify(norm(value));
+  }
   if (Array.isArray(value))
     return `[${value.map((v) => canonicalValue(v)).join(",")}]`;
   if (value && typeof value === "object") {
