@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffScalar, diffNamedArray, isMassRemoval } from "./cardDataDiff";
+import { diffScalar, diffNamedArray, isMassRemoval, norm } from "./cardDataDiff";
 
 // Pure diff primitives for the freshness pipeline: compare a stored value to
 // the LLM-extracted value and emit typed change ops. Array items are matched by
@@ -148,5 +148,34 @@ describe("isMassRemoval", () => {
       },
     ];
     expect(isMassRemoval(2, mixed)).toBe(false);
+  });
+});
+
+// norm() strips a leading currency amount + trademark symbols so the same
+// benefit matches across title conventions (kills re-title churn).
+describe("norm canonicalization", () => {
+  it("strips leading dollar amount", () => {
+    expect(norm("$500 Southwest Airlines Credit")).toBe(norm("Southwest Airlines Credit"));
+    expect(norm("$1,250 Baggage Credit")).toBe("baggage credit");
+    expect(norm("up to $120 Lyft Credit")).toBe("lyft credit");
+  });
+  it("strips trademark symbols", () => {
+    expect(norm("IHG One Rewards Platinum Elite Status®")).toBe(norm("IHG One Rewards Platinum Elite Status"));
+  });
+  it("requires a delimiter after the leading amount (no false merge)", () => {
+    expect(norm("$500Credit")).toBe("$500credit"); // glued amount NOT stripped
+    expect(norm("$500Credit")).not.toBe(norm("Credit"));
+    expect(norm("$500 Credit")).toBe("credit"); // real delimiter still stripped
+  });
+  it("does not merge distinct benefits or strip mid-title amounts", () => {
+    expect(norm("$300 Annual Travel Credit")).not.toBe(norm("$300 Annual Dining Credit"));
+    expect(norm("Credit for up to $100")).toBe("credit for up to $100"); // amount not leading
+  });
+  it("re-titled benefit is a patch, not remove+add churn", () => {
+    const current = [{ name: "$500 Southwest Airlines Credit", desc: "old" }];
+    const proposed = [{ name: "Southwest Airlines Credit", desc: "old" }];
+    const changes = diffNamedArray("benefit", current as any, proposed as any);
+    expect(changes.filter((c) => c.changeType === "remove")).toHaveLength(0);
+    expect(changes.filter((c) => c.changeType === "add")).toHaveLength(0);
   });
 });
