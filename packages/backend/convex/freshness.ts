@@ -103,6 +103,10 @@ function config() {
     model: process.env.OPENROUTER_MODEL || DEFAULT_MODEL,
     confidenceThreshold: num("CONFIDENCE_AUTO_APPLY", 0.85),
     ttlMs: num("CARD_VERIFY_TTL_DAYS", 7) * 24 * 60 * 60 * 1000,
+    // Internal daily-cron TTL, decoupled from the external skill's TTL. The
+    // per-token OpenRouter cron backs off to 14d to save API cost; the free
+    // /freshness-refresh skill keeps CARD_VERIFY_TTL_DAYS (7d) via ttlMs above.
+    internalTtlMs: num("INTERNAL_VERIFY_TTL_DAYS", 14) * 24 * 60 * 60 * 1000,
     // After a failed extraction, retry this soon instead of waiting a full TTL.
     failureRetryMs: num("FRESHNESS_FAILURE_RETRY_HOURS", 6) * 60 * 60 * 1000,
     perRunCap: num("FRESHNESS_PER_RUN_CAP", 25),
@@ -451,7 +455,7 @@ export const verifyOneCard = internalAction({
       // full TTL — set a short backoff so a transient failure retries soon.
       await ctx.runMutation(internal.freshness.markVerified, {
         cardKey,
-        verifiedAt: Date.now() - cfg.ttlMs + cfg.failureRetryMs,
+        verifiedAt: Date.now() - cfg.internalTtlMs + cfg.failureRetryMs,
         runId,
       });
       return;
@@ -463,6 +467,8 @@ export const verifyOneCard = internalAction({
       selection,
       cfg,
       runId,
+      // Internal cron/admin path: 14d backoff base (see config.internalTtlMs).
+      ttlMs: cfg.internalTtlMs,
       arrayPolicy: "guard",
     });
   },
@@ -484,6 +490,7 @@ async function runProfilePipeline(
     selection,
     cfg,
     runId,
+    ttlMs,
     arrayPolicy,
   }: {
     detail: FreshnessDetail;
@@ -491,6 +498,12 @@ async function runProfilePipeline(
     selection: SourceSelection;
     cfg: ReturnType<typeof config>;
     runId?: Id<"pipelineRuns">;
+    // Effective TTL for THIS path's failure backoff, so a suspect read heals
+    // via the caller's own due-gate: internal cron = internalTtlMs (14d),
+    // external skill = ttlMs (7d). The shared lastVerifiedAt marker is read by
+    // both gates, but the write must make the card due-soon for the gate that
+    // owns this run's cadence.
+    ttlMs: number;
     arrayPolicy: "guard" | "additive";
   },
 ) {
@@ -701,6 +714,8 @@ async function runProfilePipeline(
     evaluatedFields,
     suspectFields,
     autoEnabled: cfg.autoApplyEnabled,
+    // Path-specific backoff base for a suspect read (internal 14d / external 7d).
+    ttlMs,
     runId,
   });
 }
@@ -850,6 +865,8 @@ export const processExternalProfile = internalAction({
       profile,
       selection,
       cfg,
+      // External skill path: 7d backoff base (CARD_VERIFY_TTL_DAYS via ttlMs).
+      ttlMs: cfg.ttlMs,
       arrayPolicy: "additive",
     });
     return { ok: true };
@@ -911,11 +928,23 @@ export const applyFreshnessChanges = internalMutation({
     // review rows, and the card retries on the short backoff.
     suspectFields: v.optional(v.array(v.string())),
     autoEnabled: v.boolean(),
+    // Effective TTL (ms) for this path's suspect-read backoff: internal cron =
+    // internalTtlMs (14d), external skill = ttlMs (7d). Optional so older
+    // callers/scheduled jobs mid-deploy fall back to the config default.
+    ttlMs: v.optional(v.number()),
     runId: v.optional(v.id("pipelineRuns")),
   },
   handler: async (
     ctx,
-    { cardKey, changes, evaluatedFields, suspectFields, autoEnabled, runId },
+    {
+      cardKey,
+      changes,
+      evaluatedFields,
+      suspectFields,
+      autoEnabled,
+      ttlMs,
+      runId,
+    },
   ) => {
     const detail = await ctx.db
       .query("cardDetails")
@@ -1216,7 +1245,7 @@ export const applyFreshnessChanges = internalMutation({
     // failure backoff so a transient bad read heals within hours, not a week.
     if (suspectFields && suspectFields.length > 0) {
       const cfg = config();
-      patchDoc.lastVerifiedAt = now - cfg.ttlMs + cfg.failureRetryMs;
+      patchDoc.lastVerifiedAt = now - (ttlMs ?? cfg.ttlMs) + cfg.failureRetryMs;
     } else {
       patchDoc.lastVerifiedAt = now;
     }
@@ -1312,7 +1341,7 @@ export const verifyWalletBatch = internalAction({
       (await ctx.runMutation(internal.freshness.startRun, { source: "cron" }));
     const { cardKeys } = await ctx.runMutation(
       internal.freshness.claimDueCards,
-      { limit: batch, ttlMs: cfg.ttlMs, retryMs: cfg.failureRetryMs },
+      { limit: batch, ttlMs: cfg.internalTtlMs, retryMs: cfg.failureRetryMs },
     );
     for (let i = 0; i < cardKeys.length; i++) {
       await ctx.scheduler.runAfter(
