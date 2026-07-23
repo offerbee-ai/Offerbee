@@ -4,6 +4,8 @@
 // issuer's own name token). Junk / affiliate / missing / malformed URLs fall
 // back to open web search. Pure module (no Convex imports) — unit-testable.
 
+import { DOMAIN_FAMILIES } from "./freshnessConfig";
+
 // Flat (non-discriminated) so callers/tests can read url/domain after checking
 // mode without a narrow. `url`/`domain` are set only when mode is "issuer-url".
 export type SourceSelection = {
@@ -35,6 +37,15 @@ function issuerToken(issuer: string): string {
   return issuer.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// The allowlist entry a host matches (exact or subdomain), or null.
+function allowlistEntryOf(host: string, allowlist: string[]): string | null {
+  return (
+    allowlist
+      .map((d) => d.toLowerCase())
+      .find((d) => host === d || host.endsWith(`.${d}`)) ?? null
+  );
+}
+
 // Whether a host is issuer-authoritative: on the allowlist (exact or subdomain)
 // or its second-level label EXACTLY equals the issuer token. Exact-SLD (not
 // substring) rejects lookalikes like "chase-rewards.example". Shared by the
@@ -44,14 +55,41 @@ export function isIssuerAuthoritativeHost(
   cardIssuer: string,
   allowlist: string[],
 ): string | null {
-  const allowed = allowlist
-    .map((d) => d.toLowerCase())
-    .find((d) => host === d || host.endsWith(`.${d}`));
+  const allowed = allowlistEntryOf(host, allowlist);
   if (allowed) return allowed;
 
   const token = issuerToken(cardIssuer);
   if (token.length >= 4 && sld(host) === token) return host;
   return null;
+}
+
+// Whether a fetch that started on an approved issuer URL may still be trusted
+// after redirects. Stricter than isIssuerAuthoritativeUrl: the allowlist is
+// shared across issuers, so landing on a DIFFERENT issuer's allowlisted domain
+// (chase.com -> citi.com) must not pass. Trusted when the final host matches
+// the card issuer's own name token, stays on the original URL's allowlist
+// entry, or moves within a declared same-issuer domain family
+// (biltrewards.com -> bilt.com).
+export function isTrustedRedirect(
+  originalUrl: string,
+  finalUrl: string,
+  cardIssuer: string,
+  allowlist: string[],
+): boolean {
+  const oHost = hostOf(originalUrl);
+  const fHost = hostOf(finalUrl);
+  if (!oHost || !fHost) return false;
+
+  const token = issuerToken(cardIssuer);
+  if (token.length >= 4 && sld(fHost) === token) return true;
+
+  const oEntry = allowlistEntryOf(oHost, allowlist);
+  const fEntry = allowlistEntryOf(fHost, allowlist);
+  if (!oEntry || !fEntry) return false;
+  if (oEntry === fEntry) return true;
+  return DOMAIN_FAMILIES.some(
+    (fam) => fam.includes(oEntry) && fam.includes(fEntry),
+  );
 }
 
 export function isIssuerAuthoritativeUrl(

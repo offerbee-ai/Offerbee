@@ -14,6 +14,7 @@ import {
   selectSource,
   cleanIssuerUrl,
   isIssuerAuthoritativeUrl,
+  isTrustedRedirect,
   type SourceSelection,
 } from "./cardSourceSelect";
 import {
@@ -409,12 +410,14 @@ export const verifyOneCard = internalAction({
       selection.mode === "issuer-url"
         ? await fetchIssuerPage(selection.url!)
         : null;
-    // Redirects can leave the issuer's domain (parked/affiliate targets); the
-    // extraction prompt pins sourceUrl to finalUrl and the gate treats the
-    // page as issuer-cited, so only an authoritative final host may be used.
+    // Redirects can leave the issuer's domain (parked/affiliate targets, or a
+    // DIFFERENT issuer's allowlisted domain); the extraction prompt pins
+    // sourceUrl to finalUrl and the gate treats the page as issuer-cited, so
+    // only a redirect that stays within this card's issuer may be trusted.
     const page =
       fetched &&
-      isIssuerAuthoritativeUrl(
+      isTrustedRedirect(
+        selection.url!,
         fetched.finalUrl,
         detail.cardIssuer,
         cfg.allowlist,
