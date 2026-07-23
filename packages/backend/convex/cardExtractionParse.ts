@@ -91,7 +91,7 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
     // lengthOfPeriod like "3 months".
     const length = toNum(sbNode.length);
     if (length !== undefined) sb.length = length;
-    if (typeof sbNode.lengthPeriod === "string")
+    if (typeof sbNode.lengthPeriod === "string" && sbNode.lengthPeriod.trim())
       sb.lengthPeriod = sbNode.lengthPeriod;
     if (typeof sbNode.lengthOfPeriod === "string") {
       const m = sbNode.lengthOfPeriod.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
@@ -101,7 +101,10 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
           sb.lengthPeriod = m[2].toLowerCase();
       }
     }
-    if (typeof sbNode.desc === "string") sb.desc = sbNode.desc;
+    // Empty/whitespace strings are absence, not values — "" as a desc would
+    // otherwise diff against the stored desc and propose wiping it.
+    if (typeof sbNode.desc === "string" && sbNode.desc.trim())
+      sb.desc = sbNode.desc;
     // The block only counts as reported when it carries at least one VALUE —
     // a metadata-only object (confidence/sourceUrl alone) verifies nothing
     // and must not read as an evaluated field downstream.

@@ -154,3 +154,16 @@ describe("metadata-only signupBonus", () => {
     expect(p!.signupBonus).toEqual({ amount: 60000, confidence: 0.9 });
   });
 });
+
+// Empty strings are absence, not values — "" as desc/lengthPeriod must not
+// count as a reported field (or it would propose wiping the stored value).
+describe("empty-string signupBonus fields", () => {
+  it("drops a signupBonus whose only 'values' are empty strings", () => {
+    const p = parseExtraction(
+      JSON.stringify({
+        signupBonus: { desc: "", lengthPeriod: "  ", confidence: 0.9 },
+      }),
+    );
+    expect(p!.signupBonus).toBeUndefined();
+  });
+});
