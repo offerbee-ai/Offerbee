@@ -381,13 +381,23 @@ export const verifyOneCard = internalAction({
     // Fetch-first: pull the issuer page ourselves and extract from its full
     // text. A failed fetch (bot wall, JS-only shell, dead URL) falls back to
     // the web-search path — same behavior as before this existed.
-    const page =
+    const fetched =
       selection.mode === "issuer-url"
         ? await fetchIssuerPage(selection.url!)
         : null;
+    // Redirects can leave the issuer's domain (parked/affiliate targets); the
+    // extraction prompt pins sourceUrl to finalUrl and the gate treats the
+    // page as issuer-cited, so only an authoritative final host may be used.
+    const page =
+      fetched &&
+      isIssuerAuthoritativeUrl(fetched.finalUrl, detail.cardIssuer, cfg.allowlist)
+        ? fetched
+        : null;
     if (selection.mode === "issuer-url" && !page)
       console.log(
-        `freshness: page fetch failed for ${cardKey}, falling back to web search`,
+        fetched
+          ? `freshness: redirect left issuer domain (${fetched.finalUrl}) for ${cardKey}, falling back to web search`
+          : `freshness: page fetch failed for ${cardKey}, falling back to web search`,
       );
     const raw = await extractProfile(
       detail.cardName,

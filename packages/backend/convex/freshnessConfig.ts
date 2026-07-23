@@ -14,6 +14,8 @@ export const DEFAULT_ALLOWLIST = [
   "usbank.com",
   "barclaycardus.com",
   "biltrewards.com",
+  // biltrewards.com/card 308-redirects here (2025 rebrand); both are Bilt's.
+  "bilt.com",
 ];
 
 // The configured allowlist: ISSUER_DOMAIN_ALLOWLIST (comma-separated) when set,
