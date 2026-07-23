@@ -64,6 +64,22 @@ export function isIssuerAuthoritativeUrl(
   return host ? isIssuerAuthoritativeHost(host, cardIssuer, allowlist) !== null : false;
 }
 
+// Canonicalize an issuer URL before storing it (URL self-heal): drop the hash
+// and tracking params so the stored cardUrl is stable across extractions.
+export function cleanIssuerUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    u.hash = "";
+    for (const key of [...u.searchParams.keys()]) {
+      if (/^utm_/i.test(key) || /^(ref|referrer|affid|cid)$/i.test(key))
+        u.searchParams.delete(key);
+    }
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
 export function selectSource(opts: {
   cardUrl?: string;
   cardIssuer: string;

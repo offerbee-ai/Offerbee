@@ -7,17 +7,32 @@
 
 import type { NamedItem } from "./cardDataDiff";
 
+export type ExtractedSignupBonus = {
+  amount?: number;
+  spend?: number;
+  length?: number;
+  lengthPeriod?: string;
+  desc?: string;
+  confidence?: number;
+  sourceUrl?: string;
+};
+
 export type ExtractedProfile = {
   annualFee?: number;
   annualFeeConfidence?: number;
   annualFeeSourceUrl?: string;
+  fxFee?: number;
+  fxFeeConfidence?: number;
+  fxFeeSourceUrl?: string;
+  // Present only when the model reported the block (omitted → don't diff).
+  signupBonus?: ExtractedSignupBonus;
   // undefined = the model omitted the field (do NOT diff → no bogus removals);
   // [] = the model explicitly reported no items (a real removal signal).
   earnCategories?: NamedItem[];
   benefits?: NamedItem[];
 };
 
-function toNum(x: unknown): number | undefined {
+export function toNum(x: unknown): number | undefined {
   if (typeof x === "number") return Number.isFinite(x) ? x : undefined;
   if (typeof x === "string") {
     const n = parseFloat(x.replace(/[^0-9.\-]/g, ""));
@@ -51,6 +66,45 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
       if (typeof afNode.sourceUrl === "string")
         profile.annualFeeSourceUrl = afNode.sourceUrl;
     }
+  }
+
+  const fxNode = obj.fxFee;
+  const fx = toNum(fxNode?.value ?? fxNode);
+  if (fx !== undefined) {
+    profile.fxFee = fx;
+    if (fxNode && typeof fxNode === "object") {
+      if (typeof fxNode.confidence === "number")
+        profile.fxFeeConfidence = fxNode.confidence;
+      if (typeof fxNode.sourceUrl === "string")
+        profile.fxFeeSourceUrl = fxNode.sourceUrl;
+    }
+  }
+
+  const sbNode = obj.signupBonus;
+  if (sbNode && typeof sbNode === "object" && !Array.isArray(sbNode)) {
+    const sb: ExtractedSignupBonus = {};
+    const amount = toNum(sbNode.amount);
+    if (amount !== undefined) sb.amount = amount;
+    const spend = toNum(sbNode.spend);
+    if (spend !== undefined) sb.spend = spend;
+    // Accept either explicit length/lengthPeriod or a combined
+    // lengthOfPeriod like "3 months".
+    const length = toNum(sbNode.length);
+    if (length !== undefined) sb.length = length;
+    if (typeof sbNode.lengthPeriod === "string")
+      sb.lengthPeriod = sbNode.lengthPeriod;
+    if (typeof sbNode.lengthOfPeriod === "string") {
+      const m = sbNode.lengthOfPeriod.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
+      if (m) {
+        if (sb.length === undefined) sb.length = parseFloat(m[1]);
+        if (sb.lengthPeriod === undefined && m[2])
+          sb.lengthPeriod = m[2].toLowerCase();
+      }
+    }
+    if (typeof sbNode.desc === "string") sb.desc = sbNode.desc;
+    if (typeof sbNode.confidence === "number") sb.confidence = sbNode.confidence;
+    if (typeof sbNode.sourceUrl === "string") sb.sourceUrl = sbNode.sourceUrl;
+    if (Object.keys(sb).length > 0) profile.signupBonus = sb;
   }
 
   if (Array.isArray(obj.earnCategories)) {

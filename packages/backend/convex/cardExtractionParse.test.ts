@@ -82,3 +82,51 @@ describe("parseExtraction", () => {
     expect(p?.earnCategories?.[0]).toMatchObject({ spendLimit: 7000 });
   });
 });
+
+describe("fxFee and signupBonus coverage", () => {
+  it("parses fxFee with confidence and sourceUrl", () => {
+    const p = parseExtraction(
+      '{"fxFee": {"value": 3, "confidence": 0.9, "sourceUrl": "https://chase.com/x"}}',
+    );
+    expect(p?.fxFee).toBe(3);
+    expect(p?.fxFeeConfidence).toBe(0.9);
+    expect(p?.fxFeeSourceUrl).toBe("https://chase.com/x");
+  });
+
+  it("coerces a string fxFee", () => {
+    const p = parseExtraction('{"fxFee": {"value": "3%"}}');
+    expect(p?.fxFee).toBe(3);
+  });
+
+  it("leaves fxFee undefined when omitted", () => {
+    const p = parseExtraction('{"annualFee": {"value": 95}}');
+    expect(p?.fxFee).toBeUndefined();
+  });
+
+  it("parses the signupBonus block and splits lengthOfPeriod", () => {
+    const p = parseExtraction(
+      '{"signupBonus": {"amount": 60000, "spend": "4,000", "lengthOfPeriod": "3 months", "desc": "60k after $4k", "confidence": 0.92, "sourceUrl": "https://chase.com/sapphire"}}',
+    );
+    expect(p?.signupBonus).toMatchObject({
+      amount: 60000,
+      spend: 4000,
+      length: 3,
+      lengthPeriod: "months",
+      desc: "60k after $4k",
+      confidence: 0.92,
+      sourceUrl: "https://chase.com/sapphire",
+    });
+  });
+
+  it("prefers explicit length/lengthPeriod over lengthOfPeriod", () => {
+    const p = parseExtraction(
+      '{"signupBonus": {"amount": 1, "length": 90, "lengthPeriod": "days", "lengthOfPeriod": "3 months"}}',
+    );
+    expect(p?.signupBonus).toMatchObject({ length: 90, lengthPeriod: "days" });
+  });
+
+  it("leaves signupBonus undefined when omitted or empty", () => {
+    expect(parseExtraction('{"annualFee": {"value": 0}}')?.signupBonus).toBeUndefined();
+    expect(parseExtraction('{"signupBonus": {}}')?.signupBonus).toBeUndefined();
+  });
+});

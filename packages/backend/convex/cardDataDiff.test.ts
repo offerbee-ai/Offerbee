@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diffScalar, diffNamedArray } from "./cardDataDiff";
+import { diffScalar, diffNamedArray, isMassRemoval } from "./cardDataDiff";
 
 // Pure diff primitives for the freshness pipeline: compare a stored value to
 // the LLM-extracted value and emit typed change ops. Array items are matched by
@@ -105,5 +105,48 @@ describe("diffNamedArray", () => {
     );
     // Same category, same multiplier → no add/remove, no meaningful change.
     expect(changes.filter((c) => c.changeType !== "patch")).toEqual([]);
+  });
+});
+
+describe("isMassRemoval", () => {
+  const removes = (n: number) =>
+    Array.from({ length: n }, (_, i) => ({
+      field: "benefit",
+      changeType: "remove" as const,
+      name: `b${i}`,
+      current: { name: `b${i}` },
+    }));
+
+  it("no removals / a single removal is never suspect", () => {
+    expect(isMassRemoval(5, [])).toBe(false);
+    expect(isMassRemoval(5, removes(1))).toBe(false);
+    expect(isMassRemoval(1, removes(1))).toBe(false);
+  });
+
+  it("a strict majority of 2+ removals is suspect", () => {
+    expect(isMassRemoval(3, removes(2))).toBe(true);
+    expect(isMassRemoval(4, removes(3))).toBe(true);
+    expect(isMassRemoval(2, removes(2))).toBe(true);
+    expect(isMassRemoval(10, removes(10))).toBe(true);
+  });
+
+  it("half or less is not suspect", () => {
+    expect(isMassRemoval(4, removes(2))).toBe(false);
+    expect(isMassRemoval(10, removes(5))).toBe(false);
+  });
+
+  it("counts only removals, not adds/patches", () => {
+    const mixed = [
+      ...removes(1),
+      { field: "benefit", changeType: "add" as const, name: "x", proposed: { name: "x" } },
+      {
+        field: "benefit",
+        changeType: "patch" as const,
+        name: "y",
+        current: { name: "y" },
+        proposed: { name: "y", desc: "z" },
+      },
+    ];
+    expect(isMassRemoval(2, mixed)).toBe(false);
   });
 });
