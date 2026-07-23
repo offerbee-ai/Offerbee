@@ -5,6 +5,15 @@
 
 import type { NamedItem } from "./cardDataDiff";
 
+// The cardDetails array fields handled per item by the freshness/review flow,
+// with the stored-shape keys an item's display name can live under. Single
+// source of truth — the pipeline, review confirm/reject, and audit revert all
+// key item lookups off this map.
+export const ARRAY_FIELD_NAME_KEYS: Record<string, string[]> = {
+  spendBonusCategory: ["spendBonusCategoryName", "spendBonusCategoryType"],
+  benefit: ["benefitTitle"],
+};
+
 export function categoryToNamed(c: Record<string, any>): NamedItem {
   const name = String(c.spendBonusCategoryName ?? c.spendBonusCategoryType ?? "");
   const out: NamedItem = { name };

@@ -31,6 +31,7 @@ import {
 import { issuerAllowlist } from "./freshnessConfig";
 import { planBatch, isRetryableStatus, retryDelayMs } from "./freshnessPlan";
 import {
+  ARRAY_FIELD_NAME_KEYS,
   categoryToNamed,
   namedToCategory,
   benefitToNamed,
@@ -580,7 +581,8 @@ export const markVerified = internalMutation({
 // review row per item (add/remove/patch + item name), so a reviewer accepts or
 // rejects each individually. confirmReview applies a single item delta to the
 // live array. "Add everything" — no field is excluded; benefits included.
-const ARRAY_FIELDS = new Set(["spendBonusCategory", "benefit"]);
+// Derived from the shared name-key map so the field list has one owner.
+const ARRAY_FIELDS = new Set(Object.keys(ARRAY_FIELD_NAME_KEYS));
 
 // Apply the auto-approved changes (when enabled), enqueue scalar changes that
 // need review, and audit every gated change — all in one atomic mutation so the
@@ -707,12 +709,14 @@ export const applyFreshnessChanges = internalMutation({
       wouldAutoApply: boolean;
       note: string;
     }) => {
+      // Bounded read: a card has at most a handful of rows per field (pendings
+      // are replaced in place); 50 is a generous ceiling, never a full scan.
       const pending = await ctx.db
         .query("cardDataReview")
         .withIndex("by_cardKey_and_field", (q) =>
           q.eq("cardKey", cardKey).eq("field", opts.field),
         )
-        .collect();
+        .take(50);
       for (const r of pending) {
         if (r.status !== "pending") continue;
         if (opts.itemName === undefined || r.itemName === opts.itemName)
@@ -807,15 +811,12 @@ export const applyFreshnessChanges = internalMutation({
     // ── Array fields: per-item. Auto-apply each passing delta to a working copy;
     //    queue the rest as one review row PER item (add everything, review each). ──
     const arrayDefs = [
-      {
-        field: "spendBonusCategory",
-        toStored: namedToCategory,
-        nameKeys: ["spendBonusCategoryName", "spendBonusCategoryType"],
-      },
-      { field: "benefit", toStored: namedToBenefit, nameKeys: ["benefitTitle"] },
+      { field: "spendBonusCategory", toStored: namedToCategory },
+      { field: "benefit", toStored: namedToBenefit },
     ] as const;
 
-    for (const { field, toStored, nameKeys } of arrayDefs) {
+    for (const { field, toStored } of arrayDefs) {
+      const nameKeys = ARRAY_FIELD_NAME_KEYS[field];
       const chs = changes.filter((c) => c.field === field);
       if (chs.length === 0) continue;
 
@@ -898,10 +899,12 @@ export const applyFreshnessChanges = internalMutation({
     }
     // A suspect extraction doesn't earn the full TTL — retry on the short
     // failure backoff so a transient bad read heals within hours, not a week.
-    patchDoc.lastVerifiedAt =
-      suspectFields && suspectFields.length > 0
-        ? now - config().ttlMs + config().failureRetryMs
-        : now;
+    if (suspectFields && suspectFields.length > 0) {
+      const cfg = config();
+      patchDoc.lastVerifiedAt = now - cfg.ttlMs + cfg.failureRetryMs;
+    } else {
+      patchDoc.lastVerifiedAt = now;
+    }
     await ctx.db.patch(detail._id, patchDoc as Record<string, unknown>);
 
     await bumpRun(ctx, runId, { extracted: 1, ...counters });
