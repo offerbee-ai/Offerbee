@@ -91,7 +91,7 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
     // lengthOfPeriod like "3 months".
     const length = toNum(sbNode.length);
     if (length !== undefined) sb.length = length;
-    if (typeof sbNode.lengthPeriod === "string")
+    if (typeof sbNode.lengthPeriod === "string" && sbNode.lengthPeriod.trim())
       sb.lengthPeriod = sbNode.lengthPeriod;
     if (typeof sbNode.lengthOfPeriod === "string") {
       const m = sbNode.lengthOfPeriod.match(/(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?/);
@@ -101,15 +101,30 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
           sb.lengthPeriod = m[2].toLowerCase();
       }
     }
-    if (typeof sbNode.desc === "string") sb.desc = sbNode.desc;
-    if (typeof sbNode.confidence === "number") sb.confidence = sbNode.confidence;
-    if (typeof sbNode.sourceUrl === "string") sb.sourceUrl = sbNode.sourceUrl;
-    if (Object.keys(sb).length > 0) profile.signupBonus = sb;
+    // Empty/whitespace strings are absence, not values — "" as a desc would
+    // otherwise diff against the stored desc and propose wiping it.
+    if (typeof sbNode.desc === "string" && sbNode.desc.trim())
+      sb.desc = sbNode.desc;
+    // The block only counts as reported when it carries at least one VALUE —
+    // a metadata-only object (confidence/sourceUrl alone) verifies nothing
+    // and must not read as an evaluated field downstream.
+    const hasValue =
+      sb.amount !== undefined ||
+      sb.spend !== undefined ||
+      sb.length !== undefined ||
+      sb.lengthPeriod !== undefined ||
+      sb.desc !== undefined;
+    if (hasValue) {
+      if (typeof sbNode.confidence === "number")
+        sb.confidence = sbNode.confidence;
+      if (typeof sbNode.sourceUrl === "string") sb.sourceUrl = sbNode.sourceUrl;
+      profile.signupBonus = sb;
+    }
   }
 
   if (Array.isArray(obj.earnCategories)) {
-    profile.earnCategories = obj.earnCategories
-      .filter((c: any) => c && typeof c.name === "string")
+    const items = obj.earnCategories
+      .filter((c: any) => c && typeof c.name === "string" && c.name.trim())
       .map((c: any) => {
         const out: NamedItem = { ...c };
         // Coerce numeric terms so the gate's bounds checks apply (LLMs often
@@ -120,15 +135,20 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
         if (sl !== undefined) out.spendLimit = sl;
         return out;
       });
+    // [] as SUBMITTED is an explicit "page lists none" (a removal signal);
+    // a non-empty array whose every entry lacked a usable name is a failed
+    // read and must stay unreported — never let it impersonate the former.
+    if (obj.earnCategories.length === 0 || items.length > 0)
+      profile.earnCategories = items;
   }
 
   if (Array.isArray(obj.benefits)) {
-    profile.benefits = obj.benefits
+    const items = obj.benefits
       .map((b: any): NamedItem | null => {
         const name =
-          typeof b?.name === "string"
+          typeof b?.name === "string" && b.name.trim()
             ? b.name
-            : typeof b?.title === "string"
+            : typeof b?.title === "string" && b.title.trim()
               ? b.title
               : undefined;
         if (!name) return null;
@@ -136,6 +156,9 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
         return { ...rest, name };
       })
       .filter((b: NamedItem | null): b is NamedItem => b !== null);
+    // Same rule as earnCategories: filtered-to-empty ≠ explicitly empty.
+    if (obj.benefits.length === 0 || items.length > 0)
+      profile.benefits = items;
   }
 
   return profile;
