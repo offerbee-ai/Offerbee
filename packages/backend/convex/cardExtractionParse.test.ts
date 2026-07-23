@@ -194,3 +194,18 @@ describe("filtered-to-empty arrays", () => {
     expect(p!.earnCategories).toEqual([]);
   });
 });
+
+// Whitespace-only names normalize to an empty identity — same failed-read
+// treatment as nameless entries.
+describe("whitespace-only item names", () => {
+  it("filters them and leaves the array unreported when nothing survives", () => {
+    const p = parseExtraction(
+      JSON.stringify({
+        earnCategories: [{ name: "   ", multiplier: 3 }],
+        benefits: [{ title: " ", desc: "x" }],
+      }),
+    );
+    expect(p!.earnCategories).toBeUndefined();
+    expect(p!.benefits).toBeUndefined();
+  });
+});

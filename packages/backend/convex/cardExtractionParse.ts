@@ -124,7 +124,7 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
 
   if (Array.isArray(obj.earnCategories)) {
     const items = obj.earnCategories
-      .filter((c: any) => c && typeof c.name === "string")
+      .filter((c: any) => c && typeof c.name === "string" && c.name.trim())
       .map((c: any) => {
         const out: NamedItem = { ...c };
         // Coerce numeric terms so the gate's bounds checks apply (LLMs often
@@ -146,9 +146,9 @@ export function parseExtraction(raw: string): ExtractedProfile | null {
     const items = obj.benefits
       .map((b: any): NamedItem | null => {
         const name =
-          typeof b?.name === "string"
+          typeof b?.name === "string" && b.name.trim()
             ? b.name
-            : typeof b?.title === "string"
+            : typeof b?.title === "string" && b.title.trim()
               ? b.title
               : undefined;
         if (!name) return null;
