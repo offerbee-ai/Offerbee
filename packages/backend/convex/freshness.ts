@@ -643,7 +643,7 @@ export const applyFreshnessChanges = internalMutation({
     // retirement pass below deletes every other pending row for an evaluated
     // field, so resolved/auto-applied/suppressed proposals don't linger.
     const reviewKey = (field: string, itemName?: string) =>
-      `${field} ${norm(itemName ?? "")}`;
+      `${field}\u0000${norm(itemName ?? "")}`;
     const keepKeys = new Set<string>();
     // Whether a change (with its stored-shape proposed value) was already
     // rejected by a reviewer, or re-proposes a manually pinned value.
@@ -940,14 +940,34 @@ export const verifyMyWallet = action({
       runId,
       deltas: { scheduled: cardKeys.length },
     });
-    for (let i = 0; i < cardKeys.length; i += cfg.walletConcurrency) {
-      await Promise.all(
-        cardKeys.slice(i, i + cfg.walletConcurrency).map((cardKey) =>
-          ctx.runAction(internal.freshness.verifyOneCard, { cardKey, runId }),
-        ),
-      );
+    // allSettled + finally: one card throwing hard (e.g. OCC retry exhaustion
+    // under chunk concurrency) must not abort the remaining chunks or leave the
+    // run row unfinalized — count it as failed and keep going.
+    try {
+      for (let i = 0; i < cardKeys.length; i += cfg.walletConcurrency) {
+        const chunk = cardKeys.slice(i, i + cfg.walletConcurrency);
+        const results = await Promise.allSettled(
+          chunk.map((cardKey) =>
+            ctx.runAction(internal.freshness.verifyOneCard, { cardKey, runId }),
+          ),
+        );
+        let failed = 0;
+        results.forEach((r, j) => {
+          if (r.status === "rejected") {
+            failed++;
+            console.error(`verifyMyWallet: '${chunk[j]}' failed`, r.reason);
+          }
+        });
+        if (failed > 0) {
+          await ctx.runMutation(internal.freshness.bumpRunCounters, {
+            runId,
+            deltas: { failed },
+          });
+        }
+      }
+    } finally {
+      await ctx.runMutation(internal.freshness.finishRun, { runId });
     }
-    await ctx.runMutation(internal.freshness.finishRun, { runId });
     return { cardCount: cardKeys.length };
   },
 });
