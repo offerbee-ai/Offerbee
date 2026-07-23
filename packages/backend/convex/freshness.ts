@@ -468,8 +468,9 @@ export const verifyOneCard = internalAction({
 // mutation. Used by the daily pipeline (verifyOneCard) and by external agent
 // submissions (processExternalProfile). arrayPolicy "guard" keeps the
 // mass-removal guard — an extraction wiping a populated array is a failed
-// read; "review-rebuild" is for external whole-array rebuilds: no guard, and
-// array changes never auto-apply (every item goes to the review queue).
+// read; "additive" is for external submissions: add/patch only (never removes
+// a stored benefit — the marketing page isn't the full terms), and array
+// changes never auto-apply (every item goes to the review queue).
 async function runProfilePipeline(
   ctx: ActionCtx,
   {
@@ -485,7 +486,7 @@ async function runProfilePipeline(
     selection: SourceSelection;
     cfg: ReturnType<typeof config>;
     runId?: Id<"pipelineRuns">;
-    arrayPolicy: "guard" | "review-rebuild";
+    arrayPolicy: "guard" | "additive";
   },
 ) {
   const cardKey = detail.cardKey;
@@ -661,6 +662,13 @@ async function runProfilePipeline(
     }
     evaluatedFields.push(field);
     for (const c of fieldChanges) {
+      // Additive (external) path is add/patch only — never propose removing a
+      // stored benefit. An issuer's marketing page is not the card's FULL
+      // terms (the Guide to Benefits PDF carries more: Visa Infinite suite,
+      // travel-accident coverage, etc.), so "not on the page I read" is not
+      // evidence a benefit is gone. Dropping removals protects those real
+      // off-page benefits; purging genuine junk stays a manual review action.
+      if (arrayPolicy === "additive" && c.changeType === "remove") continue;
       const proposedItem = "proposed" in c ? (c.proposed as any) : undefined;
       const change: PipelineChange = {
         field: c.field,
@@ -673,7 +681,7 @@ async function runProfilePipeline(
         autoApply: false,
       };
       change.autoApply =
-        arrayPolicy === "review-rebuild"
+        arrayPolicy === "additive"
           ? false
           : gateChange(change, gateCfg).autoApply;
       changes.push(change);
@@ -697,7 +705,7 @@ async function runProfilePipeline(
 // subscription instead of per-token API) runs the extraction itself and
 // submits the profile JSON here. The server-side pipeline stays authoritative:
 // suppression, gating, provenance, audit, and the review queue all apply.
-// Array fields never auto-apply on this path (arrayPolicy "review-rebuild"),
+// Array fields never auto-apply on this path (arrayPolicy "additive"),
 // which also skips the mass-removal guard so junk stored arrays can converge
 // through human review.
 
@@ -800,7 +808,7 @@ export const processExternalProfile = internalAction({
       profile,
       selection,
       cfg,
-      arrayPolicy: "review-rebuild",
+      arrayPolicy: "additive",
     });
     return { ok: true };
   },

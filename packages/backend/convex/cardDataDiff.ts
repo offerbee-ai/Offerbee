@@ -44,8 +44,22 @@ export function diffScalar(
   };
 }
 
+// Normalized match key for benefit / earn-category names. Beyond case and
+// whitespace, it strips a leading currency amount and trademark symbols so the
+// SAME benefit matches across title conventions — "$500 Southwest Airlines
+// Credit", "Southwest Airlines Credit", and "IHG One Rewards Platinum Elite
+// Status®" all reduce to a stable key. Without this, changing the stored
+// title's dollar prefix reads as remove-old + add-new (churn) instead of a
+// quiet no-op. Only a LEADING amount is stripped (titles lead with it);
+// amounts mid-title are left alone.
 export const norm = (name: string) =>
-  name.trim().toLowerCase().replace(/\s+/g, " ");
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[®™©]/g, "")
+    .replace(/^(?:up to\s+)?\$[\d,]+(?:\.\d+)?\s*/, "")
+    .replace(/\s+/g, " ")
+    .trim();
 
 // Extraction metadata that rides along on proposed items but is not part of the
 // card's actual data — excluded from change detection so a differing confidence

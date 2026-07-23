@@ -4,13 +4,17 @@
 // single change is applied without disturbing the rest of the array. Pure —
 // unit-testable.
 
+import { norm } from "./cardDataDiff";
+
 export type ItemDelta = {
   changeType: "add" | "patch" | "remove";
   itemName: string;
   item?: Record<string, unknown>; // the stored-shaped item (absent for remove)
 };
 
-const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, " ");
+// norm is shared with cardDataDiff so the apply step matches an item by the
+// exact same key the diff step used — otherwise a confirmed patch keyed by the
+// diff's normalization could fail to locate its target here.
 
 export function applyItemDelta(
   arr: Array<Record<string, any>>,
