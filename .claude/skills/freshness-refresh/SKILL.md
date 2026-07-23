@@ -24,13 +24,18 @@ on every `convex run` when asked to refresh those.
    The response is `{candidates: [...], truncated}`. Work through
    `candidates` — owned cards **due** for re-verification, oldest-first.
    The query TTL-gates server-side: a card verified within the last
-   `CARD_VERIFY_TTL_DAYS` (1 week) is fresh and is **not** returned, so each
-   card is refreshed at most once per week — the same TTL the cron uses.
+   `CARD_VERIFY_TTL_DAYS` (1 week) is fresh and is **not** returned, so
+   sequential runs refresh each card at most once per week — the same TTL the
+   cron uses. (The gate is a read-only filter, not a lease: if two refresh
+   runs overlap, both can pick the same due card until the first submission
+   lands. Don't run overlapping refreshes; the daily routine is a single run.)
 
    **If `candidates` is empty, every owned card is still fresh.** Stop here
    and report "nothing due this week" — do not force-refresh fresh cards.
-   (To audit the full owned set regardless of freshness, pass
-   `'{"includeFresh": true}'`, but never do this for a routine refresh.)
+   (To audit owned cards regardless of freshness, pass
+   `'{"includeFresh": true}'` — but note it still returns at most `limit`
+   (default 25, max 100), so raise `limit` for a bigger wallet. Never use it
+   for a routine refresh.)
 
    `truncated` is false in any realistic deployment; if it is ever true,
    say so in the summary (it means distinct owned cards exceeded the

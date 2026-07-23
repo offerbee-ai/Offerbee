@@ -125,4 +125,10 @@ describe("selectDueCandidates", () => {
     );
     expect(out).toHaveLength(0);
   });
+
+  it("treats a negative limit as zero (never returns all-but-last)", () => {
+    const due = [card("a", NOW - 8 * DAY), card("b", NOW - 9 * DAY)];
+    expect(selectDueCandidates(due, NOW, WEEK, -1)).toHaveLength(0);
+    expect(selectDueCandidates(due, NOW, WEEK, 0)).toHaveLength(0);
+  });
 });

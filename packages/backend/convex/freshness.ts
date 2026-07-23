@@ -726,13 +726,27 @@ export const listRefreshCandidates = internalQuery({
     // TTL window (ms) for the due gate; defaults to the pipeline's configured
     // CARD_VERIFY_TTL_DAYS (1 week). Cards verified within it are dropped.
     ttlMs: v.optional(v.number()),
-    // Escape hatch for admin "show every owned card" views: return all cards
-    // regardless of freshness. The external refresh skill leaves this off so it
-    // re-checks each card at most once per TTL.
+    // Escape hatch for admin "show every owned card" views: return the owned
+    // set (still capped by `limit`) regardless of freshness. The external
+    // refresh skill leaves this off so it re-checks each card at most once per
+    // TTL.
     includeFresh: v.optional(v.boolean()),
   },
   handler: async (ctx, { limit, ttlMs, includeFresh }) => {
-    const cap = Math.min(limit ?? 25, 100);
+    // Sanitize the optional numerics before use: a non-finite or negative
+    // `limit` would defeat the cap (Math.min(-1, 100) = -1 → slice(0, -1)
+    // returns nearly the whole list), and a bad `ttlMs` would skew the due
+    // cutoff. Clamp to safe values rather than throwing — a fat-fingered CLI
+    // arg on a background routine should degrade to defaults, not error the run.
+    const safeLimit =
+      Number.isFinite(limit) && (limit as number) > 0
+        ? Math.floor(limit as number)
+        : 25;
+    const cap = Math.min(safeLimit, 100);
+    const effTtlMs =
+      Number.isFinite(ttlMs) && (ttlMs as number) >= 0
+        ? (ttlMs as number)
+        : config().ttlMs;
     // Wallet-first: freshness only covers owned cards, and distinct owned
     // cardKeys are catalog-bounded (a few thousand at the theoretical max) —
     // walking cardDetails.by_lastVerifiedAt instead would scan the (much
@@ -777,15 +791,20 @@ export const listRefreshCandidates = internalQuery({
       });
     }
     // Default: TTL-gate to cards actually due for re-verification (never
-    // verified, or last verified before the TTL window), oldest-first. This
-    // keeps the external /freshness-refresh skill from re-fetching cards that
-    // are still fresh — each card is refreshed at most once per TTL (1 week),
-    // matching the cron. includeFresh returns the full owned set for admin views.
+    // verified, or last verified before the TTL window), oldest-first — so the
+    // external /freshness-refresh skill skips still-fresh cards. This is a
+    // read-only *filter*, not a lease: sequential runs pick each card at most
+    // once per TTL, but two overlapping runs can both see the same due card
+    // until the first submission advances lastVerifiedAt. Acceptable here — the
+    // routine runs once daily and any duplicate work is cost-only (suppression +
+    // dedup keep the applied data correct); a claiming mutation (cf.
+    // claimDueCards) would add a list-then-crash stall for no real gain.
+    // includeFresh returns the owned set (still capped by `limit`) for admin views.
     const candidates = includeFresh
       ? out
           .sort((a, b) => (a.lastVerifiedAt ?? 0) - (b.lastVerifiedAt ?? 0))
           .slice(0, cap)
-      : selectDueCandidates(out, Date.now(), ttlMs ?? config().ttlMs, cap);
+      : selectDueCandidates(out, Date.now(), effTtlMs, cap);
     return { candidates, truncated };
   },
 });

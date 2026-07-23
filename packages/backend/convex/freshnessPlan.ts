@@ -46,8 +46,12 @@ export function selectDueCandidates(
   limit: number,
 ): FreshnessCandidate[] {
   const cutoff = now - ttlMs;
+  // Math.max(0, …) guards a caller that passes a negative limit: slice(0, -1)
+  // would otherwise return all-but-the-last, defeating the cap. The query
+  // clamps upstream too; this keeps the pure helper safe on its own.
+  const cap = Math.max(0, limit);
   return cards
     .filter((c) => c.lastVerifiedAt == null || c.lastVerifiedAt < cutoff)
     .sort((a, b) => (a.lastVerifiedAt ?? 0) - (b.lastVerifiedAt ?? 0))
-    .slice(0, limit);
+    .slice(0, cap);
 }
