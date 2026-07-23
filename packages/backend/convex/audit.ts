@@ -82,33 +82,36 @@ export const shadowPrecision = query({
   handler: async (ctx) => {
     if (!(await isAdmin(ctx))) return null;
     const CAP = 500;
-    const countByStatus = async (status: "confirmed" | "rejected" | "stale") => {
+    // capped must reflect the RAW rows fetched hitting the read bound — the
+    // filtered wouldAutoApply counts are typically far below it even when the
+    // window is saturated and older verdicts fell outside it.
+    const countByStatus = async (
+      status: "confirmed" | "rejected" | "stale" | "pending",
+    ) => {
       const rows = await ctx.db
         .query("cardDataReview")
         .withIndex("by_status", (q) => q.eq("status", status))
         .order("desc")
         .take(CAP);
-      return rows.filter((r) => r.wouldAutoApply === true).length;
+      return {
+        count: rows.filter((r) => r.wouldAutoApply === true).length,
+        sawCap: rows.length === CAP,
+      };
     };
     const confirmed = await countByStatus("confirmed");
     const rejected = await countByStatus("rejected");
     const stale = await countByStatus("stale");
     // Pending gate-passing rows: verdict not in yet.
-    const pendingRows = await ctx.db
-      .query("cardDataReview")
-      .withIndex("by_status", (q) => q.eq("status", "pending"))
-      .order("desc")
-      .take(CAP);
-    const pending = pendingRows.filter((r) => r.wouldAutoApply === true).length;
-    const judged = confirmed + rejected;
+    const pending = await countByStatus("pending");
+    const judged = confirmed.count + rejected.count;
     return {
-      confirmed,
-      rejected,
-      stale,
-      pending,
-      precision: judged > 0 ? confirmed / judged : null,
+      confirmed: confirmed.count,
+      rejected: rejected.count,
+      stale: stale.count,
+      pending: pending.count,
+      precision: judged > 0 ? confirmed.count / judged : null,
       capped:
-        confirmed === CAP || rejected === CAP || stale === CAP || pending === CAP,
+        confirmed.sawCap || rejected.sawCap || stale.sawCap || pending.sawCap,
     };
   },
 });
@@ -174,10 +177,14 @@ export const revertAudit = mutation({
       ],
     } as Record<string, unknown>);
 
+    // Record the op the revert actually performed: for array items that is the
+    // INVERTED delta (reverting an "add" removes), so History labels it right
+    // and a revert-of-revert inverts cleanly instead of failing on a mislabeled
+    // row. Scalars keep their changeType (always "patch").
     await ctx.db.insert("cardDataAudit", {
       cardKey: audit.cardKey,
       field: audit.field,
-      changeType: audit.changeType,
+      changeType: plan.kind === "item" ? plan.changeType : audit.changeType,
       before: audit.after,
       after: audit.before,
       mode: "revert",

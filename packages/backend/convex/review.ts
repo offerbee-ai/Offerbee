@@ -186,9 +186,11 @@ export const confirmReview = mutation({
 
 // Bulk auto-confirm every pending proposal at or above a confidence threshold
 // (default 0.9) whose citation is an issuer-authoritative domain — a confident
-// extraction citing a blog/affiliate stays for manual review, as do removals
-// (they carry no confidence). Rows whose live data changed since the proposal
-// are closed as stale, not applied. Returns how many were applied.
+// extraction citing a blog/affiliate stays for manual review. Removals are
+// skipped EXPLICITLY (never bulk-delete), not just because they happen to lack
+// confidence today — a future pipeline stage may well attach one. Rows whose
+// live data changed since the proposal are closed as stale, not applied.
+// Returns how many were applied.
 export const confirmHighConfidence = mutation({
   args: { minConfidence: v.optional(v.number()) },
   handler: async (ctx, { minConfidence }) => {
@@ -207,6 +209,9 @@ export const confirmHighConfidence = mutation({
     let applied = 0;
     let stale = 0;
     for (const review of pending) {
+      // Removals never bulk-confirm regardless of confidence — a wrong removal
+      // deletes real user-facing data (the "never bulk-delete" rule).
+      if (review.changeType === "remove") continue;
       if ((review.confidence ?? 0) < threshold) continue;
       const detail = await ctx.db
         .query("cardDetails")

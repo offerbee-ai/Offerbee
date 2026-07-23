@@ -136,7 +136,10 @@ export default function ReviewPage() {
         const res = await autoConfirm({});
         applied += res.applied;
         stale += res.stale;
-        if (!res.more) break;
+        // Stop when the queue is drained OR a full scan moved nothing — the
+        // scan is deterministic oldest-first, so a no-op pass would just
+        // re-read the same below-threshold/uncited rows forever.
+        if (!res.more || res.applied + res.stale === 0) break;
         setRunMsg(`Auto-confirming… ${applied} applied so far.`);
       }
       setRunMsg(
