@@ -55,6 +55,12 @@ on every `convex run` when asked to refresh those.
    - Omit `signupBonus` entirely if the card has none.
    - One benefits entry per distinct benefit; short titles (they are the
      dedupe key), short descs.
+   - **Enumerate EVERY benefit and earn category the page states — do not
+     summarize or stop early.** Premium travel cards (Platinum, Sapphire
+     Reserve) commonly list 25-40 benefits: statement credits, lounge access,
+     elite statuses, travel insurances, purchase/return protections. A page
+     that clearly lists dozens but yields only ~12 means you under-extracted —
+     re-read the full page text and capture the rest before submitting.
    - Confidence honestly per field; `sourceUrl` = the final page URL.
 
 4. **Per card — submit.** Build the args with Python to avoid quote-escaping

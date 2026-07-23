@@ -14,12 +14,21 @@ const BROWSER_UA =
   "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
 const FETCH_TIMEOUT_MS = 15_000;
-// Bounds the LLM prompt (~15k tokens worst case). Issuer card pages strip to
-// ~14-40kB of text, so this keeps whole pages while capping pathological ones.
-const MAX_TEXT_CHARS = 60_000;
+// Ceiling on stripped text handed to the LLM (~30k tokens worst case). Most
+// issuer pages strip+dedup to well under this; the mega-pages that motivated
+// raising it (Chase Sapphire Reserve ran past the old 60k cap and lost its
+// benefit-dense tail) now fit. dedupeBlocks recovers most of the budget, so
+// this is a safety ceiling rather than the common case.
+const MAX_TEXT_CHARS = 120_000;
 // A stripped page shorter than this is a JS-only shell or a bot wall, not the
 // card's terms — web-search fallback beats extracting from nothing.
 const MIN_TEXT_CHARS = 500;
+// Substantial lines (benefit/term paragraphs) are deduped; shorter lines
+// (headers, "4X POINTS", footnote markers) pass through so page structure
+// survives. Issuer accordions render each benefit block 2-3×, so exact-line
+// dedup at this threshold recovers 25-40% of the character budget without
+// touching unique content.
+const DEDUP_MIN_LEN = 40;
 
 const ENTITIES: Record<string, string> = {
   amp: "&",
@@ -37,6 +46,23 @@ function decodeEntities(s: string): string {
     .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(parseInt(h, 16)));
 }
 
+// Drop repeated substantial lines while preserving order and short structural
+// lines. Issuer pages (Chase/Amex accordions) render each benefit paragraph
+// more than once — collapsing the repeats keeps the benefit-dense content
+// under MAX_TEXT_CHARS on mega-pages instead of truncating it away.
+function dedupeBlocks(lines: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const line of lines) {
+    if (line.length >= DEDUP_MIN_LEN) {
+      if (seen.has(line)) continue;
+      seen.add(line);
+    }
+    out.push(line);
+  }
+  return out;
+}
+
 // HTML -> readable plain text. Regex-based on purpose: issuer pages are the
 // input, and the LLM tolerates imperfect text — a full parser buys nothing.
 export function stripHtml(html: string): string {
@@ -45,9 +71,10 @@ export function stripHtml(html: string): string {
     .replace(/<(script|style|noscript|template|svg|iframe)\b[\s\S]*?<\/\1\s*>/gi, " ")
     .replace(/<(br|\/p|\/div|\/li|\/tr|\/h[1-6]|\/section|\/article)\b[^>]*>/gi, "\n")
     .replace(/<[^>]+>/g, " ");
-  return decodeEntities(text)
+  const lines = decodeEntities(text)
     .split("\n")
-    .map((line) => line.replace(/\s+/g, " ").trim())
+    .map((line) => line.replace(/\s+/g, " ").trim());
+  return dedupeBlocks(lines)
     .join("\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

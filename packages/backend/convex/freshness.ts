@@ -308,6 +308,9 @@ async function extractProfile(
     `"earnCategories":[{"name":"<category>","multiplier":<number>,"spendLimit":<number or 0>,"desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}],` +
     `"benefits":[{"title":"<benefit>","desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}]}. ` +
     `multiplier is the cash-back % or points-per-dollar. Omit signupBonus if the card has none. ` +
+    `List EVERY distinct earn category and benefit stated — premium cards commonly have 20-40 ` +
+    `benefits (statement credits, lounge access, elite statuses, insurances, purchase protections). ` +
+    `Do not summarize, group, or stop early; enumerate them all. ` +
     `Set confidence low if the page is ambiguous or not the issuer's own.` +
     (page
       ? `\nUse only the page text below. Omit any field the page does not state — never guess. ` +
