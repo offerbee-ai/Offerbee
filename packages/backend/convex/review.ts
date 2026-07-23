@@ -95,7 +95,18 @@ async function applyConfirmedReview(
     .query("cardDetails")
     .withIndex("by_cardKey", (q) => q.eq("cardKey", review.cardKey))
     .unique();
-  if (detail) {
+  // Card gone (deleted after the proposal was enqueued): there is nothing to
+  // apply the review to — close it as stale, NOT confirmed, so the no-op never
+  // reads as a human verdict in shadow-precision numbers.
+  if (!detail) {
+    await ctx.db.patch(review._id, {
+      status: "stale",
+      reviewedAt: Date.now(),
+      reviewedBy: userId,
+    });
+    return { applied: false, stale: true };
+  }
+  {
     const nameKeys = ARRAY_FIELD_NAME_KEYS[review.field];
     const isItemDelta =
       !!nameKeys && !!review.changeType && review.itemName !== undefined;
