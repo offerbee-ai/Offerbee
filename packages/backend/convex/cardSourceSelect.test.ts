@@ -100,3 +100,78 @@ describe("cleanIssuerUrl", () => {
     expect(cleanIssuerUrl("not a url")).toBeNull();
   });
 });
+
+import { isTrustedRedirect } from "./cardSourceSelect";
+
+// Redirect trust is stricter than issuer-authority: the allowlist is shared
+// across issuers, so a redirect from one issuer's approved page onto another
+// allowlisted issuer's domain must NOT be trusted.
+describe("isTrustedRedirect", () => {
+  const ALLOWLIST = [
+    "americanexpress.com",
+    "chase.com",
+    "citi.com",
+    "biltrewards.com",
+    "bilt.com",
+  ];
+
+  it("trusts a redirect that stays on the same allowlist entry", () => {
+    expect(
+      isTrustedRedirect(
+        "https://www.chase.com/card",
+        "https://creditcards.chase.com/card/",
+        "Chase",
+        ALLOWLIST,
+      ),
+    ).toBe(true);
+  });
+
+  it("trusts a redirect to the issuer's own domain by name token", () => {
+    expect(
+      isTrustedRedirect(
+        "https://www.americanexpress.com/us/card",
+        "https://global.americanexpress.com/us/card/",
+        "American Express",
+        ALLOWLIST,
+      ),
+    ).toBe(true);
+  });
+
+  it("trusts a redirect within a declared domain family", () => {
+    expect(
+      isTrustedRedirect(
+        "https://www.biltrewards.com/card",
+        "https://www.bilt.com/card",
+        "Wells Fargo",
+        ALLOWLIST,
+      ),
+    ).toBe(true);
+  });
+
+  it("rejects a redirect onto a DIFFERENT issuer's allowlisted domain", () => {
+    expect(
+      isTrustedRedirect(
+        "https://www.chase.com/card",
+        "https://www.citi.com/credit-cards/",
+        "Chase",
+        ALLOWLIST,
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects a redirect off the allowlist entirely", () => {
+    expect(
+      isTrustedRedirect(
+        "https://www.chase.com/card",
+        "https://chase-offers.example.com/card",
+        "Chase",
+        ALLOWLIST,
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects malformed URLs", () => {
+    expect(isTrustedRedirect("not a url", "https://chase.com/x", "Chase", ALLOWLIST)).toBe(false);
+    expect(isTrustedRedirect("https://chase.com/x", "not a url", "Chase", ALLOWLIST)).toBe(false);
+  });
+});

@@ -14,7 +14,15 @@ export const DEFAULT_ALLOWLIST = [
   "usbank.com",
   "barclaycardus.com",
   "biltrewards.com",
+  // biltrewards.com/card 308-redirects here (2025 rebrand); both are Bilt's.
+  "bilt.com",
 ];
+
+// Domains that belong to the same issuer but don't share a registrable domain
+// — a redirect between family members is trusted (biltrewards.com/card 308s to
+// bilt.com). Grouped, so a redirect between two UNRELATED allowlisted issuers
+// (chase.com -> citi.com) is still rejected.
+export const DOMAIN_FAMILIES: string[][] = [["biltrewards.com", "bilt.com"]];
 
 // The configured allowlist: ISSUER_DOMAIN_ALLOWLIST (comma-separated) when set,
 // else the default. Callers pass process.env.ISSUER_DOMAIN_ALLOWLIST.
