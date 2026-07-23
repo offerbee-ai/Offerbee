@@ -29,6 +29,7 @@ import {
   type RejectedRow,
 } from "./reviewSuppress";
 import { issuerAllowlist } from "./freshnessConfig";
+import { fetchIssuerPage, type FetchedPage } from "./pageFetch";
 import { planBatch, isRetryableStatus, retryDelayMs } from "./freshnessPlan";
 import {
   ARRAY_FIELD_NAME_KEYS,
@@ -266,6 +267,10 @@ async function extractProfile(
   cardIssuer: string,
   sourceHint: string | undefined,
   opts: { model: string; maxRetries: number },
+  // Fetch-first: when the issuer page was fetched successfully, its full text
+  // rides in the prompt and the web-search plugin is skipped — search snippets
+  // can't see whole pages, which made array fields unverifiable.
+  page?: FetchedPage,
 ): Promise<string | null> {
   const key = process.env.OPENROUTER_API_KEY;
   if (!key) {
@@ -274,9 +279,11 @@ async function extractProfile(
     );
     return null;
   }
-  const source = sourceHint
-    ? `Prefer this official page: ${sourceHint}. `
-    : `Search the web and prefer the issuer's own official page. `;
+  const source = page
+    ? `The full text of the issuer's official page (${page.finalUrl}) is included below — extract from it. `
+    : sourceHint
+      ? `Prefer this official page: ${sourceHint}. `
+      : `Search the web and prefer the issuer's own official page. `;
   const prompt =
     `Extract the current rewards terms for the "${cardName}" credit card issued by ${cardIssuer}, as of today. ` +
     source +
@@ -287,7 +294,11 @@ async function extractProfile(
     `"earnCategories":[{"name":"<category>","multiplier":<number>,"spendLimit":<number or 0>,"desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}],` +
     `"benefits":[{"title":"<benefit>","desc":"<short>","confidence":<0-1>,"sourceUrl":"<url>"}]}. ` +
     `multiplier is the cash-back % or points-per-dollar. Omit signupBonus if the card has none. ` +
-    `Set confidence low if the page is ambiguous or not the issuer's own.`;
+    `Set confidence low if the page is ambiguous or not the issuer's own.` +
+    (page
+      ? `\nUse only the page text below. Omit any field the page does not state — never guess. ` +
+        `Use "${page.finalUrl}" as sourceUrl.\n\nPAGE TEXT:\n${page.text}`
+      : "");
 
   // Bounded retry on rate limits / server errors / network failures; other
   // client errors fail fast (retrying a 400/401 won't help).
@@ -301,7 +312,9 @@ async function extractProfile(
         },
         body: JSON.stringify({
           model: opts.model,
-          plugins: [{ id: "web", max_results: 5 }],
+          // Page text in hand means no web search — the plugin only adds cost
+          // and snippet noise once the model can read the real page.
+          ...(page ? {} : { plugins: [{ id: "web", max_results: 5 }] }),
           // Belt-and-suspenders with parseExtraction's fence/prose-tolerant
           // regex parse: ask the provider for a JSON-only response outright.
           response_format: { type: "json_object" },
@@ -359,11 +372,23 @@ export const verifyOneCard = internalAction({
       cardIssuer: detail.cardIssuer,
       allowlist: cfg.allowlist,
     });
+    // Fetch-first: pull the issuer page ourselves and extract from its full
+    // text. A failed fetch (bot wall, JS-only shell, dead URL) falls back to
+    // the web-search path — same behavior as before this existed.
+    const page =
+      selection.mode === "issuer-url"
+        ? await fetchIssuerPage(selection.url!)
+        : null;
+    if (selection.mode === "issuer-url" && !page)
+      console.log(
+        `freshness: page fetch failed for ${cardKey}, falling back to web search`,
+      );
     const raw = await extractProfile(
       detail.cardName,
       detail.cardIssuer,
       selection.mode === "issuer-url" ? selection.url : undefined,
       { model: cfg.model, maxRetries: cfg.maxRetries },
+      page ?? undefined,
     );
     const profile = raw ? parseExtraction(raw) : null;
     if (!profile) {
