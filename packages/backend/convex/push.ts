@@ -147,6 +147,7 @@ export const invalidateToken = internalMutation({
 // notification type so each push lands on the right channel.
 const CHANNEL_FOR_TYPE: Record<string, string> = {
   credit_expiring: "expiry",
+  credit_expiry_roundup: "expiry",
   credit_digest: "digest",
   credit_suggested: "transactions",
   annual_fee_due: "renewal",
