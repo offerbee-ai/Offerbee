@@ -249,12 +249,16 @@ function weekKey(now: number): string {
 
 async function buildDigest(ctx: MutationCtx, user: Doc<"users">, now: number) {
   if (!categoriesFor(user).digest) return;
+  // The expiry roundup only owns near-term credits when the user has the expiry
+  // category enabled; otherwise the digest must still surface them (never drop a
+  // credit from both channels).
+  const roundupOwnsNearTerm = categoriesFor(user).expiry;
   let count = 0;
   let totalRemaining = 0;
   let soonestDays = Infinity;
   for (const b of await activeBenefits(ctx, user.userId, now)) {
     const days = Math.ceil((periodEnd(b.cycle, now) - now) / DAY_MS);
-    if (days <= EXPIRY_ROUNDUP_LEADS[b.cycle].headsUp) continue; // roundup owns near-term credits
+    if (roundupOwnsNearTerm && days <= EXPIRY_ROUNDUP_LEADS[b.cycle].headsUp) continue;
     const pk = periodKey(b.cycle, now);
     const used = await currentPeriodUsage(ctx, b._id, pk);
     const remaining = Math.round((b.amount - used) * 100) / 100;
