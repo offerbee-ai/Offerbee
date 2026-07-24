@@ -47,8 +47,9 @@ export default function NotificationsScreen() {
 
   const doAction = (n: Row) => {
     if (notifCategory(n.type) === "expiring") {
-      const creditId = (n.data as { creditId?: string } | null | undefined)?.creditId;
-      if (creditId) markUsed(creditId);
+      const d = n.data as { benefitId?: string; creditId?: string } | null | undefined;
+      const id = d?.benefitId ?? d?.creditId;
+      if (id) markUsed(id);
     }
     openTarget(n);
   };

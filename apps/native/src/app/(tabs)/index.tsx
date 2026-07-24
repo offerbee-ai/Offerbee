@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
 import { useQuery } from "convex/react";
@@ -18,7 +17,8 @@ import {
 } from "@/components/ui";
 import { spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
-import { expiringGroups, netStr, usd } from "@/features/credits/derive";
+import { netStr, usd } from "@/features/credits/derive";
+import { useReviewExpiring } from "@/features/credits/useReviewExpiring";
 import { CreditRow } from "@/features/credits/components/CreditRow";
 import { monthKicker } from "@/lib/dates";
 
@@ -74,15 +74,9 @@ function GlanceRow({
 }
 
 export default function ReviewScreen() {
-  const { credits, derived, isLoading, markUsed, snooze, pending, now } = useCredits();
+  const { derived, isLoading, markUsed, snooze, pending, now } = useCredits();
   const unread = useQuery(api.notifications.unreadCount) ?? 0;
-  const [range, setRange] = useState<"week" | "month">("week");
-
-  const exp = expiringGroups(credits, range);
-  const urgentGroup = exp.groups.find((g) => g.urgent);
-  const laterMonthCount = derived.decorated.filter(
-    (c) => !c.used && !c.snoozed && c.days > 7 && c.days <= 31,
-  ).length;
+  const { range, setRange, exp, urgentGroup, laterMonthCount } = useReviewExpiring();
 
   const pctLabel = derived.net >= 0 ? "BREAK-EVEN CLEARED" : "BELOW BREAK-EVEN";
 

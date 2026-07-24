@@ -104,6 +104,9 @@ function CollapsingHeaderScreen({
   rest: ScrollViewProps;
   children: React.ReactNode;
 }) {
+  // A caller-supplied onScroll must not clobber the Animated.event driving the
+  // collapse — pull it out and re-attach it as the event's `listener`.
+  const { onScroll: externalOnScroll, ...restProps } = rest;
   const { colors } = useTheme();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
@@ -154,8 +157,9 @@ function CollapsingHeaderScreen({
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], {
           useNativeDriver: true,
+          listener: externalOnScroll,
         })}
-        {...rest}
+        {...restProps}
       >
         <ScreenHeader title={header.title} kicker={header.kicker} trailing={header.trailing} />
         {children}

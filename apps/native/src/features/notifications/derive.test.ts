@@ -28,15 +28,23 @@ describe("notifAction", () => {
 });
 
 describe("notifTarget", () => {
-  it("reads data.route + ids", () => {
-    expect(notifTarget({ route: "credit", creditId: "c1" })).toBe("/credit/c1?from=Notifications");
-    expect(notifTarget({ route: "card", cardKey: "amex_plat" })).toBe("/card/amex_plat");
-    expect(notifTarget({ route: "benefits" })).toBe("/benefits");
+  it("prefers benefitId -> credit detail (expiring)", () => {
+    expect(notifTarget({ route: "card", cardKey: "amex", benefitId: "b1" })).toBe(
+      "/credit/b1?from=Notifications",
+    );
   });
-  it("returns null when route missing or unknown", () => {
+  it("card route -> card detail", () => {
+    expect(notifTarget({ route: "card", cardKey: "amex_plat" })).toBe("/card/amex_plat");
+  });
+  it("benefits and detected routes -> benefits", () => {
+    expect(notifTarget({ route: "benefits", tier: "gold" })).toBe("/benefits");
+    expect(notifTarget({ route: "detected", transactionId: "t1" })).toBe("/benefits");
+  });
+  it("returns null when route missing, unknown, or card without cardKey", () => {
     expect(notifTarget(undefined)).toBeNull();
     expect(notifTarget(null)).toBeNull();
     expect(notifTarget({})).toBeNull();
     expect(notifTarget({ route: "mystery" })).toBeNull();
+    expect(notifTarget({ route: "card" })).toBeNull();
   });
 });

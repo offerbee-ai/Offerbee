@@ -34,19 +34,31 @@ export function notifAction(category: NotifCategory): NotifAction {
 }
 
 export type NotifData =
-  | { route?: string; cardKey?: string; creditId?: string; [k: string]: unknown }
+  | {
+      route?: string;
+      cardKey?: string;
+      /** userBenefit id on credit_expiring notifications (what `markUsed` expects). */
+      benefitId?: string;
+      creditId?: string;
+      [k: string]: unknown;
+    }
   | undefined
   | null;
 
-/** Resolve a deep-link href from the notification's `data` payload, or null. */
+/**
+ * Resolve a deep-link href from the notification's `data` payload, or null.
+ * Backend producers emit `route` ∈ {"card","benefits","detected"} and carry a
+ * `benefitId` on expiring credits (see reminders.ts / offers.ts). A benefit id
+ * takes precedence so expiring notifications open the credit detail.
+ */
 export function notifTarget(data: NotifData): string | null {
-  if (!data || !data.route) return null;
+  if (!data) return null;
+  if (data.benefitId) return `/credit/${data.benefitId}?from=Notifications`;
   switch (data.route) {
-    case "credit":
-      return data.creditId ? `/credit/${data.creditId}?from=Notifications` : null;
     case "card":
       return data.cardKey ? `/card/${data.cardKey}` : null;
     case "benefits":
+    case "detected":
       return "/benefits";
     default:
       return null;

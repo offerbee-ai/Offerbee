@@ -27,6 +27,8 @@ export function CollapsedHeaderBar({
   return (
     <Animated.View
       pointerEvents={active ? "box-none" : "none"}
+      accessibilityElementsHidden={!active}
+      importantForAccessibility={active ? "auto" : "no-hide-descendants"}
       style={{
         position: "absolute",
         top: 0,
