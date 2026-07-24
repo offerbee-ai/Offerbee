@@ -13,6 +13,7 @@ export { ListRow } from "./ListRow";
 export { CardArt } from "./CardArt";
 export { Avatar } from "./Avatar";
 export { Toggle } from "./Toggle";
+export { Checkbox } from "./Checkbox";
 export { Skeleton } from "./Skeleton";
 export { EmptyState } from "./EmptyState";
 export { SectionLabel } from "./SectionLabel";

@@ -9,6 +9,7 @@ import { Text } from "@/components/ui";
 import { radius, spacing, useTheme } from "@/theme";
 import { fontFamilies } from "@/theme/typography";
 import { clerkError } from "@/features/auth/errors";
+import { LegalConsentPrompt, needsLegalConsent } from "@/features/auth/legal";
 
 // Warm up the browser for a snappier OAuth handoff (Expo/Clerk recommendation).
 WebBrowser.maybeCompleteAuthSession();
@@ -67,6 +68,21 @@ export function OrDivider() {
 
 type Provider = "google" | "apple";
 
+/**
+ * An OAuth identity Clerk transferred into a sign-up that still needs express
+ * legal consent. Structurally typed so we don't depend on `@clerk/types`
+ * directly (it isn't a declared dependency of this app).
+ */
+type PendingConsent = {
+  signUp: {
+    update: (params: { legalAccepted: boolean }) => Promise<{
+      status: string | null;
+      createdSessionId: string | null;
+    }>;
+  };
+  setActive: (params: { session: string }) => Promise<unknown>;
+};
+
 function OAuthButton({
   label,
   icon,
@@ -110,13 +126,29 @@ function OAuthButton({
  * Clerk. On success setActive flips the root Stack.Protected gate to
  * onboarding/tabs — no manual navigation.
  * (Design shows Google only; Apple is kept per product decision.)
+ *
+ * A first-time OAuth user is transferred to a sign-up, which Clerk holds at
+ * `missing_requirements` until express legal consent arrives. Pass
+ * `legalAccepted` when the host screen already collected it (sign-up);
+ * otherwise this component asks inline (sign-in).
  */
-export function OAuthButtons() {
+export function OAuthButtons({ legalAccepted = false }: { legalAccepted?: boolean }) {
   const { colors } = useTheme();
   const { startSSOFlow } = useSSO();
   const { startAppleAuthenticationFlow } = useSignInWithApple();
   const [pending, setPending] = useState<Provider | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [consentFor, setConsentFor] = useState<PendingConsent | null>(null);
+  const [consent, setConsent] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+
+  /** Attach consent to the transferred sign-up, then activate its session. */
+  const finish = useCallback(async ({ signUp, setActive }: PendingConsent) => {
+    const updated = await signUp.update({ legalAccepted: true });
+    if (updated.status !== "complete" || !updated.createdSessionId) return false;
+    await setActive({ session: updated.createdSessionId });
+    return true;
+  }, []);
 
   const run = useCallback(
     async (provider: Provider) => {
@@ -124,11 +156,34 @@ export function OAuthButtons() {
       setPending(provider);
       setError(null);
       try {
-        const { createdSessionId, setActive } =
+        const result =
           provider === "apple"
             ? await startAppleAuthenticationFlow()
             : await startSSOFlow({ strategy: "oauth_google" });
-        if (createdSessionId && setActive) await setActive({ session: createdSessionId });
+        const { createdSessionId, setActive } = result;
+        const signUp = "signUp" in result ? result.signUp : undefined;
+        // Present on the browser SSO result only; the Apple sheet has none.
+        const { authSessionResult } = result as { authSessionResult?: { type?: string } };
+
+        if (createdSessionId && setActive) {
+          await setActive({ session: createdSessionId });
+          return;
+        }
+        // User dismissed the browser (Apple's native sheet throws instead).
+        if (authSessionResult && authSessionResult.type !== "success") return;
+
+        if (needsLegalConsent(signUp) && setActive) {
+          const next: PendingConsent = {
+            signUp: signUp as unknown as PendingConsent["signUp"],
+            setActive: setActive as unknown as PendingConsent["setActive"],
+          };
+          // Already consented on this screen — finish without asking twice.
+          if (legalAccepted && (await finish(next))) return;
+          setConsentFor(next);
+          return;
+        }
+        // No session and no consent gap: say so rather than dead-ending.
+        setError("Couldn't finish signing in. Try again.");
       } catch (err) {
         // User dismissed the native Apple sheet — not an error.
         if ((err as { code?: string })?.code === "ERR_REQUEST_CANCELED") return;
@@ -139,8 +194,40 @@ export function OAuthButtons() {
         setPending(null);
       }
     },
-    [pending, startSSOFlow, startAppleAuthenticationFlow],
+    [pending, startSSOFlow, startAppleAuthenticationFlow, legalAccepted, finish],
   );
+
+  const onFinish = useCallback(async () => {
+    if (!consentFor || finishing) return;
+    setFinishing(true);
+    setError(null);
+    try {
+      if (!(await finish(consentFor))) {
+        setError("Couldn't finish creating your account. Try again.");
+      }
+    } catch (err) {
+      setError(clerkError(err, "Couldn't finish creating your account. Try again."));
+    } finally {
+      setFinishing(false);
+    }
+  }, [consentFor, finishing, finish]);
+
+  if (consentFor) {
+    return (
+      <LegalConsentPrompt
+        value={consent}
+        onValueChange={setConsent}
+        busy={finishing}
+        error={error}
+        onFinish={onFinish}
+        onStartOver={() => {
+          setConsentFor(null);
+          setConsent(false);
+          setError(null);
+        }}
+      />
+    );
+  }
 
   return (
     <View style={{ gap: spacing.md }}>
