@@ -6,7 +6,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { DEFAULT_NOTIFICATION_CATEGORIES } from "./onboardingCatalog";
 import { periodEnd, periodKey } from "./benefitCycles";
 import { DAY_MS, EXPIRY_ROUNDUP_LEADS, expiryRoundupPlan } from "./reminderRules";
-import type { ExpiryTier, RoundupMember, RoundupTier } from "./reminderRules";
+import type { ExpiryTier, RoundupBenefit, RoundupMember, RoundupTier } from "./reminderRules";
 
 const PAGE = 50;
 const MAX_SUGGESTED_PER_RUN = 3;
@@ -107,7 +107,7 @@ async function emitSingleCredit(
       title: `${fmtUsd(m.remaining)} left on ${m.title}`,
       body: `Resets in ${plural(m.daysLeft, "day")} — use it before it's gone.`,
       data: { route: "card", cardKey: m.cardKey, benefitId: m.benefitId },
-      dedupKey: `credit_expiring:${m.benefitId}:${m.periodKey}:${tier}`,
+      dedupKey: `credit_expiring:${m.benefitId}:${m.periodKey}:${TIER_SLUG[tier]}`,
     },
     now,
   );
@@ -146,10 +146,20 @@ async function emitRoundup(
   );
 }
 
+// Daily expiry producer: gather each active benefit that has entered its cycle's
+// heads-up window, then emit one grouped roundup per tier (N>=2) or a rich
+// single-credit push (N==1). Gated on the `expiry` category.
 async function detectExpiryRoundup(ctx: MutationCtx, user: Doc<"users">, now: number) {
   if (!categoriesFor(user).expiry) return;
-  const inputs = [];
+  const inputs: RoundupBenefit[] = [];
   for (const b of await activeBenefits(ctx, user.userId, now)) {
+    // Cheap synchronous pre-filter: skip benefits outside every expiry window
+    // before the per-benefit usage/usable reads, so a full wallet doesn't run
+    // 2 queries/benefit when nothing is near reset. Benefits outside the
+    // heads-up window are null-tiered by expiryRoundupPlan anyway, so this is
+    // behavior-preserving (lastChance lead <= headsUp lead for every cycle).
+    const days = Math.ceil((periodEnd(b.cycle, now) - now) / DAY_MS);
+    if (days > EXPIRY_ROUNDUP_LEADS[b.cycle].headsUp) continue;
     const pk = periodKey(b.cycle, now);
     inputs.push({
       benefitId: b._id as string,
@@ -162,6 +172,11 @@ async function detectExpiryRoundup(ctx: MutationCtx, user: Doc<"users">, now: nu
     });
   }
   const plan = expiryRoundupPlan(inputs, now);
+  // The single-credit (N==1) and roundup (N>=2) paths use independent dedup keys,
+  // so if a tier's count flips across the 1<->2 boundary within one period a
+  // credit can receive both forms. Accepted: over-notifying (one extra actionable
+  // push, and rare since monthly credits enter the window together) is the safe
+  // failure vs. a unified key that could silently drop a newly-added credit.
   for (const tier of ["headsUp", "lastChance"] as ExpiryTier[]) {
     const t = plan[tier];
     if (!t) continue;
