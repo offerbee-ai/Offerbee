@@ -1,7 +1,6 @@
 import { View } from "react-native";
 import { router } from "expo-router";
 
-import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import {
   Badge,
   Card,
@@ -23,18 +22,19 @@ export default function CardsScreen() {
   const { derived, isLoading } = useCredits();
 
   return (
-    <Screen withTabBarClearance>
-      <ScreenHeader
-        title="Cards"
-        trailing={
+    <Screen
+      withTabBarClearance
+      header={{
+        title: "Cards",
+        trailing: (
           <IconButton
             icon="plus"
             accessibilityLabel="Add a card"
             onPress={() => router.push("/add-card")}
           />
-        }
-      />
-
+        ),
+      }}
+    >
       {isLoading ? (
         <View style={{ gap: spacing.md }}>
           <Skeleton height={110} borderRadius={18} />

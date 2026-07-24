@@ -1,5 +1,6 @@
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { router } from "expo-router";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 
@@ -7,18 +8,22 @@ import {
   Button,
   Card,
   EmptyState,
+  Icon,
   IconButton,
   Screen,
+  SectionLabel,
   Skeleton,
   Text,
 } from "@/components/ui";
+import { NotificationRow } from "@/features/notifications/components/NotificationRow";
+import { notifCategory, notifTarget, type NotifData } from "@/features/notifications/derive";
+import { useCredits } from "@/features/credits/CreditsProvider";
 import { goBack } from "@/features/nav/back";
-import { spacing, useTheme } from "@/theme";
-import { timeAgo } from "@/lib/dates";
+import { spacing } from "@/theme";
 
 export default function NotificationsScreen() {
-  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { markUsed } = useCredits();
 
   const { results, status, loadMore } = usePaginatedQuery(
     api.notifications.listNotifications,
@@ -28,6 +33,26 @@ export default function NotificationsScreen() {
   const unread = useQuery(api.notifications.unreadCount) ?? 0;
   const markRead = useMutation(api.notifications.markRead);
   const markAllRead = useMutation(api.notifications.markAllRead);
+
+  const newItems = results.filter((n) => !n.isRead);
+  const earlierItems = results.filter((n) => n.isRead);
+
+  type Row = (typeof results)[number];
+
+  const openTarget = (n: Row) => {
+    if (!n.isRead) markRead({ notificationId: n._id }).catch(() => {});
+    const href = notifTarget(n.data as NotifData);
+    if (href) router.push(href as never);
+  };
+
+  const doAction = (n: Row) => {
+    if (notifCategory(n.type) === "expiring") {
+      const d = n.data as { benefitId?: string; creditId?: string } | null | undefined;
+      const id = d?.benefitId ?? d?.creditId;
+      if (id) markUsed(id);
+    }
+    openTarget(n);
+  };
 
   return (
     <Screen
@@ -48,19 +73,18 @@ export default function NotificationsScreen() {
           gap: spacing.md,
         }}
       >
-        <IconButton icon="chevronLeft" accessibilityLabel="Back" onPress={() => goBack("/")} />
+        <IconButton icon="chevronLeft" accessibilityLabel="Review" onPress={() => goBack("/")} />
         <Text variant="title" style={{ flex: 1 }}>
           Notifications
         </Text>
-        {unread > 0 ? (
-          <Button
-            label="Mark all read"
-            variant="ghost"
-            size="sm"
-            haptic={false}
-            onPress={() => markAllRead({}).catch(() => {})}
-          />
-        ) : null}
+        <Button
+          label="Mark read"
+          variant="ghost"
+          size="sm"
+          haptic={false}
+          disabled={unread === 0}
+          onPress={() => markAllRead({}).catch(() => {})}
+        />
       </View>
 
       {status === "LoadingFirstPage" ? (
@@ -72,56 +96,69 @@ export default function NotificationsScreen() {
       ) : results.length === 0 ? (
         <EmptyState
           icon="bell"
-          title="Nothing yet"
-          subtitle="Offer alerts and reminders land here — expiring credits, fee renewals, and smart suggestions."
+          title="You're all caught up"
+          subtitle="We'll nudge you before any credit resets."
         />
       ) : (
-        <Card padded={false}>
-          {results.map((n, i) => (
-            <Pressable
-              key={n._id}
-              accessibilityRole="button"
-              onPress={() => {
-                if (!n.isRead) markRead({ notificationId: n._id }).catch(() => {});
-              }}
-              style={({ pressed }) => ({
-                flexDirection: "row",
-                gap: spacing.md,
-                paddingVertical: spacing.rowPadY,
-                paddingHorizontal: spacing.rowPadX,
-                borderBottomWidth: i < results.length - 1 ? 1 : 0,
-                borderBottomColor: colors.separator,
-                opacity: pressed ? 0.7 : 1,
-              })}
-            >
-              <View
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 4,
-                  marginTop: 6,
-                  backgroundColor: n.isRead ? "transparent" : colors.accent,
-                }}
-              />
-              <View style={{ flex: 1 }}>
-                <Text variant={n.isRead ? "bodyRegular" : "body"} numberOfLines={2}>
-                  {n.title}
-                </Text>
-                <Text variant="subtext" color="secondary" numberOfLines={2} style={{ marginTop: 2 }}>
-                  {n.body}
-                </Text>
-              </View>
-              <Text variant="caption" color="tertiary">
-                {timeAgo(n.createdAt)}
-              </Text>
-            </Pressable>
-          ))}
+        <>
+          {newItems.length > 0 ? (
+            <>
+              <SectionLabel>{`New · ${unread}`}</SectionLabel>
+              <Card padded={false}>
+                {newItems.map((n, i) => (
+                  <NotificationRow
+                    key={n._id}
+                    item={n}
+                    separator={i < newItems.length - 1}
+                    onPress={() => openTarget(n)}
+                    onAction={() => doAction(n)}
+                  />
+                ))}
+              </Card>
+            </>
+          ) : null}
+
+          {earlierItems.length > 0 ? (
+            <View style={{ marginTop: newItems.length > 0 ? spacing.lg : 0 }}>
+              <SectionLabel>Earlier</SectionLabel>
+              <Card padded={false}>
+                {earlierItems.map((n, i) => (
+                  <NotificationRow
+                    key={n._id}
+                    item={n}
+                    separator={i < earlierItems.length - 1}
+                    onPress={() => openTarget(n)}
+                    onAction={() => doAction(n)}
+                  />
+                ))}
+              </Card>
+            </View>
+          ) : null}
+
           {status === "LoadingMore" ? (
             <View style={{ padding: spacing.base }}>
               <Skeleton height={40} borderRadius={10} />
             </View>
           ) : null}
-        </Card>
+
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push("/settings")}
+            style={({ pressed }) => ({
+              flexDirection: "row",
+              alignItems: "center",
+              gap: spacing.sm,
+              paddingVertical: spacing.base,
+              marginTop: spacing.sm,
+              opacity: pressed ? 0.6 : 1,
+            })}
+          >
+            <Icon name="settings" size={16} color="secondary" />
+            <Text variant="bodyRegular" color="secondary">
+              Reminder settings
+            </Text>
+          </Pressable>
+        </>
       )}
     </Screen>
   );

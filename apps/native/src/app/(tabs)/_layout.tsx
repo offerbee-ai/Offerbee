@@ -27,10 +27,6 @@ export default function TabsLayout() {
         <NativeTabs.Trigger.Icon sf="checklist" />
         <NativeTabs.Trigger.Label>Benefits</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="expiring">
-        <NativeTabs.Trigger.Icon sf={{ default: "clock", selected: "clock.fill" }} />
-        <NativeTabs.Trigger.Label>Expiring</NativeTabs.Trigger.Label>
-      </NativeTabs.Trigger>
       <NativeTabs.Trigger name="cards">
         <NativeTabs.Trigger.Icon sf={{ default: "creditcard", selected: "creditcard.fill" }} />
         <NativeTabs.Trigger.Label>Cards</NativeTabs.Trigger.Label>

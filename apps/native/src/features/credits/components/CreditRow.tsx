@@ -1,6 +1,6 @@
 import { View } from "react-native";
 
-import { CardArt, CircleCheck, ListRow, Text } from "@/components/ui";
+import { CardArt, CircleCheck, ListRow, PillButton, Text } from "@/components/ui";
 import { spacing } from "@/theme";
 import { type DerivedCredit } from "../derive";
 
@@ -8,6 +8,8 @@ type CreditRowProps = {
   credit: DerivedCredit;
   pending?: boolean;
   onMarkUsed?: () => void;
+  /** When set (and the credit is unused), shows a neutral "Snooze" pill. */
+  onSnooze?: () => void;
   /** Row tap → Credit detail. The circle stays a separate press target. */
   onPress?: () => void;
   separator?: boolean;
@@ -17,6 +19,7 @@ export function CreditRow({
   credit,
   pending = false,
   onMarkUsed,
+  onSnooze,
   onPress,
   separator = true,
 }: CreditRowProps) {
@@ -62,6 +65,9 @@ export function CreditRow({
               </>
             )}
           </View>
+          {!credit.used && onSnooze ? (
+            <PillButton label="Snooze" tone="neutral" onPress={onSnooze} disabled={pending} />
+          ) : null}
           {onMarkUsed ? (
             <CircleCheck claimed={credit.used} onPress={onMarkUsed} disabled={pending} />
           ) : null}
