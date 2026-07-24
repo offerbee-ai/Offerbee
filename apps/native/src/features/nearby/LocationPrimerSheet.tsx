@@ -25,15 +25,20 @@ export function LocationPrimerSheet() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // Only offer when we've never asked AND the user hasn't waved it off.
-      const status = await getForegroundLocationStatus();
-      if (status !== "undetermined") return;
-      const dismissed = await AsyncStorage.getItem(DISMISSED_KEY);
-      if (dismissed) return;
-      // Small beat so it reads as a pop-out over the rendered screen.
-      setTimeout(() => {
-        if (!cancelled) setVisible(true);
-      }, 600);
+      try {
+        // Only offer when we've never asked AND the user hasn't waved it off.
+        const status = await getForegroundLocationStatus();
+        if (status !== "undetermined") return;
+        const dismissed = await AsyncStorage.getItem(DISMISSED_KEY);
+        if (dismissed) return;
+        // Small beat so it reads as a pop-out over the rendered screen.
+        setTimeout(() => {
+          if (!cancelled) setVisible(true);
+        }, 600);
+      } catch {
+        // Permission/storage probe failed (e.g. no native module or storage
+        // unavailable) — stay hidden rather than surface a rejection or nag.
+      }
     })();
     return () => {
       cancelled = true;
@@ -55,8 +60,15 @@ export function LocationPrimerSheet() {
   };
 
   const notNow = async () => {
-    await AsyncStorage.setItem(DISMISSED_KEY, "1");
-    close();
+    // Persistence is best-effort — dismiss this session regardless so a rejected
+    // write can't leave the sheet stuck open or surface an unhandled rejection.
+    try {
+      await AsyncStorage.setItem(DISMISSED_KEY, "1");
+    } catch {
+      // ignore: worst case the primer may reappear on a later launch
+    } finally {
+      close();
+    }
   };
 
   return (
