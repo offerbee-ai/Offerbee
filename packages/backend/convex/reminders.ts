@@ -5,7 +5,8 @@ import type { MutationCtx } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { DEFAULT_NOTIFICATION_CATEGORIES } from "./onboardingCatalog";
 import { periodEnd, periodKey } from "./benefitCycles";
-import { DAY_MS, expiryCandidate } from "./reminderRules";
+import { DAY_MS, EXPIRY_ROUNDUP_LEADS, expiryRoundupPlan } from "./reminderRules";
+import type { ExpiryTier, RoundupMember, RoundupTier } from "./reminderRules";
 
 const PAGE = 50;
 const MAX_SUGGESTED_PER_RUN = 3;
@@ -85,28 +86,90 @@ async function activeBenefits(ctx: MutationCtx, userId: string, now: number): Pr
   return out;
 }
 
-async function detectExpiry(ctx: MutationCtx, user: Doc<"users">, now: number) {
-  const cats = categoriesFor(user);
-  if (!cats.expiry) return;
+// Dedup slug per tier (kept short + stable — the value is baked into dedupKeys).
+const TIER_SLUG: Record<ExpiryTier, string> = { headsUp: "headsup", lastChance: "last" };
+
+// N == 1: rich, actionable single-credit push (deep-links to the card, keeps the
+// `expiring` Expo action category via push.ts CATEGORY_FOR_TYPE).
+async function emitSingleCredit(
+  ctx: MutationCtx,
+  userId: string,
+  m: RoundupMember,
+  tier: ExpiryTier,
+  now: number,
+) {
+  await insertIfNew(
+    ctx,
+    userId,
+    {
+      type: "credit_expiring",
+      cardKey: m.cardKey,
+      title: `${fmtUsd(m.remaining)} left on ${m.title}`,
+      body: `Resets in ${plural(m.daysLeft, "day")} — use it before it's gone.`,
+      data: { route: "card", cardKey: m.cardKey, benefitId: m.benefitId },
+      dedupKey: `credit_expiring:${m.benefitId}:${m.periodKey}:${tier}`,
+    },
+    now,
+  );
+}
+
+// N >= 2: one grouped push. Deduped per (tier, month-anchor) so each tier fires
+// at most once per month regardless of how many days the window spans.
+async function emitRoundup(
+  ctx: MutationCtx,
+  userId: string,
+  t: RoundupTier,
+  tier: ExpiryTier,
+  now: number,
+) {
+  const copy =
+    tier === "headsUp"
+      ? {
+          title: `${plural(t.count, "credit")} · ${fmtUsd(t.totalRemaining)} reset soon`,
+          body: `Soonest resets in ${plural(t.soonestDays, "day")}. Tap to use them before they're gone.`,
+        }
+      : {
+          title: `Last chance: ${plural(t.count, "credit")} · ${fmtUsd(t.totalRemaining)}`,
+          body: `Reset in ${plural(t.soonestDays, "day")} — use them now.`,
+        };
+  await insertIfNew(
+    ctx,
+    userId,
+    {
+      type: "credit_expiry_roundup",
+      title: copy.title,
+      body: copy.body,
+      data: { route: "benefits", tier },
+      dedupKey: `credit_expiry_roundup:${TIER_SLUG[tier]}:${t.monthAnchor}`,
+    },
+    now,
+  );
+}
+
+async function detectExpiryRoundup(ctx: MutationCtx, user: Doc<"users">, now: number) {
+  if (!categoriesFor(user).expiry) return;
+  const inputs = [];
   for (const b of await activeBenefits(ctx, user.userId, now)) {
     const pk = periodKey(b.cycle, now);
-    const used = await currentPeriodUsage(ctx, b._id, pk);
-    const cand = expiryCandidate({ benefitId: b._id, cycle: b.cycle, amount: b.amount, usedAmount: used, now });
-    if (!cand) continue;
-    if (!(await isUsable(ctx, b, pk))) continue;
-    await insertIfNew(
-      ctx,
-      user.userId,
-      {
-        type: "credit_expiring",
-        cardKey: b.cardKey,
-        title: `${fmtUsd(cand.remaining)} left on ${b.title}`,
-        body: `Resets in ${plural(cand.daysLeft, "day")} — use it before it's gone.`,
-        data: { route: "card", cardKey: b.cardKey, benefitId: b._id },
-        dedupKey: cand.dedupKey,
-      },
-      now,
-    );
+    inputs.push({
+      benefitId: b._id as string,
+      cardKey: b.cardKey,
+      title: b.title,
+      cycle: b.cycle,
+      amount: b.amount,
+      usedAmount: await currentPeriodUsage(ctx, b._id, pk),
+      usable: await isUsable(ctx, b, pk),
+    });
+  }
+  const plan = expiryRoundupPlan(inputs, now);
+  for (const tier of ["headsUp", "lastChance"] as ExpiryTier[]) {
+    const t = plan[tier];
+    if (!t) continue;
+    if (t.count === 1) {
+      await emitSingleCredit(ctx, user.userId, t.members[0], tier, now);
+    } else {
+      await emitRoundup(ctx, user.userId, t, tier, now);
+    }
   }
 }
 
@@ -153,7 +216,7 @@ export const scanDailyBatch = internalMutation({
     const page = await ctx.db.query("users").paginate({ numItems: PAGE, cursor });
     for (const user of page.page) {
       if (user.notificationsEnabled === false) continue;
-      await detectExpiry(ctx, user, now);
+      await detectExpiryRoundup(ctx, user, now);
       await detectSuggested(ctx, user, now);
     }
     if (!page.isDone) {
@@ -175,6 +238,8 @@ async function buildDigest(ctx: MutationCtx, user: Doc<"users">, now: number) {
   let totalRemaining = 0;
   let soonestDays = Infinity;
   for (const b of await activeBenefits(ctx, user.userId, now)) {
+    const days = Math.ceil((periodEnd(b.cycle, now) - now) / DAY_MS);
+    if (days <= EXPIRY_ROUNDUP_LEADS[b.cycle].headsUp) continue; // roundup owns near-term credits
     const pk = periodKey(b.cycle, now);
     const used = await currentPeriodUsage(ctx, b._id, pk);
     const remaining = Math.round((b.amount - used) * 100) / 100;
@@ -182,7 +247,6 @@ async function buildDigest(ctx: MutationCtx, user: Doc<"users">, now: number) {
     if (!(await isUsable(ctx, b, pk))) continue;
     count += 1;
     totalRemaining = Math.round((totalRemaining + remaining) * 100) / 100;
-    const days = Math.ceil((periodEnd(b.cycle, now) - now) / DAY_MS);
     if (days < soonestDays) soonestDays = days;
   }
   if (count === 0) return; // never send an empty digest
