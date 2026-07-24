@@ -35,6 +35,7 @@ const GLYPHS = {
   sparkle: "star",
   sliders: "sliders",
   filter: "filter",
+  mapPin: "map-pin",
 } as const;
 
 export type IconName = keyof typeof GLYPHS;
