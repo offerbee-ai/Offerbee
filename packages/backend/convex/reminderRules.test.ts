@@ -17,55 +17,74 @@ describe("benefitCycles (smoke)", () => {
   });
 });
 
-import { pickBucket, expiryCandidate, EXPIRY_BUCKETS } from "./reminderRules";
+import { expiryRoundupPlan, EXPIRY_ROUNDUP_LEADS } from "./reminderRules";
+import type { RoundupBenefit } from "./reminderRules";
 
-describe("pickBucket (smallest bucket >= daysLeft; arrays ascending)", () => {
-  it("selects the tightest window entered", () => {
-    expect(pickBucket(4, [7, 30])).toBe(7);
-    expect(pickBucket(27, [7, 30])).toBe(30);
-    expect(pickBucket(3, [3])).toBe(3);
-    expect(pickBucket(0, [3])).toBe(3);
-  });
-  it("returns null outside all windows or when already past", () => {
-    expect(pickBucket(31, [7, 30])).toBeNull();
-    expect(pickBucket(4, [3])).toBeNull();
-    expect(pickBucket(-1, [3])).toBeNull();
-  });
-  it("annual buckets are ascending", () => {
-    expect(EXPIRY_BUCKETS.annual).toEqual([7, 30]);
+const mk = (o: Partial<RoundupBenefit> & { benefitId: string; cycle: RoundupBenefit["cycle"]; amount: number }): RoundupBenefit => ({
+  cardKey: "card-a",
+  title: "Credit",
+  usedAmount: 0,
+  usable: true,
+  ...o,
+});
+
+describe("EXPIRY_ROUNDUP_LEADS", () => {
+  it("gives monthly a 14-day heads-up and keeps annual's longer runway", () => {
+    expect(EXPIRY_ROUNDUP_LEADS.monthly).toEqual({ headsUp: 14, lastChance: 3 });
+    expect(EXPIRY_ROUNDUP_LEADS.annual).toEqual({ headsUp: 30, lastChance: 7 });
   });
 });
 
-describe("expiryCandidate", () => {
-  it("fires a monthly nudge 3 days before reset", () => {
-    const now = Date.UTC(2026, 6, 29); // Jul 29 -> Aug 1 reset = 3 days
-    const c = expiryCandidate({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 0, now });
-    expect(c).toEqual({
-      dedupKey: "credit_expiring:B1:2026-07:3",
-      periodKey: "2026-07",
-      bucket: 3,
-      daysLeft: 3,
-      remaining: 25,
-    });
+describe("expiryRoundupPlan", () => {
+  it("classifies a monthly credit into headsUp at 14 days but not at 15", () => {
+    const at14 = Date.UTC(2026, 6, 18); // Jul 18 -> Aug 1 = 14 days
+    const at15 = Date.UTC(2026, 6, 17); // 15 days
+    const b = mk({ benefitId: "B1", cycle: "monthly", amount: 25 });
+    expect(expiryRoundupPlan([b], at14).headsUp?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at15).headsUp).toBeNull();
   });
-  it("does not fire when fully used", () => {
-    const now = Date.UTC(2026, 6, 29);
-    expect(expiryCandidate({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 25, now })).toBeNull();
+
+  it("classifies a monthly credit into lastChance at 3 days (not headsUp)", () => {
+    const at3 = Date.UTC(2026, 6, 29); // Jul 29 -> Aug 1 = 3 days
+    const plan = expiryRoundupPlan([mk({ benefitId: "B1", cycle: "monthly", amount: 25 })], at3);
+    expect(plan.lastChance?.count).toBe(1);
+    expect(plan.headsUp).toBeNull();
   });
-  it("does not fire outside the bucket window", () => {
-    const now = Date.UTC(2026, 6, 20); // 12 days before reset
-    expect(expiryCandidate({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 0, now })).toBeNull();
+
+  it("excludes fully-used and non-usable (grace) benefits", () => {
+    const now = Date.UTC(2026, 6, 18);
+    const used = mk({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 25 });
+    const grace = mk({ benefitId: "B2", cycle: "monthly", amount: 25, usable: false });
+    expect(expiryRoundupPlan([used, grace], now).headsUp).toBeNull();
   });
-  it("fires the annual 30-day nudge with partial usage", () => {
+
+  it("groups several credits into one headsUp tier with totals and soonest", () => {
+    const now = Date.UTC(2026, 6, 18); // 14 days for monthly
+    const plan = expiryRoundupPlan(
+      [
+        mk({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 5 }), // 20 left
+        mk({ benefitId: "B2", cycle: "monthly", amount: 10 }), // 10 left
+      ],
+      now,
+    );
+    expect(plan.headsUp?.count).toBe(2);
+    expect(plan.headsUp?.totalRemaining).toBe(30);
+    expect(plan.headsUp?.soonestDays).toBe(14);
+    expect(plan.headsUp?.monthAnchor).toBe("2026-07");
+  });
+
+  it("preserves annual's 30-day heads-up window", () => {
     const now = Date.UTC(2026, 11, 5); // Dec 5 -> Jan 1 = 27 days
-    const c = expiryCandidate({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 80, now });
-    expect(c?.bucket).toBe(30);
-    expect(c?.remaining).toBe(120);
-    expect(c?.dedupKey).toBe("credit_expiring:B9:2026:30");
+    const plan = expiryRoundupPlan([mk({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 80 })], now);
+    expect(plan.headsUp?.count).toBe(1);
+    expect(plan.headsUp?.totalRemaining).toBe(120);
   });
-  it("fires the annual 7-day nudge closer in", () => {
-    const now = Date.UTC(2026, 11, 28); // Dec 28 -> Jan 1 = 4 days
-    const c = expiryCandidate({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 0, now });
-    expect(c?.bucket).toBe(7);
+
+  it("returns nulls when nothing is in a window", () => {
+    const now = Date.UTC(2026, 6, 10); // 22 days before monthly reset
+    expect(expiryRoundupPlan([mk({ benefitId: "B1", cycle: "monthly", amount: 25 })], now)).toEqual({
+      headsUp: null,
+      lastChance: null,
+    });
   });
 });
