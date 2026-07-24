@@ -50,7 +50,7 @@ export type RoundupTier = {
   count: number;
   totalRemaining: number;
   soonestDays: number;
-  monthAnchor: string; // YYYY-MM of the soonest reset among members (dedup anchor)
+  monthAnchor: string; // YYYY-MM of the current calendar month (dedup anchor, from `now`)
 };
 
 export type ExpiryRoundupPlan = {
@@ -71,8 +71,8 @@ function tierFor(cycle: BenefitCycle, daysLeft: number): ExpiryTier | null {
   return null;
 }
 
-function monthAnchorOf(resetMs: number): string {
-  const d = new Date(resetMs);
+function monthAnchorOf(nowMs: number): string {
+  const d = new Date(nowMs);
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 

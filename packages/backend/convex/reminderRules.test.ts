@@ -33,6 +33,16 @@ describe("EXPIRY_ROUNDUP_LEADS", () => {
     expect(EXPIRY_ROUNDUP_LEADS.monthly).toEqual({ headsUp: 14, lastChance: 3 });
     expect(EXPIRY_ROUNDUP_LEADS.annual).toEqual({ headsUp: 30, lastChance: 7 });
   });
+
+  // Invariant: the producer's pre-filter in detectExpiryRoundup skips benefits
+  // with `daysLeft > headsUp` before the tier check. That is only safe if every
+  // cycle's lastChance window is within its headsUp window — otherwise a
+  // lastChance-eligible credit could be dropped by the pre-filter.
+  it("keeps lastChance within the headsUp window for every cycle", () => {
+    for (const [cycle, lead] of Object.entries(EXPIRY_ROUNDUP_LEADS)) {
+      expect(lead.lastChance, `${cycle}: lastChance must be <= headsUp`).toBeLessThanOrEqual(lead.headsUp);
+    }
+  });
 });
 
 describe("expiryRoundupPlan", () => {
