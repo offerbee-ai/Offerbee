@@ -1,0 +1,34 @@
+{
+  "amex-gold": {
+    "Dunkin' Credit": {
+      "brandKey": "dunkin",
+      "query": "Dunkin'",
+      "note": "$7/mo statement credit at U.S. Dunkin' locations (enrollment required)"
+    },
+    "Dining Credit": {
+      "brandKey": "grubhub",
+      "query": "Grubhub",
+      "kind": "online",
+      "note": "$10/mo Uber Eats/Grubhub etc.; delivery-first so not a walk-in geofence target — kept for reference, excluded from location matching by kind:online"
+    },
+    "Resy Credit": {
+      "brandKey": "resy",
+      "query": "Resy restaurant",
+      "kind": "online",
+      "note": "$10/mo at Resy-booked U.S. restaurants; Resy is a reservation network, not a storefront, so no brand geo query can identify redeemable locations — excluded from location matching by kind:online until a per-restaurant approach exists"
+    }
+  },
+  "amex-platinum": {
+    "Saks Credit": {
+      "brandKey": "saks",
+      "query": "Saks Fifth Avenue",
+      "note": "$50 semiannual statement credit at Saks Fifth Avenue (in-store or online)"
+    },
+    "Uber Cash": {
+      "brandKey": "uber",
+      "query": "Uber",
+      "kind": "online",
+      "note": "$15/mo (+$20 Dec) Uber Cash; rides/eats, no storefront — excluded from location matching by kind:online"
+    }
+  }
+}
