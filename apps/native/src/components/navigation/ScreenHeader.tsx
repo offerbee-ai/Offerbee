@@ -1,6 +1,7 @@
 import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { Text } from "@/components/ui";
+import { Text } from "@/components/ui/Text";
 import { spacing } from "@/theme";
 
 /** Large-title screen header: optional mono kicker (e.g. "JULY 2026") + serif title. */
@@ -13,12 +14,13 @@ export function ScreenHeader({
   kicker?: string;
   trailing?: React.ReactNode;
 }) {
-  // NativeTabs lays screen content inside the top safe area already, so we only
-  // add breathing room here (no manual insets.top, which double-counted).
+  // Clear the status bar / Dynamic Island: the collapsing Screen wrapper renders
+  // this inside a plain View, so the top safe-area inset must be applied here.
+  const insets = useSafeAreaInsets();
   return (
     <View
       style={{
-        paddingTop: spacing.sm,
+        paddingTop: insets.top + spacing.sm,
         paddingBottom: spacing.md,
         flexDirection: "row",
         alignItems: "flex-end",

@@ -4,7 +4,6 @@ import { router } from "expo-router";
 import { useQuery } from "convex/react";
 import { api } from "@packages/backend/convex/_generated/api";
 
-import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import {
   Card,
   Icon,
@@ -88,11 +87,12 @@ export default function ReviewScreen() {
   const pctLabel = derived.net >= 0 ? "BREAK-EVEN CLEARED" : "BELOW BREAK-EVEN";
 
   return (
-    <Screen withTabBarClearance>
-      <ScreenHeader
-        title="Review"
-        kicker={monthKicker(now)}
-        trailing={
+    <Screen
+      withTabBarClearance
+      header={{
+        title: "Review",
+        kicker: monthKicker(now),
+        trailing: (
           <View style={{ flexDirection: "row", gap: spacing.sm }}>
             <IconButton
               icon="bell"
@@ -108,9 +108,9 @@ export default function ReviewScreen() {
               onPress={() => router.push("/settings")}
             />
           </View>
-        }
-      />
-
+        ),
+      }}
+    >
       {isLoading ? (
         <View style={{ gap: spacing.md }}>
           <Skeleton height={150} borderRadius={18} />

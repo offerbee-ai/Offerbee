@@ -2,7 +2,6 @@ import { useState } from "react";
 import { View } from "react-native";
 import { router } from "expo-router";
 
-import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import {
   Card,
   EmptyState,
@@ -43,14 +42,15 @@ export default function BenefitsScreen() {
         : `${d.getFullYear()} · captured`;
 
   return (
-    <Screen withTabBarClearance>
-      <ScreenHeader
-        title="Benefits"
-        trailing={
+    <Screen
+      withTabBarClearance
+      header={{
+        title: "Benefits",
+        trailing: (
           <IconButton icon="sliders" accessibilityLabel="Filter credits" onPress={() => {}} />
-        }
-      />
-
+        ),
+      }}
+    >
       <View style={{ gap: spacing.md }}>
         <SearchField placeholder="Search credits" value={search} onChangeText={setSearch} />
         <SegmentedControl
