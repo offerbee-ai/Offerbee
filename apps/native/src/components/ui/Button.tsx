@@ -155,36 +155,67 @@ export function IconButton({
   size = 36,
   onPress,
   accessibilityLabel,
+  tint = "ink",
+  badge,
 }: {
   icon: IconName;
   size?: number;
   onPress?: () => void;
   accessibilityLabel: string;
+  /** Icon glyph color role (default "ink"; the Review header uses "accent"). */
+  tint?: string;
+  /** Unread count; renders an alert pill when > 0, hidden otherwise. */
+  badge?: number;
 }) {
   const { colors } = useTheme();
+  const showBadge = typeof badge === "number" && badge > 0;
+  const badgeLabel = badge && badge > 9 ? "9+" : String(badge ?? "");
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        onPress?.();
-      }}
-      style={({ pressed }) => ({
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        backgroundColor: colors.navButton,
-        borderWidth: 1,
-        borderColor: colors.border,
-        alignItems: "center",
-        justifyContent: "center",
-        opacity: pressed ? 0.7 : 1,
-      })}
-    >
-      <View>
-        <Icon name={icon} size={Math.round(size * 0.5)} color="ink" />
-      </View>
-    </Pressable>
+    <View style={{ position: "relative" }}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          onPress?.();
+        }}
+        style={({ pressed }) => ({
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor: colors.navButton,
+          borderWidth: 1,
+          borderColor: colors.border,
+          alignItems: "center",
+          justifyContent: "center",
+          opacity: pressed ? 0.7 : 1,
+        })}
+      >
+        <Icon name={icon} size={Math.round(size * 0.5)} color={tint} />
+      </Pressable>
+      {showBadge ? (
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: -2,
+            right: -2,
+            minWidth: 18,
+            height: 18,
+            paddingHorizontal: 4,
+            borderRadius: 9,
+            backgroundColor: colors.alert,
+            borderWidth: 1.5,
+            borderColor: colors.background,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text variant="mono" color="onAccent" style={{ fontSize: 10, lineHeight: 12 }}>
+            {badgeLabel}
+          </Text>
+        </View>
+      ) : null}
+    </View>
   );
 }

@@ -1,22 +1,25 @@
+import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { router } from "expo-router";
-import { useUser } from "@clerk/expo";
+import { useQuery } from "convex/react";
+import { api } from "@packages/backend/convex/_generated/api";
 
 import { ScreenHeader } from "@/components/navigation/ScreenHeader";
 import {
-  Avatar,
   Card,
   Icon,
+  IconButton,
   ProgressBar,
   Screen,
   SectionLabel,
+  SegmentedControl,
   Skeleton,
   Text,
   type IconName,
 } from "@/components/ui";
 import { spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
-import { netStr, usd } from "@/features/credits/derive";
+import { expiringGroups, netStr, usd } from "@/features/credits/derive";
 import { CreditRow } from "@/features/credits/components/CreditRow";
 import { monthKicker } from "@/lib/dates";
 
@@ -26,12 +29,14 @@ function GlanceRow({
   tone,
   label,
   value,
+  valueColor = "ink",
   onPress,
 }: {
   icon: IconName;
   tone: "accent" | "warning";
   label: string;
   value: string;
+  valueColor?: "ink" | "accent" | "warning";
   onPress: () => void;
 }) {
   const { colors } = useTheme();
@@ -61,7 +66,7 @@ function GlanceRow({
       <Text variant="bodyRegular" color="secondary" style={{ flex: 1 }}>
         {label}
       </Text>
-      <Text variant="figureS" color={tone === "warning" ? "warning" : "ink"}>
+      <Text variant="figureS" color={valueColor}>
         {value}
       </Text>
       <Icon name="chevronRight" size={18} color="tertiary" />
@@ -70,28 +75,15 @@ function GlanceRow({
 }
 
 export default function ReviewScreen() {
-  const { derived, isLoading, markUsed, pending, now } = useCredits();
-  const { user } = useUser();
+  const { credits, derived, isLoading, markUsed, snooze, pending, now } = useCredits();
+  const unread = useQuery(api.notifications.unreadCount) ?? 0;
+  const [range, setRange] = useState<"week" | "month">("week");
 
-  const initial = (
-    user?.firstName ||
-    user?.fullName ||
-    user?.primaryEmailAddress?.emailAddress ||
-    "?"
-  )
-    .trim()
-    .charAt(0);
-
-  const monthEndSum = derived.remainMonth;
-  const atRisk3 = derived.decorated
-    .filter((c) => !c.used && !c.snoozed && c.days <= 3)
-    .reduce((a, c) => a + c.remaining, 0);
-
-  const soon = derived.decorated
-    .filter((c) => !c.used && !c.snoozed && c.days <= 7)
-    .sort((a, b) => a.days - b.days);
-  const soonShown = soon.slice(0, 3);
-  const soonSum = soon.reduce((a, c) => a + c.remaining, 0);
+  const exp = expiringGroups(credits, range);
+  const urgentGroup = exp.groups.find((g) => g.urgent);
+  const laterMonthCount = derived.decorated.filter(
+    (c) => !c.used && !c.snoozed && c.days > 7 && c.days <= 31,
+  ).length;
 
   const pctLabel = derived.net >= 0 ? "BREAK-EVEN CLEARED" : "BELOW BREAK-EVEN";
 
@@ -101,13 +93,21 @@ export default function ReviewScreen() {
         title="Review"
         kicker={monthKicker(now)}
         trailing={
-          <Avatar
-            initial={initial}
-            imageUrl={user?.hasImage ? user.imageUrl : null}
-            size={36}
-            accessibilityLabel="Settings"
-            onPress={() => router.push("/settings")}
-          />
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <IconButton
+              icon="bell"
+              tint="accent"
+              badge={unread}
+              accessibilityLabel="Notifications"
+              onPress={() => router.push("/notifications")}
+            />
+            <IconButton
+              icon="settings"
+              tint="accent"
+              accessibilityLabel="Settings"
+              onPress={() => router.push("/settings")}
+            />
+          </View>
         }
       />
 
@@ -149,43 +149,96 @@ export default function ReviewScreen() {
               icon="benefits"
               tone="accent"
               label="Remaining this month"
-              value={usd(monthEndSum)}
+              value={usd(derived.remainMonth)}
               onPress={() => router.push("/benefits")}
             />
             <GlanceRow
-              icon="clock"
-              tone="warning"
-              label="Expiring in ≤ 3 days"
-              value={usd(atRisk3)}
-              onPress={() => router.push("/expiring")}
+              icon="card"
+              tone="accent"
+              label="Net across your cards"
+              value={netStr(derived.net)}
+              valueColor={derived.net >= 0 ? "accent" : "warning"}
+              onPress={() => router.push("/cards")}
             />
           </Card>
 
-          {/* Use before they reset */}
-          <SectionLabel>Use before they reset</SectionLabel>
-          {soonShown.length === 0 ? (
-            <Card>
+          {/* Expiring (merged from the former standalone tab) */}
+          <SectionLabel
+            right={
+              urgentGroup ? (
+                <Text variant="sectionLabel" color="alert">
+                  {urgentGroup.sumStr}
+                </Text>
+              ) : undefined
+            }
+          >
+            Expiring
+          </SectionLabel>
+          <SegmentedControl
+            options={[
+              { value: "week", label: "This week" },
+              { value: "month", label: "This month" },
+            ]}
+            value={range}
+            onChange={setRange}
+          />
+
+          {exp.groups.length === 0 && !(range === "week" && laterMonthCount > 0) ? (
+            <Card style={{ marginTop: spacing.md }}>
               <Text variant="bodyRegular" color="secondary">
-                Nothing at risk this week — you're all caught up.
+                Nothing at risk {range === "week" ? "this week" : "this month"} — you're all caught up.
               </Text>
             </Card>
           ) : (
             <>
-              <Card padded={false}>
-                {soonShown.map((c, i) => (
-                  <CreditRow
-                    key={c.id}
-                    credit={c}
-                    pending={pending.has(c.id)}
-                    onMarkUsed={() => markUsed(c.id)}
-                    onPress={() => router.push(`/credit/${c.id}?from=Review`)}
-                    separator={i < soonShown.length - 1}
-                  />
-                ))}
-              </Card>
-              <Text variant="caption" color="tertiary" style={{ marginTop: spacing.md, textAlign: "center" }}>
-                {soon.length} {soon.length === 1 ? "credit" : "credits"} worth {usd(soonSum)} reset within a week.
-              </Text>
+              {exp.groups.length === 0 ? (
+                <Card style={{ marginTop: spacing.md }}>
+                  <Text variant="bodyRegular" color="secondary">
+                    Nothing at risk in the next 7 days.
+                  </Text>
+                </Card>
+              ) : null}
+              {exp.groups.map((group) => (
+                <View key={group.label} style={{ marginTop: spacing.md }}>
+                  {!group.urgent ? (
+                    <SectionLabel
+                      right={
+                        <Text variant="sectionLabel" color="tertiary">
+                          {group.sumStr}
+                        </Text>
+                      }
+                    >
+                      Later this month
+                    </SectionLabel>
+                  ) : null}
+                  <Card padded={false} style={{ marginTop: group.urgent ? 0 : spacing.md }}>
+                    {group.items.map((c, i) => (
+                      <CreditRow
+                        key={c.id}
+                        credit={c}
+                        pending={pending.has(c.id)}
+                        onMarkUsed={() => markUsed(c.id)}
+                        onSnooze={group.urgent ? undefined : () => snooze(c.id)}
+                        onPress={() => router.push(`/credit/${c.id}?from=Review`)}
+                        separator={i < group.items.length - 1}
+                      />
+                    ))}
+                  </Card>
+                </View>
+              ))}
+
+              {range === "week" && laterMonthCount > 0 ? (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => setRange("month")}
+                  style={({ pressed }) => ({ marginTop: spacing.base, opacity: pressed ? 0.6 : 1 })}
+                >
+                  <Text variant="caption" color="accent" style={{ textAlign: "center" }}>
+                    {laterMonthCount} more {laterMonthCount === 1 ? "credit" : "credits"} reset later this
+                    month →
+                  </Text>
+                </Pressable>
+              ) : null}
             </>
           )}
         </>
