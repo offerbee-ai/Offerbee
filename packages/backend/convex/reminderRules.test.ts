@@ -17,55 +17,124 @@ describe("benefitCycles (smoke)", () => {
   });
 });
 
-import { pickBucket, expiryCandidate, EXPIRY_BUCKETS } from "./reminderRules";
+import { expiryRoundupPlan, EXPIRY_ROUNDUP_LEADS } from "./reminderRules";
+import type { RoundupBenefit } from "./reminderRules";
 
-describe("pickBucket (smallest bucket >= daysLeft; arrays ascending)", () => {
-  it("selects the tightest window entered", () => {
-    expect(pickBucket(4, [7, 30])).toBe(7);
-    expect(pickBucket(27, [7, 30])).toBe(30);
-    expect(pickBucket(3, [3])).toBe(3);
-    expect(pickBucket(0, [3])).toBe(3);
+const mk = (o: Partial<RoundupBenefit> & { benefitId: string; cycle: RoundupBenefit["cycle"]; amount: number }): RoundupBenefit => ({
+  cardKey: "card-a",
+  title: "Credit",
+  usedAmount: 0,
+  usable: true,
+  ...o,
+});
+
+describe("EXPIRY_ROUNDUP_LEADS", () => {
+  it("gives monthly a 14-day heads-up and keeps annual's longer runway", () => {
+    expect(EXPIRY_ROUNDUP_LEADS.monthly).toEqual({ headsUp: 14, lastChance: 3 });
+    expect(EXPIRY_ROUNDUP_LEADS.annual).toEqual({ headsUp: 30, lastChance: 7 });
   });
-  it("returns null outside all windows or when already past", () => {
-    expect(pickBucket(31, [7, 30])).toBeNull();
-    expect(pickBucket(4, [3])).toBeNull();
-    expect(pickBucket(-1, [3])).toBeNull();
-  });
-  it("annual buckets are ascending", () => {
-    expect(EXPIRY_BUCKETS.annual).toEqual([7, 30]);
+
+  // Invariant: the producer's pre-filter in detectExpiryRoundup skips benefits
+  // with `daysLeft > headsUp` before the tier check. That is only safe if every
+  // cycle's lastChance window is within its headsUp window — otherwise a
+  // lastChance-eligible credit could be dropped by the pre-filter.
+  it("keeps lastChance within the headsUp window for every cycle", () => {
+    for (const [cycle, lead] of Object.entries(EXPIRY_ROUNDUP_LEADS)) {
+      expect(lead.lastChance, `${cycle}: lastChance must be <= headsUp`).toBeLessThanOrEqual(lead.headsUp);
+    }
   });
 });
 
-describe("expiryCandidate", () => {
-  it("fires a monthly nudge 3 days before reset", () => {
-    const now = Date.UTC(2026, 6, 29); // Jul 29 -> Aug 1 reset = 3 days
-    const c = expiryCandidate({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 0, now });
-    expect(c).toEqual({
-      dedupKey: "credit_expiring:B1:2026-07:3",
-      periodKey: "2026-07",
-      bucket: 3,
-      daysLeft: 3,
-      remaining: 25,
+describe("expiryRoundupPlan", () => {
+  it("classifies a monthly credit into headsUp at 14 days but not at 15", () => {
+    const at14 = Date.UTC(2026, 6, 18); // Jul 18 -> Aug 1 = 14 days
+    const at15 = Date.UTC(2026, 6, 17); // 15 days
+    const b = mk({ benefitId: "B1", cycle: "monthly", amount: 25 });
+    expect(expiryRoundupPlan([b], at14).headsUp?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at15).headsUp).toBeNull();
+  });
+
+  it("classifies a monthly credit into lastChance at 3 days (not headsUp)", () => {
+    const at3 = Date.UTC(2026, 6, 29); // Jul 29 -> Aug 1 = 3 days
+    const plan = expiryRoundupPlan([mk({ benefitId: "B1", cycle: "monthly", amount: 25 })], at3);
+    expect(plan.lastChance?.count).toBe(1);
+    expect(plan.headsUp).toBeNull();
+  });
+
+  it("excludes fully-used and non-usable (grace) benefits", () => {
+    const now = Date.UTC(2026, 6, 18);
+    const used = mk({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 25 });
+    const grace = mk({ benefitId: "B2", cycle: "monthly", amount: 25, usable: false });
+    expect(expiryRoundupPlan([used, grace], now).headsUp).toBeNull();
+  });
+
+  it("groups several credits into one headsUp tier with totals and soonest", () => {
+    const now = Date.UTC(2026, 6, 18); // 14 days for monthly
+    const plan = expiryRoundupPlan(
+      [
+        mk({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 5 }), // 20 left
+        mk({ benefitId: "B2", cycle: "monthly", amount: 10 }), // 10 left
+      ],
+      now,
+    );
+    expect(plan.headsUp?.count).toBe(2);
+    expect(plan.headsUp?.totalRemaining).toBe(30);
+    expect(plan.headsUp?.soonestDays).toBe(14);
+    expect(plan.headsUp?.monthAnchor).toBe("2026-07");
+  });
+
+  it("preserves annual's 30-day heads-up window", () => {
+    const now = Date.UTC(2026, 11, 5); // Dec 5 -> Jan 1 = 27 days
+    const plan = expiryRoundupPlan([mk({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 80 })], now);
+    expect(plan.headsUp?.count).toBe(1);
+    expect(plan.headsUp?.totalRemaining).toBe(120);
+  });
+
+  it("returns nulls when nothing is in a window", () => {
+    const now = Date.UTC(2026, 6, 10); // 22 days before monthly reset
+    expect(expiryRoundupPlan([mk({ benefitId: "B1", cycle: "monthly", amount: 25 })], now)).toEqual({
+      headsUp: null,
+      lastChance: null,
     });
   });
-  it("does not fire when fully used", () => {
-    const now = Date.UTC(2026, 6, 29);
-    expect(expiryCandidate({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 25, now })).toBeNull();
+
+  it("populates both tiers from a single call: monthly and annual can share a reset instant yet land in different tiers, since their lead windows differ", () => {
+    // Dec 27 -> Jan 1 is 5 days left for BOTH a monthly benefit (whose period
+    // always ends at the next month start) and an annual benefit (whose period
+    // always ends at the next Jan 1) whenever `now` falls in December. Same
+    // daysLeft, but monthly's lastChance lead is 3 (5 > 3 -> headsUp) while
+    // annual's lastChance lead is 7 (5 <= 7 -> lastChance). So the two tiers
+    // don't require different reset dates -- just cycles whose thresholds
+    // diverge at the same daysLeft.
+    const now = Date.UTC(2026, 11, 27);
+    const plan = expiryRoundupPlan(
+      [
+        mk({ benefitId: "B1", cycle: "monthly", amount: 25 }),
+        mk({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 80 }),
+      ],
+      now,
+    );
+    expect(plan.headsUp?.count).toBe(1);
+    expect(plan.headsUp?.soonestDays).toBe(5);
+    expect(plan.lastChance?.count).toBe(1);
+    expect(plan.lastChance?.soonestDays).toBe(5);
   });
-  it("does not fire outside the bucket window", () => {
-    const now = Date.UTC(2026, 6, 20); // 12 days before reset
-    expect(expiryCandidate({ benefitId: "B1", cycle: "monthly", amount: 25, usedAmount: 0, now })).toBeNull();
+
+  it("annual lastChance boundary: 7 days fires lastChance, 8 days falls back to headsUp", () => {
+    const at7 = Date.UTC(2026, 11, 25); // Dec 25 -> Jan 1 = 7 days
+    const at8 = Date.UTC(2026, 11, 24); // Dec 24 -> Jan 1 = 8 days
+    const b = mk({ benefitId: "B9", cycle: "annual", amount: 200 });
+    expect(expiryRoundupPlan([b], at7).lastChance?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at7).headsUp).toBeNull();
+    expect(expiryRoundupPlan([b], at8).headsUp?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at8).lastChance).toBeNull();
   });
-  it("fires the annual 30-day nudge with partial usage", () => {
-    const now = Date.UTC(2026, 11, 5); // Dec 5 -> Jan 1 = 27 days
-    const c = expiryCandidate({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 80, now });
-    expect(c?.bucket).toBe(30);
-    expect(c?.remaining).toBe(120);
-    expect(c?.dedupKey).toBe("credit_expiring:B9:2026:30");
-  });
-  it("fires the annual 7-day nudge closer in", () => {
-    const now = Date.UTC(2026, 11, 28); // Dec 28 -> Jan 1 = 4 days
-    const c = expiryCandidate({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 0, now });
-    expect(c?.bucket).toBe(7);
+
+  it("annual headsUp outer boundary: 30 days fires headsUp, 31 days is outside every window", () => {
+    const at30 = Date.UTC(2026, 11, 2); // Dec 2 -> Jan 1 = 30 days
+    const at31 = Date.UTC(2026, 11, 1); // Dec 1 -> Jan 1 = 31 days
+    const b = mk({ benefitId: "B9", cycle: "annual", amount: 200 });
+    expect(expiryRoundupPlan([b], at30).headsUp?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at31)).toEqual({ headsUp: null, lastChance: null });
   });
 });
