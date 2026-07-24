@@ -86,23 +86,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "expo-apple-authentication",
     ["expo-notifications", { color: "#E8680E" }],
-    // Foreground location only (Phase 2 "Near you"). Injects
-    // NSLocationWhenInUseUsageDescription (iOS) + ACCESS_FINE/COARSE_LOCATION
-    // (Android). No background/Always permission, no UIBackgroundModes.
-    [
-      "expo-location",
-      {
-        locationWhenInUsePermission:
-          "OfferBee uses your location to show card credits you can redeem at stores near you.",
-        // Suppress the "Always" Info.plist keys the plugin adds by default —
-        // Phase 2 is foreground-only, and declaring Always adds App Store
-        // review friction for a permission we never request.
-        locationAlwaysAndWhenInUsePermission: false,
-        locationAlwaysPermission: false,
-        isIosBackgroundLocationEnabled: false,
-        isAndroidBackgroundLocationEnabled: false,
-      },
-    ],
     // iOS deployment floor (Xcode 27 SDK rejects pods below 15.0; @clerk/expo's
     // native module requires 17.0).
     ["expo-build-properties", { ios: { deploymentTarget: "17.0" } }],
