@@ -70,17 +70,15 @@ type Provider = "google" | "apple";
 
 /**
  * An OAuth identity Clerk transferred into a sign-up that still needs express
- * legal consent. Structurally typed so we don't depend on `@clerk/types`
- * directly (it isn't a declared dependency of this app).
+ * legal consent. Derived from the SDK's own flow result rather than hand-written,
+ * so a signature change in `@clerk/expo` fails the build instead of slipping
+ * past a cast. (`useSSO` is already imported, so this needs no new dependency.)
+ * The Apple sheet returns the same `signUp` / `setActive` types.
  */
+type SSOFlowResult = Awaited<ReturnType<ReturnType<typeof useSSO>["startSSOFlow"]>>;
 type PendingConsent = {
-  signUp: {
-    update: (params: { legalAccepted: boolean }) => Promise<{
-      status: string | null;
-      createdSessionId: string | null;
-    }>;
-  };
-  setActive: (params: { session: string }) => Promise<unknown>;
+  signUp: NonNullable<SSOFlowResult["signUp"]>;
+  setActive: NonNullable<SSOFlowResult["setActive"]>;
 };
 
 function OAuthButton({
@@ -172,13 +170,20 @@ export function OAuthButtons({ legalAccepted = false }: { legalAccepted?: boolea
         // User dismissed the browser (Apple's native sheet throws instead).
         if (authSessionResult && authSessionResult.type !== "success") return;
 
-        if (needsLegalConsent(signUp) && setActive) {
-          const next: PendingConsent = {
-            signUp: signUp as unknown as PendingConsent["signUp"],
-            setActive: setActive as unknown as PendingConsent["setActive"],
-          };
-          // Already consented on this screen — finish without asking twice.
-          if (legalAccepted && (await finish(next))) return;
+        if (signUp && setActive && needsLegalConsent(signUp)) {
+          const next: PendingConsent = { signUp, setActive };
+          // Already consented on this screen — finish without asking twice. Hold
+          // onto the transfer whether finish returns false or throws, so Finish
+          // can retry it without sending the user back through OAuth.
+          if (legalAccepted) {
+            try {
+              if (await finish(next)) return;
+            } catch (err) {
+              setConsentFor(next);
+              setError(clerkError(err, "Couldn't finish creating your account. Try again."));
+              return;
+            }
+          }
           setConsentFor(next);
           return;
         }
