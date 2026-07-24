@@ -61,6 +61,9 @@ export type ExpiryRoundupPlan = {
 // lastChance takes precedence when a benefit is inside both windows, so the two
 // tiers are mutually exclusive.
 function tierFor(cycle: BenefitCycle, daysLeft: number): ExpiryTier | null {
+  // Defensive guard for future callers: periodEnd is always > now via the
+  // current call path (expiryRoundupPlan derives daysLeft from periodEnd
+  // itself), so this branch is unreachable today.
   if (daysLeft < 0) return null;
   const lead = EXPIRY_ROUNDUP_LEADS[cycle];
   if (daysLeft <= lead.lastChance) return "lastChance";

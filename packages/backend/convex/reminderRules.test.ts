@@ -87,4 +87,44 @@ describe("expiryRoundupPlan", () => {
       lastChance: null,
     });
   });
+
+  it("populates both tiers from a single call: monthly and annual can share a reset instant yet land in different tiers, since their lead windows differ", () => {
+    // Dec 27 -> Jan 1 is 5 days left for BOTH a monthly benefit (whose period
+    // always ends at the next month start) and an annual benefit (whose period
+    // always ends at the next Jan 1) whenever `now` falls in December. Same
+    // daysLeft, but monthly's lastChance lead is 3 (5 > 3 -> headsUp) while
+    // annual's lastChance lead is 7 (5 <= 7 -> lastChance). So the two tiers
+    // don't require different reset dates -- just cycles whose thresholds
+    // diverge at the same daysLeft.
+    const now = Date.UTC(2026, 11, 27);
+    const plan = expiryRoundupPlan(
+      [
+        mk({ benefitId: "B1", cycle: "monthly", amount: 25 }),
+        mk({ benefitId: "B9", cycle: "annual", amount: 200, usedAmount: 80 }),
+      ],
+      now,
+    );
+    expect(plan.headsUp?.count).toBe(1);
+    expect(plan.headsUp?.soonestDays).toBe(5);
+    expect(plan.lastChance?.count).toBe(1);
+    expect(plan.lastChance?.soonestDays).toBe(5);
+  });
+
+  it("annual lastChance boundary: 7 days fires lastChance, 8 days falls back to headsUp", () => {
+    const at7 = Date.UTC(2026, 11, 25); // Dec 25 -> Jan 1 = 7 days
+    const at8 = Date.UTC(2026, 11, 24); // Dec 24 -> Jan 1 = 8 days
+    const b = mk({ benefitId: "B9", cycle: "annual", amount: 200 });
+    expect(expiryRoundupPlan([b], at7).lastChance?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at7).headsUp).toBeNull();
+    expect(expiryRoundupPlan([b], at8).headsUp?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at8).lastChance).toBeNull();
+  });
+
+  it("annual headsUp outer boundary: 30 days fires headsUp, 31 days is outside every window", () => {
+    const at30 = Date.UTC(2026, 11, 2); // Dec 2 -> Jan 1 = 30 days
+    const at31 = Date.UTC(2026, 11, 1); // Dec 1 -> Jan 1 = 31 days
+    const b = mk({ benefitId: "B9", cycle: "annual", amount: 200 });
+    expect(expiryRoundupPlan([b], at30).headsUp?.count).toBe(1);
+    expect(expiryRoundupPlan([b], at31)).toEqual({ headsUp: null, lastChance: null });
+  });
 });
