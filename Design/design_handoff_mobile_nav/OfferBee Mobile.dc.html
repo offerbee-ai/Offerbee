@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  a { color: #E8680E; text-decoration: none; }
+  a:hover { color: #B4550B; }
+  input { font-family: inherit; outline: none; }
+  input::placeholder { color: var(--ter); }
+  .scr::-webkit-scrollbar { width: 0; height: 0; }
+  .scr { scrollbar-width: none; }
+  @keyframes obfade { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  @keyframes obup { from { opacity: 0; transform: translateY(44px); } to { opacity: 1; transform: none; } }
+  [data-theme="honey"] {
+    --desk:#E8E3D5; --bg:#FBF8F0; --surface:#FFFEFB; --surface2:#F5F1E8; --border:#E8E1D2; --sep:#ECE5D6;
+    --ink:#211D16; --sec:#6F6757; --ter:#9A927F; --accent:#E8680E; --accentsoft:#FBEAD5; --onaccent:#FFFFFF;
+    --deep:#B4550B; --warn:#B4693A; --warnsoft:#F6E9DF; --alert:#C0503F; --track:#E4DECF; --tile:#EDE6D8;
+    --seg:#E9E3D6; --field:#EDE7D9; --chev:#C9C0AE; --tabin:#A69C86; --btnbrd:#D8D0BF;
+    --glass:rgba(251,248,240,.62); --glassb:rgba(255,255,255,.55);
+  }
+  [data-theme="onyx"] {
+    --desk:#141519; --bg:#17181B; --surface:#212328; --surface2:#26282C; --border:#2E3036; --sep:#282A2F;
+    --ink:#ECEBE6; --sec:#9C9A93; --ter:#6E6C67; --accent:#F59E3C; --accentsoft:#3A2C17; --onaccent:#FFFFFF;
+    --deep:#F0B375; --warn:#D18A4E; --warnsoft:#3A2E24; --alert:#DB6650; --track:#2E3036; --tile:#2E3036;
+    --seg:#2A2C31; --field:#26282C; --chev:#54545B; --tabin:#6E6C67; --btnbrd:#3A3D44;
+    --glass:rgba(22,23,26,.62); --glassb:rgba(255,255,255,.14);
+  }
+</style>
+</helmet>
+
+<div data-theme="{{ theme }}" style="min-height:100vh;display:flex;align-items:center;justify-content:center;gap:44px;background:var(--desk);padding:44px;font-family:'Public Sans',sans-serif;transition:background .3s;">
+
+  <!-- ══════════ Screen-map rail ══════════ -->
+  <sc-if value="{{ showRail }}" hint-placeholder-val="{{ true }}">
+  <div style="width:244px;flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 14px 16px;display:flex;flex-direction:column;gap:14px;color:var(--ink);transition:background .3s;">
+    <div style="display:flex;align-items:center;gap:9px;padding:0 4px;">
+      <svg width="26" height="26" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberRail" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeRail"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberRail)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeRail)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+      <div>
+        <div style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;letter-spacing:-.01em;">OfferBee Mobile</div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.08em;color:var(--ter);text-transform:uppercase;margin-top:1px;">End-to-end flow · 16 screens</div>
+      </div>
+    </div>
+    <sc-for list="{{ rail }}" as="g" hint-placeholder-count="3">
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.07em;color:var(--ter);text-transform:uppercase;padding:0 6px 5px;">{{ g.name }}</div>
+        <div style="display:flex;flex-direction:column;gap:1px;">
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+            <div onClick="{{ it.go }}" style="display:flex;align-items:center;gap:8px;padding:5.5px 10px;border-radius:8px;font-size:12.5px;cursor:pointer;font-weight:{{ it.fw }};color:{{ it.fg }};background:{{ it.bg }};" style-hover="background:var(--surface2);">
+              <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ter);width:16px;flex-shrink:0;">{{ it.n }}</span>
+              <span>{{ it.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <div style="border-top:1px solid var(--sep);padding-top:12px;">
+      <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.07em;color:var(--ter);text-transform:uppercase;padding:0 6px 6px;">Theme</div>
+      <div style="display:flex;background:var(--seg);border-radius:10px;padding:2px;font-size:12.5px;">
+        <div onClick="{{ setHoney }}" style="flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;font-weight:600;background:{{ segHoneyBg }};color:{{ segHoneyFg }};box-shadow:{{ segHoneySh }};">Honey</div>
+        <div onClick="{{ setOnyx }}" style="flex:1;text-align:center;padding:6px;border-radius:8px;cursor:pointer;font-weight:600;background:{{ segOnyxBg }};color:{{ segOnyxFg }};box-shadow:{{ segOnyxSh }};">Onyx</div>
+      </div>
+      <div style="font-size:11px;line-height:1.45;color:var(--ter);padding:10px 6px 0;">Jump to any screen, or click through the phone like a real user. Everything recomputes live.</div>
+    </div>
+  </div>
+  </sc-if>
+
+  <!-- ══════════ The phone ══════════ -->
+  <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" width="402px" height="874px" dark="{{ isOnyx }}" hint-size="402px,874px">
+    <div data-theme="{{ theme }}" class="scr" style="height:100%;position:relative;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);font-family:'Public Sans',sans-serif;color:var(--ink);transition:background .3s,color .3s;">
+
+    <!-- ── 01 WELCOME ── -->
+    <sc-if value="{{ isWelcome }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="Welcome" style="height:100%;display:flex;flex-direction:column;padding:76px 28px 30px;animation:obfade .35s ease;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;">
+          <div style="position:relative;width:100%;height:128px;margin-bottom:30px;">
+            <div style="position:absolute;left:50%;top:14px;width:150px;height:94px;border-radius:12px;background:#127C6B;transform:translateX(-50%) translateX(-58px) rotate(-9deg);box-shadow:0 10px 24px rgba(33,29,22,.18);"></div>
+            <div style="position:absolute;left:50%;top:14px;width:150px;height:94px;border-radius:12px;background:#B08A3E;transform:translateX(-50%) translateX(58px) rotate(9deg);box-shadow:0 10px 24px rgba(33,29,22,.18);"></div>
+            <div style="position:absolute;left:50%;top:4px;width:150px;height:94px;border-radius:12px;background:#3A4048;transform:translateX(-50%);box-shadow:0 14px 30px rgba(33,29,22,.24);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;">
+              <div style="display:flex;justify-content:space-between;align-items:center;"><span style="font-family:'Source Serif 4',serif;font-size:10px;font-weight:600;letter-spacing:.08em;color:#E9ECEF;">PLATINUM</span><div style="width:22px;height:16px;border-radius:4px;background:rgba(255,255,255,.4);"></div></div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.12em;color:#B4BBC2;">•••• 2004</div>
+            </div>
+          </div>
+          <div style="display:flex;align-items:center;gap:11px;">
+            <svg width="38" height="38" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberW" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeW"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberW)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeW)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+            <span style="font-family:'Source Serif 4',serif;font-size:28px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+          </div>
+          <div style="font-family:'Source Serif 4',serif;font-size:33px;font-weight:600;letter-spacing:-.02em;line-height:1.12;text-align:center;margin-top:20px;">Every credit.<br>Kept.</div>
+          <div style="font-size:15px;line-height:1.5;color:var(--sec);text-align:center;margin-top:12px;max-width:290px;">OfferBee tracks the statement credits on your premium cards — and nudges you before they expire.</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:14px;flex-shrink:0;">
+          <div onClick="{{ goSignup }}" style="background:var(--accent);color:var(--onaccent);font-size:16px;font-weight:600;text-align:center;padding:15px;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.22);">Get started</div>
+          <div onClick="{{ goSignin }}" style="text-align:center;font-size:14px;font-weight:600;color:var(--accent);cursor:pointer;padding:4px;">I already have an account</div>
+          <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:var(--ter);text-transform:uppercase;">No bank login · Tracked manually</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── 02 SIGN UP ── -->
+    <sc-if value="{{ isSignup }}">
+      <div data-screen-label="Sign up" style="height:100%;display:flex;flex-direction:column;padding:64px 0 0;animation:obfade .35s ease;">
+        <div style="padding:0 20px 6px;flex-shrink:0;">
+          <div onClick="{{ goWelcome }}" style="display:inline-flex;align-items:center;gap:4px;color:var(--accent);cursor:pointer;padding:4px 0;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Back</span></div>
+        </div>
+        <div class="scr" style="flex:1;overflow:auto;padding:6px 20px 30px;">
+          <div style="font-family:'Source Serif 4',serif;font-size:28px;font-weight:600;letter-spacing:-.02em;">Create your account</div>
+          <div style="font-size:14px;color:var(--sec);margin-top:6px;">Your first "aha" is about two minutes away.</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 18px;margin-top:20px;box-shadow:0 12px 44px rgba(33,29,22,.09);">
+            <div onClick="{{ authSignup }}" style="display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--btnbrd);border-radius:10px;padding:13px;font-size:14.5px;font-weight:600;cursor:pointer;background:var(--surface);"><svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.28-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg><span>Continue with Google</span></div>
+            <div style="display:flex;align-items:center;gap:12px;margin:18px 0;"><div style="flex:1;height:1px;background:var(--sep);"></div><span style="font-size:12.5px;color:var(--ter);">or</span><div style="flex:1;height:1px;background:var(--sep);"></div></div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px;">Email address</div>
+            <input type="email" placeholder="you@example.com" style="width:100%;border:1px solid var(--btnbrd);border-radius:9px;padding:12px 13px;font-size:14.5px;background:var(--bg);color:var(--ink);">
+            <div style="font-size:13px;font-weight:600;margin:14px 0 6px;">Password</div>
+            <input type="password" placeholder="8+ characters" style="width:100%;border:1px solid var(--btnbrd);border-radius:9px;padding:12px 13px;font-size:14.5px;background:var(--bg);color:var(--ink);">
+            <div onClick="{{ authSignup }}" style="margin-top:18px;background:var(--accent);color:var(--onaccent);font-size:15px;font-weight:600;text-align:center;padding:13px;border-radius:11px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.22);">Continue</div>
+            <div style="text-align:center;font-size:13px;color:var(--sec);margin-top:16px;">Already have an account? <span onClick="{{ goSignin }}" style="color:var(--accent);font-weight:600;cursor:pointer;">Sign in</span></div>
+          </div>
+          <div style="text-align:center;font-size:12px;line-height:1.5;color:var(--ter);margin-top:16px;">By continuing you agree to the Terms<br>and Privacy Policy.</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── 03 SIGN IN ── -->
+    <sc-if value="{{ isSignin }}">
+      <div data-screen-label="Sign in" style="height:100%;display:flex;flex-direction:column;padding:64px 0 0;animation:obfade .35s ease;">
+        <div style="padding:0 20px 6px;flex-shrink:0;">
+          <div onClick="{{ goWelcome }}" style="display:inline-flex;align-items:center;gap:4px;color:var(--accent);cursor:pointer;padding:4px 0;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Back</span></div>
+        </div>
+        <div class="scr" style="flex:1;overflow:auto;padding:6px 20px 30px;">
+          <div style="font-family:'Source Serif 4',serif;font-size:28px;font-weight:600;letter-spacing:-.02em;">Welcome back</div>
+          <div style="font-size:14px;color:var(--sec);margin-top:6px;">Your credits kept counting while you were away.</div>
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px 18px;margin-top:20px;box-shadow:0 12px 44px rgba(33,29,22,.09);">
+            <div onClick="{{ authSignin }}" style="display:flex;align-items:center;justify-content:center;gap:10px;border:1px solid var(--btnbrd);border-radius:10px;padding:13px;font-size:14.5px;font-weight:600;cursor:pointer;background:var(--surface);"><svg width="17" height="17" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.28-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path></svg><span>Continue with Google</span></div>
+            <div style="display:flex;align-items:center;gap:12px;margin:18px 0;"><div style="flex:1;height:1px;background:var(--sep);"></div><span style="font-size:12.5px;color:var(--ter);">or</span><div style="flex:1;height:1px;background:var(--sep);"></div></div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:6px;">Email address</div>
+            <input type="email" placeholder="you@example.com" style="width:100%;border:1px solid var(--btnbrd);border-radius:9px;padding:12px 13px;font-size:14.5px;background:var(--bg);color:var(--ink);">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin:14px 0 6px;"><span style="font-size:13px;font-weight:600;">Password</span><span style="font-size:12.5px;font-weight:600;color:var(--accent);cursor:pointer;">Forgot password?</span></div>
+            <input type="password" placeholder="Your password" style="width:100%;border:1px solid var(--btnbrd);border-radius:9px;padding:12px 13px;font-size:14.5px;background:var(--bg);color:var(--ink);">
+            <div onClick="{{ authSignin }}" style="margin-top:18px;background:var(--accent);color:var(--onaccent);font-size:15px;font-weight:600;text-align:center;padding:13px;border-radius:11px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.22);">Sign in</div>
+            <div style="text-align:center;font-size:13px;color:var(--sec);margin-top:16px;">New to OfferBee? <span onClick="{{ goSignup }}" style="color:var(--accent);font-weight:600;cursor:pointer;">Create account</span></div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── 04–08 ONBOARDING ── -->
+    <sc-if value="{{ isOnb }}">
+      <div data-screen-label="Onboarding" style="height:100%;display:flex;flex-direction:column;">
+        <div style="flex-shrink:0;padding:58px 20px 12px;border-bottom:1px solid var(--sep);">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:9px;">
+              <svg width="24" height="24" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberOb" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeOb"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberOb)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeOb)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+              <span style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;letter-spacing:-.01em;">OfferBee</span>
+            </div>
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ter);">{{ ob.stepLabel }}</div>
+          </div>
+          <div style="display:flex;margin-top:12px;">
+            <sc-for list="{{ ob.steps }}" as="st" hint-placeholder-count="4">
+              <div onClick="{{ st.go }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;">
+                <div style="width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:{{ st.cbg }};border:{{ st.cbrd }};color:{{ st.cfg }};font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;">{{ st.mark }}</div>
+                <span style="font-size:9.5px;font-weight:600;color:{{ st.lfg }};">{{ st.label }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="scr" style="flex:1;overflow:auto;padding:20px 20px 150px;">
+          <!-- step 1 · wallet -->
+          <sc-if value="{{ ob.isWallet }}">
+            <div data-screen-label="Onboarding · Wallet" style="animation:obfade .4s ease;">
+              <div style="font-family:'Source Serif 4',serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.15;">Which cards are in your wallet?</div>
+              <div style="font-size:13.5px;color:var(--sec);margin-top:8px;line-height:1.5;">Pick from the catalog — no bank login, ever.</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px;">
+                <sc-for list="{{ ob.catalog }}" as="c" hint-placeholder-count="6">
+                  <div onClick="{{ c.toggle }}" style="background:var(--surface);padding:12px;border-radius:14px;cursor:pointer;border:1px solid {{ c.brd }};box-shadow:{{ c.ring }};">
+                    <div style="height:62px;border-radius:10px;background:{{ c.color }};position:relative;overflow:hidden;">
+                      <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.16),rgba(0,0,0,.2));"></div>
+                      <div style="position:absolute;left:9px;top:9px;width:18px;height:13px;border-radius:3px;background:rgba(255,255,255,.3);"></div>
+                      <sc-if value="{{ c.sel }}"><div style="position:absolute;right:7px;top:7px;width:24px;height:24px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12.5 9.5 17.5 19.5 7"></path></svg></div></sc-if>
+                    </div>
+                    <div style="font-size:14px;font-weight:600;margin-top:9px;">{{ c.name }}</div>
+                    <div style="font-size:12px;color:var(--sec);margin-top:2px;font-variant-numeric:tabular-nums;">{{ c.meta }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:2px 12px;margin-top:16px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ter)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                <input value="{{ ob.query }}" onChange="{{ ob.setQuery }}" placeholder="Search Chase, Citi, Capital One…" style="flex:1;border:none;background:transparent;padding:10px 0;font-size:14.5px;color:var(--ink);">
+              </div>
+              <sc-if value="{{ ob.hasQuery }}">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-top:12px;">
+                  <sc-for list="{{ ob.results }}" as="r" hint-placeholder-count="2">
+                    <div style="display:flex;align-items:center;padding-left:14px;">
+                      <div style="width:34px;height:23px;border-radius:5px;background:{{ r.color }};margin-right:12px;flex-shrink:0;"></div>
+                      <div style="flex:1;display:flex;align-items:center;padding:11px 12px 11px 0;border-bottom:{{ r.sep }};">
+                        <div style="flex:1;"><div style="font-size:14px;font-weight:600;">{{ r.name }}</div><div style="font-size:12px;color:var(--sec);">{{ r.sub }}</div></div>
+                        <div onClick="{{ r.toggle }}" style="font-size:12px;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;background:{{ r.abg }};color:{{ r.afg }};">{{ r.alabel }}</div>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ ob.noResults }}"><div style="padding:14px 16px;font-size:13px;color:var(--ter);">No cards match — try an issuer name.</div></sc-if>
+                </div>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <!-- step 2 · spending -->
+          <sc-if value="{{ ob.isSpending }}">
+            <div data-screen-label="Onboarding · Spending" style="animation:obfade .4s ease;">
+              <div style="font-family:'Source Serif 4',serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.15;">What do you actually spend on?</div>
+              <div style="font-size:13.5px;color:var(--sec);margin-top:8px;line-height:1.5;">We'll rank your credits around it. Pick as many as you like.</div>
+              <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:20px;">
+                <sc-for list="{{ ob.cats }}" as="k" hint-placeholder-count="9">
+                  <div onClick="{{ k.toggle }}" style="font-size:14px;font-weight:600;padding:9px 15px;border-radius:11px;cursor:pointer;background:{{ k.bg }};color:{{ k.fg }};border:1px solid {{ k.brd }};">{{ k.name }}</div>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;background:var(--accentsoft);border-radius:11px;padding:11px 16px;margin-top:22px;">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.5 2.5M15.2 15.2l2.5 2.5M6.3 17.7l2.5-2.5M15.2 8.8l2.5-2.5"></path></svg>
+                <span style="font-size:14px;font-weight:600;color:var(--deep);line-height:1.4;">{{ ob.catMsg }}</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- step 3 · reminders -->
+          <sc-if value="{{ ob.isReminders }}">
+            <div data-screen-label="Onboarding · Reminders" style="animation:obfade .4s ease;">
+              <div style="font-family:'Source Serif 4',serif;font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.15;">Never miss a reset.</div>
+              <div style="font-size:13.5px;color:var(--sec);margin-top:8px;line-height:1.5;">One nudge before money expires. Nothing else.</div>
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ter);margin:20px 0 8px;">What a nudge looks like</div>
+              <div style="display:flex;gap:11px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:13px 14px;box-shadow:0 10px 26px rgba(33,29,22,.09);opacity:{{ ob.notifDim }};transition:opacity .25s ease;">
+                <svg width="30" height="30" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberN" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeN"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberN)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeN)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+                <div style="flex:1;min-width:0;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.05em;color:var(--ter);">OFFERBEE</span><span style="font-size:11px;color:var(--ter);">now</span></div>
+                  <div style="font-size:13.5px;font-weight:600;margin-top:2px;">{{ ob.notifHead }}</div>
+                  <div style="font-size:12px;color:var(--sec);">{{ ob.notifBody }}</div>
+                </div>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:18px;">
+                <sc-for list="{{ ob.notifRows }}" as="r" hint-placeholder-count="4">
+                  <div style="display:flex;align-items:center;gap:12px;padding:13px 14px 13px 16px;border-bottom:{{ r.sep }};">
+                    <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.title }}</div><div style="font-size:12.5px;color:var(--sec);margin-top:1px;">{{ r.desc }}</div></div>
+                    <div onClick="{{ r.toggle }}" style="width:44px;height:26px;border-radius:14px;padding:3px;display:flex;cursor:pointer;flex-shrink:0;transition:background .2s;background:{{ r.tbg }};justify-content:{{ r.just }};">
+                      <div style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);"></div>
+                    </div>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-if>
+
+          <!-- step 4 · reveal -->
+          <sc-if value="{{ ob.isReveal }}">
+            <div data-screen-label="Onboarding · Reveal" style="animation:obfade .4s ease;">
+              <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--accent);">You're all set</div>
+              <div style="font-family:'Source Serif 4',serif;font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1.08;margin-top:10px;">{{ ob.revTotal }} is about to slip away.</div>
+              <div style="font-size:14px;line-height:1.5;color:var(--sec);margin:12px 0 18px;">{{ ob.revSub }}</div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                <sc-for list="{{ ob.revItems }}" as="it" hint-placeholder-count="3">
+                  <div style="display:flex;align-items:center;gap:12px;padding:11px 14px 11px 12px;border-bottom:{{ it.sep }};">
+                    <div style="width:46px;height:46px;border-radius:12px;background:var(--warnsoft);color:var(--warn);display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;line-height:1;">{{ it.days }}</span><span style="font-size:8.5px;font-weight:600;">days</span></div>
+                    <div style="width:30px;height:20px;border-radius:5px;background:{{ it.color }};flex-shrink:0;"></div>
+                    <div style="flex:1;min-width:0;"><div style="font-size:15px;font-weight:600;">{{ it.name }}</div><div style="font-size:12.5px;color:var(--sec);">{{ it.card }}</div></div>
+                    <span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;">{{ it.amt }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ ob.revEmpty }}"><div style="padding:16px;font-size:13.5px;color:var(--ter);">Add cards in step 1 to see what's expiring in your wallet.</div></sc-if>
+              </div>
+              <div style="display:flex;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:14px 8px;margin-top:16px;">
+                <div style="flex:1;text-align:center;"><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;">{{ ob.stCards }}</div><div style="font-size:10.5px;color:var(--sec);margin-top:2px;">cards added</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div style="flex:1;text-align:center;"><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;">{{ ob.stTracked }}</div><div style="font-size:10.5px;color:var(--sec);margin-top:2px;">tracked per year</div></div>
+                <div style="width:1px;background:var(--border);"></div>
+                <div style="flex:1;text-align:center;"><div style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;font-variant-numeric:tabular-nums;">{{ ob.stRem }}</div><div style="font-size:10.5px;color:var(--sec);margin-top:2px;">reminders on</div></div>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <!-- floating action bar -->
+        <div style="position:absolute;left:16px;right:16px;bottom:16px;z-index:40;display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:22px;background:var(--glass);backdrop-filter:blur(20px) saturate(170%);-webkit-backdrop-filter:blur(20px) saturate(170%);border:1px solid var(--glassb);box-shadow:0 10px 30px rgba(33,29,22,.16), inset 0 1px 0 rgba(255,255,255,.2);">
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:var(--accent);font-variant-numeric:tabular-nums;">{{ ob.counter }}</div>
+            <div style="font-size:10px;color:var(--sec);">credits in play</div>
+          </div>
+          <sc-if value="{{ ob.showBack }}"><div onClick="{{ ob.back }}" style="border:1px solid var(--btnbrd);color:var(--sec);font-size:13.5px;font-weight:600;padding:11px 16px;border-radius:12px;cursor:pointer;">Back</div></sc-if>
+          <div onClick="{{ ob.next }}" style="background:var(--accent);color:var(--onaccent);font-size:13.5px;font-weight:600;padding:11px 18px;border-radius:12px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.22);">{{ ob.nextLabel }}</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── 07 NOTIFICATION PRIMER ── -->
+    <sc-if value="{{ isPrimer }}">
+      <div data-screen-label="Notification primer" style="height:100%;display:flex;flex-direction:column;padding:90px 28px 34px;animation:obfade .35s ease;">
+        <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+          <div style="width:84px;height:84px;border-radius:50%;background:var(--accentsoft);display:flex;align-items:center;justify-content:center;"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10 19a2 2 0 0 0 4 0"></path></svg></div>
+          <div style="font-family:'Source Serif 4',serif;font-size:28px;font-weight:600;letter-spacing:-.02em;margin-top:22px;">Never miss a reset</div>
+          <div style="font-size:14.5px;line-height:1.55;color:var(--sec);text-align:center;margin-top:10px;max-width:290px;">One nudge, a day or two before a credit resets — only when real money is about to expire.</div>
+          <div style="display:flex;gap:11px;align-items:flex-start;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:13px 14px;box-shadow:0 10px 26px rgba(33,29,22,.09);margin-top:26px;width:100%;">
+            <svg width="30" height="30" viewBox="0 0 512 512" style="display:block;flex-shrink:0;"><defs><linearGradient id="amberP" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFB300"></stop><stop offset="1" stop-color="#FF6D00"></stop></linearGradient><clipPath id="beeP"><rect x="146" y="216" width="240" height="140" rx="70"></rect></clipPath></defs><rect width="512" height="512" rx="116" fill="url(#amberP)"></rect><ellipse cx="226" cy="164" rx="46" ry="72" transform="rotate(-24 226 164)" fill="#FFFFFF" opacity="0.55"></ellipse><ellipse cx="306" cy="164" rx="46" ry="72" transform="rotate(24 306 164)" fill="#FFFFFF" opacity="0.85"></ellipse><path d="M360 270 Q404 278 412 286 Q404 294 360 302 Z" fill="#FFFFFF" stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round"></path><rect x="146" y="216" width="240" height="140" rx="70" fill="#FFFFFF"></rect><g clip-path="url(#beeP)"><rect x="236" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect><rect x="296" y="200" width="30" height="180" fill="#FF6D00" opacity="0.9"></rect></g><circle cx="196" cy="272" r="13" fill="#FF6D00"></circle><path d="M172 222 Q160 184 132 172" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"></path><circle cx="128" cy="170" r="10" fill="#FFFFFF"></circle></svg>
+            <div style="flex:1;min-width:0;">
+              <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-family:'IBM Plex Mono',monospace;font-size:9.5px;font-weight:600;letter-spacing:.05em;color:var(--ter);">OFFERBEE</span><span style="font-size:11px;color:var(--ter);">now</span></div>
+              <div style="font-size:13.5px;font-weight:600;margin-top:2px;">{{ ob.notifHead }}</div>
+              <div style="font-size:12px;color:var(--sec);">{{ ob.notifBody }}</div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px;flex-shrink:0;">
+          <div onClick="{{ primerDone }}" style="background:var(--accent);color:var(--onaccent);font-size:16px;font-weight:600;text-align:center;padding:15px;border-radius:14px;cursor:pointer;box-shadow:0 6px 16px rgba(232,104,14,.22);">Turn on notifications</div>
+          <div onClick="{{ primerDone }}" style="text-align:center;font-size:14px;font-weight:600;color:var(--sec);cursor:pointer;padding:4px;">Not now</div>
+          <div style="text-align:center;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.07em;color:var(--ter);text-transform:uppercase;">Change anytime in Settings</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- ── APP ── -->
+    <sc-if value="{{ isApp }}">
+      <div style="height:100%;display:flex;flex-direction:column;position:relative;">
+
+        <!-- 09 Review home -->
+        <sc-if value="{{ tHome }}">
+          <div data-screen-label="Review" style="height:100%;display:flex;flex-direction:column;animation:obfade .35s ease;">
+            <div style="flex-shrink:0;padding:56px 20px 8px;display:flex;justify-content:space-between;align-items:flex-end;">
+              <div><div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;">July 2026</div><div style="font-family:'Source Serif 4',serif;font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1;margin-top:3px;">Review</div></div>
+              <div style="display:flex;align-items:center;gap:10px;">
+                <div onClick="{{ goAlerts }}" style="position:relative;width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10 19a2 2 0 0 0 4 0"></path></svg><div style="position:absolute;top:1px;right:1px;min-width:15px;height:15px;padding:0 4px;border-radius:8px;background:var(--alert);color:#fff;font-family:'IBM Plex Mono',monospace;font-size:9px;font-weight:600;display:{{ rv.bellShow }};align-items:center;justify-content:center;border:1.5px solid var(--bg);">{{ rv.bellCount }}</div></div>
+                <div onClick="{{ goSettings }}" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"></circle><path d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-.97 1.47V21a2 2 0 0 1-4 0v-.12a1.6 1.6 0 0 0-1.05-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-.97H3a2 2 0 0 1 0-4h.12a1.6 1.6 0 0 0 1.47-1.05 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32H9a1.6 1.6 0 0 0 .97-1.47V3a2 2 0 0 1 4 0v.12a1.6 1.6 0 0 0 .97 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77V9a1.6 1.6 0 0 0 1.47.97H21a2 2 0 0 1 0 4h-.12a1.6 1.6 0 0 0-1.48.97z"></path></svg></div>
+              </div>
+            </div>
+            <div class="scr" style="flex:1;overflow:auto;padding:10px 16px 110px;display:flex;flex-direction:column;gap:22px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px 20px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.05em;color:var(--ter);text-transform:uppercase;">Captured value · 2026</div>
+                <div style="display:flex;align-items:baseline;gap:10px;margin-top:6px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:40px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;">{{ rv.captured }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:{{ rv.netColor }};">{{ rv.net }}</span></div>
+                <div style="font-size:13px;color:var(--sec);margin-top:8px;font-variant-numeric:tabular-nums;">{{ rv.sub }}</div>
+                <div style="height:8px;border-radius:5px;background:var(--track);margin-top:14px;overflow:hidden;"><div style="height:100%;background:var(--accent);border-radius:5px;transition:width .4s ease;width:{{ rv.pctW }};"></div></div>
+                <div style="display:flex;justify-content:space-between;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ter);margin-top:7px;"><span>{{ rv.pctLabel }}</span><span>{{ rv.pct }}</span></div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">At a glance</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                  <div onClick="{{ goBenefits }}" style="display:flex;align-items:center;padding-left:16px;cursor:pointer;"><div style="width:28px;height:28px;border-radius:8px;background:var(--accentsoft);display:flex;align-items:center;justify-content:center;margin-right:12px;flex-shrink:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v8M8 12h8" stroke-linecap="round"></path></svg></div><div style="flex:1;display:flex;align-items:center;padding:13px 14px 13px 0;border-bottom:1px solid var(--sep);"><span style="flex:1;font-size:15px;font-weight:500;">Remaining this month</span><span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;">{{ rv.remaining }}</span><svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="var(--chev)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:10px;"><path d="M1.5 1.5 6.5 6.5 1.5 11.5"></path></svg></div></div>
+                  <div onClick="{{ goCards }}" style="display:flex;align-items:center;padding-left:16px;cursor:pointer;"><div style="width:28px;height:28px;border-radius:8px;background:var(--tile);display:flex;align-items:center;justify-content:center;margin-right:12px;flex-shrink:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2.5"></rect><path d="M3 10h18"></path></svg></div><div style="flex:1;display:flex;align-items:center;padding:13px 14px 13px 0;"><span style="flex:1;font-size:15px;font-weight:500;">Net across your cards</span><span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:{{ cs.netColor }};font-variant-numeric:tabular-nums;">{{ cs.net }}</span><svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="var(--chev)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-left:10px;"><path d="M1.5 1.5 6.5 6.5 1.5 11.5"></path></svg></div></div>
+                </div>
+              </div>
+              <div>
+                <div style="display:flex;align-items:baseline;justify-content:space-between;padding:0 6px 10px;">
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;">Expiring</div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--alert);">{{ ex.urgentSum }}</div>
+                </div>
+                <div style="display:flex;background:var(--seg);border-radius:10px;padding:2px;font-size:13px;margin-bottom:12px;">
+                  <sc-for list="{{ ex.segs }}" as="s" hint-placeholder-count="2">
+                    <div onClick="{{ s.go }}" style="flex:1;text-align:center;padding:7px;border-radius:8px;cursor:pointer;font-weight:{{ s.fw }};background:{{ s.bg }};color:{{ s.fg }};box-shadow:{{ s.sh }};">{{ s.label }}</div>
+                  </sc-for>
+                </div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                  <sc-for list="{{ ex.urgent }}" as="r" hint-placeholder-count="2">
+                    <div onClick="{{ r.open }}" style="display:flex;align-items:center;padding-left:16px;cursor:pointer;">
+                      <div style="width:40px;height:40px;border-radius:11px;background:var(--warnsoft);color:var(--warn);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:12px;flex-shrink:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;line-height:1;">{{ r.days }}</span><span style="font-size:9px;font-weight:600;">days</span></div>
+                      <div style="flex:1;display:flex;align-items:center;padding:12px 14px 12px 0;border-bottom:{{ r.sep }};">
+                        <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.name }}</div><div style="font-size:12.5px;color:var(--sec);">{{ r.sub }}</div></div>
+                        <span onClick="{{ r.use }}" style="background:var(--accent);color:var(--onaccent);font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;">Use</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ ex.urgentEmpty }}"><div style="padding:15px 16px;font-size:13.5px;color:var(--ter);">Nothing expiring this week — you're all caught up.</div></sc-if>
+                </div>
+                <sc-if value="{{ ex.showLater }}">
+                  <div style="margin-top:18px;">
+                    <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;display:flex;justify-content:space-between;"><span>Later this month</span><span>{{ ex.laterSum }}</span></div>
+                    <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                      <sc-for list="{{ ex.later }}" as="r" hint-placeholder-count="3">
+                        <div onClick="{{ r.open }}" style="display:flex;align-items:center;padding-left:16px;cursor:pointer;">
+                          <div style="width:40px;height:40px;border-radius:11px;background:var(--tile);color:var(--sec);display:flex;flex-direction:column;align-items:center;justify-content:center;margin-right:12px;flex-shrink:0;"><span style="font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;line-height:1;">{{ r.days }}</span><span style="font-size:9px;font-weight:600;">days</span></div>
+                          <div style="flex:1;display:flex;align-items:center;padding:12px 14px 12px 0;border-bottom:{{ r.sep }};">
+                            <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.name }}</div><div style="font-size:12.5px;color:var(--sec);">{{ r.sub }}</div></div>
+                            <span onClick="{{ r.snooze }}" style="border:1px solid var(--btnbrd);color:var(--sec);font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;">Snooze</span>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </div>
+                </sc-if>
+                <sc-if value="{{ ex.weekFoot }}"><div onClick="{{ ex.goMonth }}" style="font-size:13px;font-weight:600;color:var(--accent);padding:10px 6px 0;cursor:pointer;">{{ ex.weekFootStr }}</div></sc-if>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- 10 Benefits -->
+        <sc-if value="{{ tBenefits }}">
+          <div data-screen-label="Benefits" style="height:100%;display:flex;flex-direction:column;animation:obfade .35s ease;">
+            <div style="flex-shrink:0;padding:56px 20px 6px;display:flex;justify-content:space-between;align-items:flex-end;">
+              <div style="font-family:'Source Serif 4',serif;font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1;">Benefits</div>
+              <div style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.9" stroke-linecap="round"><path d="M3 5h18M6 12h12M10 19h4"></path></svg></div>
+            </div>
+            <div class="scr" style="flex:1;overflow:auto;padding:10px 16px 110px;display:flex;flex-direction:column;gap:16px;">
+              <div style="display:flex;align-items:center;gap:8px;background:var(--field);border-radius:11px;padding:0 12px;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ter)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                <input value="{{ bf.query }}" onChange="{{ bf.setQuery }}" placeholder="Search credits" style="flex:1;border:none;background:transparent;padding:9px 0;font-size:15px;color:var(--ink);">
+              </div>
+              <div style="display:flex;background:var(--seg);border-radius:10px;padding:2px;font-size:13px;">
+                <sc-for list="{{ bf.segs }}" as="s" hint-placeholder-count="3">
+                  <div onClick="{{ s.go }}" style="flex:1;text-align:center;padding:7px;border-radius:8px;cursor:pointer;font-weight:{{ s.fw }};background:{{ s.bg }};color:{{ s.fg }};box-shadow:{{ s.sh }};">{{ s.label }}</div>
+                </sc-for>
+              </div>
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:15px 18px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;"><span style="font-size:13px;color:var(--sec);font-weight:600;">{{ bf.sumLabel }}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;">{{ bf.sumStr }}</span></div>
+                <div style="height:7px;border-radius:4px;background:var(--track);margin-top:10px;overflow:hidden;"><div style="height:100%;background:var(--accent);border-radius:4px;transition:width .4s ease;width:{{ bf.pctW }};"></div></div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">{{ bf.groupLabel }}</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                  <sc-for list="{{ bf.rows }}" as="r" hint-placeholder-count="5">
+                    <div onClick="{{ r.open }}" style="display:flex;align-items:center;padding-left:16px;cursor:pointer;">
+                      <div style="width:30px;height:20px;border-radius:5px;background:{{ r.color }};margin-right:12px;flex-shrink:0;"></div>
+                      <div style="flex:1;display:flex;align-items:center;padding:12px 14px 12px 0;border-bottom:{{ r.sep }};">
+                        <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.name }}</div><div style="font-size:12.5px;font-weight:{{ r.subW }};color:{{ r.subC }};">{{ r.sub }}</div></div>
+                        <span onClick="{{ r.toggle }}" style="font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;cursor:pointer;background:{{ r.bbg }};color:{{ r.bfg }};">{{ r.blabel }}</span>
+                      </div>
+                    </div>
+                  </sc-for>
+                  <sc-if value="{{ bf.empty }}"><div style="padding:15px 16px;font-size:13.5px;color:var(--ter);">No credits match.</div></sc-if>
+                </div>
+                <div style="font-size:12px;color:var(--ter);padding:8px 6px 0;">{{ bf.foot }}</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- 12 Cards wallet -->
+        <sc-if value="{{ tCards }}">
+          <div data-screen-label="Cards" style="height:100%;display:flex;flex-direction:column;animation:obfade .35s ease;">
+            <div style="flex-shrink:0;padding:56px 20px 6px;display:flex;justify-content:space-between;align-items:flex-end;">
+              <div style="font-family:'Source Serif 4',serif;font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1;">Cards</div>
+              <div onClick="{{ openSheet }}" style="width:36px;height:36px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><path d="M12 6v12M6 12h12"></path></svg></div>
+            </div>
+            <div class="scr" style="flex:1;overflow:auto;padding:10px 16px 110px;display:flex;flex-direction:column;gap:20px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:16px 20px;">
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.05em;color:var(--ter);text-transform:uppercase;">{{ cs.netLabel }}</div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:34px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;line-height:1;color:{{ cs.netColor }};">{{ cs.net }}</div>
+                <div style="font-size:13px;color:var(--sec);margin-top:6px;font-variant-numeric:tabular-nums;">{{ cs.sub }}</div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">Your wallet</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                  <sc-for list="{{ cs.rows }}" as="r" hint-placeholder-count="4">
+                    <div onClick="{{ r.open }}" style="display:flex;align-items:center;padding-left:16px;cursor:pointer;">
+                      <div style="width:44px;height:29px;border-radius:6px;background:{{ r.color }};margin-right:12px;flex-shrink:0;"></div>
+                      <div style="flex:1;display:flex;align-items:center;padding:13px 14px 13px 0;border-bottom:{{ r.sep }};">
+                        <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.name }}</div><div style="font-size:12.5px;color:var(--sec);font-variant-numeric:tabular-nums;">{{ r.sub }}</div></div>
+                        <div style="text-align:right;margin-right:10px;"><div style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:{{ r.netColor }};">{{ r.net }}</div><div style="font-size:11px;font-weight:600;color:{{ r.netColor }};">{{ r.verdict }}</div></div>
+                        <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="var(--chev)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 6.5 6.5 1.5 11.5"></path></svg>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+                <div style="font-size:12px;color:var(--ter);padding:8px 6px 0;">Tap a card to review its credits and renewal date.</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- 13 Card detail -->
+        <sc-if value="{{ pCard }}">
+          <div data-screen-label="Card detail" style="height:100%;display:flex;flex-direction:column;animation:obfade .35s ease;">
+            <div style="flex-shrink:0;padding:54px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+              <div onClick="{{ cd.back }}" style="display:flex;align-items:center;gap:3px;color:var(--accent);cursor:pointer;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Cards</span></div>
+              <div style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;">{{ cd.name }}</div>
+              <div style="width:34px;height:34px;border-radius:50%;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;"><svg width="18" height="6" viewBox="0 0 22 6"><circle cx="3" cy="3" r="2.4" fill="var(--accent)"></circle><circle cx="11" cy="3" r="2.4" fill="var(--accent)"></circle><circle cx="19" cy="3" r="2.4" fill="var(--accent)"></circle></svg></div>
+            </div>
+            <div class="scr" style="flex:1;overflow:auto;padding:8px 16px 110px;display:flex;flex-direction:column;gap:20px;">
+              <div style="height:172px;border-radius:16px;position:relative;overflow:hidden;padding:20px;display:flex;flex-direction:column;justify-content:space-between;background:{{ cd.color }};">
+                <div style="position:absolute;inset:0;background:linear-gradient(140deg,rgba(255,255,255,.14),rgba(0,0,0,.24));"></div>
+                <div style="display:flex;justify-content:space-between;position:relative;"><span style="font-family:'Source Serif 4',serif;font-weight:600;letter-spacing:.06em;color:#F1ECE0;text-transform:uppercase;">{{ cd.artName }}</span><div style="width:32px;height:24px;border-radius:5px;background:rgba(255,255,255,.4);"></div></div>
+                <div style="position:relative;"><div style="font-family:'IBM Plex Mono',monospace;letter-spacing:.1em;color:#F1ECE0;font-variant-numeric:tabular-nums;font-size:14px;">{{ cd.last4 }}</div><div style="font-size:12px;color:#DED9CD;margin-top:5px;">{{ cd.terms }}</div></div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">Captured this year</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:16px 18px;">
+                  <div style="display:flex;justify-content:space-between;align-items:baseline;"><div style="display:flex;align-items:baseline;gap:8px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;font-variant-numeric:tabular-nums;">{{ cd.captured }}</span><span style="font-size:13px;color:var(--sec);">{{ cd.ofFee }}</span></div><span style="font-size:12px;font-weight:600;padding:5px 11px;border-radius:8px;background:{{ cd.vbg }};color:{{ cd.vfg }};">{{ cd.verdict }}</span></div>
+                  <div style="height:7px;border-radius:4px;background:var(--track);margin-top:12px;overflow:hidden;"><div style="height:100%;border-radius:4px;transition:width .4s ease;background:{{ cd.barColor }};width:{{ cd.pctW }};"></div></div>
+                  <div style="font-size:12.5px;margin-top:7px;font-weight:600;color:{{ cd.netColor }};">{{ cd.netLine }}</div>
+                </div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">{{ cd.creditsLabel }}</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                  <sc-for list="{{ cd.rows }}" as="r" hint-placeholder-count="4">
+                    <div onClick="{{ r.open }}" style="display:flex;align-items:center;padding-left:16px;cursor:pointer;">
+                      <div style="flex:1;display:flex;align-items:center;padding:13px 14px 13px 0;border-bottom:{{ r.sep }};">
+                        <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.name }}</div><div style="font-size:12.5px;font-weight:{{ r.subW }};color:{{ r.subC }};">{{ r.sub }}</div></div>
+                        <span style="font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;margin-right:10px;color:{{ r.fracC }};">{{ r.frac }}</span>
+                        <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="var(--chev)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 6.5 6.5 1.5 11.5"></path></svg>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- 14 Credit detail -->
+        <sc-if value="{{ pCredit }}">
+          <div data-screen-label="Credit detail" style="height:100%;display:flex;flex-direction:column;animation:obfade .35s ease;">
+            <div style="flex-shrink:0;padding:54px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+              <div onClick="{{ cr.back }}" style="display:flex;align-items:center;gap:3px;color:var(--accent);cursor:pointer;min-width:0;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ cr.backLabel }}</span></div>
+              <div style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;white-space:nowrap;">{{ cr.name }}</div>
+              <div style="width:60px;"></div>
+            </div>
+            <div class="scr" style="flex:1;overflow:auto;padding:8px 16px 110px;display:flex;flex-direction:column;gap:20px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;">
+                <div style="display:flex;align-items:center;gap:12px;">
+                  <div style="width:44px;height:29px;border-radius:6px;flex-shrink:0;background:{{ cr.color }};"></div>
+                  <div style="flex:1;"><div style="font-size:13px;color:var(--sec);">{{ cr.card }}</div></div>
+                  <div style="width:46px;height:46px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;background:{{ cr.tileBg }};color:{{ cr.tileFg }};"><span style="font-family:'IBM Plex Mono',monospace;font-size:16px;font-weight:600;line-height:1;">{{ cr.days }}</span><span style="font-size:8.5px;font-weight:600;">days</span></div>
+                </div>
+                <div style="display:flex;align-items:baseline;gap:10px;margin-top:14px;"><span style="font-family:'IBM Plex Mono',monospace;font-size:38px;font-weight:600;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;">{{ cr.amount }}</span><span style="font-size:13px;font-weight:600;color:{{ cr.statusC }};">{{ cr.status }}</span></div>
+                <div style="height:7px;border-radius:4px;background:var(--track);margin-top:16px;overflow:hidden;"><div style="height:100%;background:var(--accent);border-radius:4px;transition:width .4s ease;width:{{ cr.pctW }};"></div></div>
+                <div style="font-size:12.5px;color:var(--sec);margin-top:7px;font-variant-numeric:tabular-nums;">{{ cr.yearLine }}</div>
+                <div onClick="{{ cr.toggle }}" style="margin-top:16px;text-align:center;font-size:14.5px;font-weight:600;padding:13px;border-radius:12px;cursor:pointer;background:{{ cr.bbg }};color:{{ cr.bfg }};box-shadow:{{ cr.bsh }};">{{ cr.blabel }}</div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">Details</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                  <div onClick="{{ cr.openCard }}" style="display:flex;align-items:center;padding:13px 14px 13px 16px;border-bottom:1px solid var(--sep);cursor:pointer;"><span style="flex:1;font-size:15px;font-weight:500;">Card</span><span style="font-size:14px;color:var(--sec);margin-right:8px;">{{ cr.card }}</span><svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="var(--chev)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 6.5 6.5 1.5 11.5"></path></svg></div>
+                  <div style="display:flex;align-items:center;padding:13px 14px 13px 16px;border-bottom:1px solid var(--sep);"><span style="flex:1;font-size:15px;font-weight:500;">Cycle</span><span style="font-size:14px;color:var(--sec);">{{ cr.cycle }}</span></div>
+                  <div style="display:flex;align-items:center;padding:13px 14px 13px 16px;border-bottom:1px solid var(--sep);"><span style="flex:1;font-size:15px;font-weight:500;">Resets in</span><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;color:{{ cr.statusC }};">{{ cr.resets }}</span></div>
+                  <div style="display:flex;align-items:center;padding:13px 14px 13px 16px;"><span style="flex:1;font-size:15px;font-weight:500;">Annual value</span><span style="font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums;">{{ cr.perYear }}</span></div>
+                </div>
+                <div style="font-size:12px;color:var(--ter);padding:8px 6px 0;">Marking used updates every total instantly.</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- 14b Notifications -->
+        <sc-if value="{{ pAlerts }}">
+          <div data-screen-label="Notifications" style="height:100%;display:flex;flex-direction:column;animation:obfade .35s ease;">
+            <div style="flex-shrink:0;padding:54px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+              <div onClick="{{ nt.back }}" style="display:flex;align-items:center;gap:3px;color:var(--accent);cursor:pointer;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Review</span></div>
+              <div style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;">Notifications</div>
+              <div onClick="{{ nt.markAll }}" style="width:74px;text-align:right;font-size:13px;font-weight:600;color:{{ nt.markColor }};cursor:pointer;">Mark read</div>
+            </div>
+            <div class="scr" style="flex:1;overflow:auto;padding:8px 16px 110px;display:flex;flex-direction:column;gap:20px;">
+              <sc-for list="{{ nt.groups }}" as="g" hint-placeholder-count="2">
+                <div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">{{ g.label }}</div>
+                  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                    <sc-for list="{{ g.rows }}" as="r" hint-placeholder-count="3">
+                      <div onClick="{{ r.open }}" style="display:flex;align-items:flex-start;padding-left:16px;cursor:pointer;background:{{ r.rowBg }};">
+                        <div style="width:34px;height:34px;border-radius:10px;background:{{ r.iconBg }};color:{{ r.iconFg }};display:flex;align-items:center;justify-content:center;margin:13px 12px 0 0;flex-shrink:0;">{{ r.icon }}</div>
+                        <div style="flex:1;display:flex;align-items:flex-start;gap:10px;padding:13px 14px 13px 0;border-bottom:{{ r.sep }};">
+                          <div style="flex:1;min-width:0;">
+                            <div style="font-size:14.5px;font-weight:{{ r.titleW }};line-height:1.3;">{{ r.title }}</div>
+                            <div style="font-size:12.5px;color:var(--sec);margin-top:3px;line-height:1.4;">{{ r.body }}</div>
+                            <div style="font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ter);margin-top:6px;">{{ r.when }}</div>
+                          </div>
+                          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0;">
+                            <div style="width:7px;height:7px;border-radius:50%;background:var(--accent);display:{{ r.dot }};"></div>
+                            <sc-if value="{{ r.hasAction }}"><span onClick="{{ r.action }}" style="background:{{ r.actionBg }};color:{{ r.actionFg }};border:{{ r.actionBrd }};font-size:12px;font-weight:600;padding:6px 12px;border-radius:8px;cursor:pointer;white-space:nowrap;">{{ r.actionLabel }}</span></sc-if>
+                          </div>
+                        </div>
+                      </div>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ nt.empty }}">
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px 20px;text-align:center;">
+                  <div style="font-family:'Source Serif 4',serif;font-size:18px;font-weight:600;">You're all caught up</div>
+                  <div style="font-size:13px;color:var(--sec);margin-top:6px;line-height:1.5;">We'll nudge you before any credit resets.</div>
+                </div>
+              </sc-if>
+              <div onClick="{{ nt.goSettings }}" style="display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;cursor:pointer;">
+                <div style="width:28px;height:28px;border-radius:8px;background:var(--tile);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--sec)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"></path><path d="M10 19a2 2 0 0 0 4 0"></path></svg></div>
+                <span style="flex:1;font-size:14.5px;font-weight:500;">Reminder settings</span>
+                <svg width="8" height="13" viewBox="0 0 8 13" fill="none" stroke="var(--chev)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 1.5 6.5 6.5 1.5 11.5"></path></svg>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- 15 Settings -->
+        <sc-if value="{{ pSettings }}">
+          <div data-screen-label="Settings" style="height:100%;display:flex;flex-direction:column;animation:obfade .35s ease;">
+            <div style="flex-shrink:0;padding:54px 16px 10px;display:flex;align-items:center;justify-content:space-between;">
+              <div onClick="{{ st.back }}" style="display:flex;align-items:center;gap:3px;color:var(--accent);cursor:pointer;"><svg width="11" height="19" viewBox="0 0 11 19" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 1.5 2 9.5l7.5 8"></path></svg><span style="font-size:16px;font-weight:500;">Review</span></div>
+              <div style="font-family:'Source Serif 4',serif;font-size:17px;font-weight:600;">Settings</div>
+              <div style="width:74px;"></div>
+            </div>
+            <div class="scr" style="flex:1;overflow:auto;padding:8px 16px 110px;display:flex;flex-direction:column;gap:20px;">
+              <div style="background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:18px;display:flex;align-items:center;gap:14px;">
+                <div style="width:54px;height:54px;border-radius:50%;background:linear-gradient(135deg,#F5B14D,#E8680E);display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:600;flex-shrink:0;">M</div>
+                <div style="flex:1;min-width:0;"><div style="font-family:'Source Serif 4',serif;font-size:19px;font-weight:600;">Maya Okafor</div><div style="font-size:12.5px;color:var(--sec);margin-top:2px;">maya@okafor.co · member since 2024</div></div>
+                <div style="border:1px solid var(--btnbrd);color:var(--sec);font-size:12px;font-weight:600;padding:7px 12px;border-radius:9px;cursor:pointer;flex-shrink:0;">Edit</div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">Appearance</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px;">
+                  <div style="flex:1;"><div style="font-size:15px;font-weight:600;">Theme</div><div style="font-size:12.5px;color:var(--sec);margin-top:1px;">Honey is light, Onyx is dark.</div></div>
+                  <div style="display:flex;background:var(--seg);border-radius:10px;padding:2px;font-size:12.5px;flex-shrink:0;">
+                    <div onClick="{{ setHoney }}" style="text-align:center;padding:6px 13px;border-radius:8px;cursor:pointer;font-weight:600;background:{{ segHoneyBg }};color:{{ segHoneyFg }};box-shadow:{{ segHoneySh }};">Honey</div>
+                    <div onClick="{{ setOnyx }}" style="text-align:center;padding:6px 13px;border-radius:8px;cursor:pointer;font-weight:600;background:{{ segOnyxBg }};color:{{ segOnyxFg }};box-shadow:{{ segOnyxSh }};">Onyx</div>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">Notifications</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                  <sc-for list="{{ st.notifRows }}" as="r" hint-placeholder-count="4">
+                    <div style="display:flex;align-items:center;gap:12px;padding:13px 14px 13px 16px;border-bottom:{{ r.sep }};">
+                      <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.title }}</div><div style="font-size:12.5px;color:var(--sec);margin-top:1px;">{{ r.desc }}</div></div>
+                      <div onClick="{{ r.toggle }}" style="width:44px;height:26px;border-radius:14px;padding:3px;display:flex;cursor:pointer;flex-shrink:0;transition:background .2s;background:{{ r.tbg }};justify-content:{{ r.just }};">
+                        <div style="width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);"></div>
+                      </div>
+                    </div>
+                  </sc-for>
+                </div>
+              </div>
+              <div>
+                <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">Plan</div>
+                <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:13px 16px;display:flex;align-items:center;gap:12px;">
+                  <div style="flex:1;"><div style="font-size:15px;font-weight:600;">OfferBee Pro</div><div style="font-size:12.5px;color:var(--sec);margin-top:1px;">$4/mo · unlimited cards · renews Aug 12</div></div>
+                  <div style="background:var(--accentsoft);color:var(--accent);font-size:12px;font-weight:600;padding:7px 12px;border-radius:9px;cursor:pointer;flex-shrink:0;">Manage</div>
+                </div>
+              </div>
+              <div style="display:flex;gap:12px;">
+                <div style="flex:1;border:1px solid var(--btnbrd);color:var(--sec);font-size:13.5px;font-weight:600;text-align:center;padding:12px;border-radius:12px;cursor:pointer;">Export data (CSV)</div>
+                <div onClick="{{ st.signOut }}" style="flex:1;border:1px solid var(--btnbrd);color:var(--alert);font-size:13.5px;font-weight:600;text-align:center;padding:12px;border-radius:12px;cursor:pointer;">Sign out</div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- tab bar -->
+        <div style="position:absolute;left:16px;right:16px;bottom:14px;z-index:40;display:flex;padding:9px 6px;background:var(--glass);backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);border-radius:30px;border:1px solid var(--glassb);box-shadow:0 10px 30px rgba(33,29,22,.16), inset 0 1px 0 rgba(255,255,255,.2);">
+          <div onClick="{{ tabHome }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:{{ cHome }};"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 11.5 12 4.5l8 7"></path><path d="M6 10.5V20h4v-5h4v5h4v-9.5"></path></svg><span style="font-size:10px;font-weight:600;">Review</span></div>
+          <div onClick="{{ tabBenefits }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:{{ cBenefits }};"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6.5 5.3 7.8 7.5 5.5"></path><path d="M4 12.5 5.3 13.8 7.5 11.5"></path><path d="M4 18.3 5.3 19.6 7.5 17.3"></path><path d="M11 6.5h9M11 12.5h9M11 18.5h6"></path></svg><span style="font-size:10px;font-weight:600;">Benefits</span></div>
+          <div onClick="{{ tabCards }}" style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;color:{{ cCards }};"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="18" height="12" rx="2.5"></rect><path d="M3 10h18"></path></svg><span style="font-size:10px;font-weight:600;">Cards</span></div>
+        </div>
+
+        <!-- 16 Add a card (modal sheet) -->
+        <sc-if value="{{ sheetOpen }}">
+          <div style="position:absolute;inset:0;z-index:60;">
+            <div onClick="{{ closeSheet }}" style="position:absolute;inset:0;background:rgba(0,0,0,.42);"></div>
+            <div data-screen-label="Add a card" style="position:absolute;left:0;right:0;bottom:0;top:56px;background:var(--bg);border-radius:22px 22px 0 0;display:flex;flex-direction:column;box-shadow:0 -12px 40px rgba(0,0,0,.25);animation:obup .32s ease;">
+              <div style="flex-shrink:0;padding:16px 20px 6px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;"><span onClick="{{ closeSheet }}" style="font-size:16px;font-weight:500;color:var(--ter);cursor:pointer;">Cancel</span><span style="font-size:16px;font-weight:600;color:var(--accent);cursor:pointer;">Import CSV</span></div>
+                <div style="font-family:'Source Serif 4',serif;font-size:30px;font-weight:600;letter-spacing:-.02em;line-height:1;margin-top:10px;">Add a card</div>
+              </div>
+              <div class="scr" style="flex:1;overflow:auto;padding:12px 20px 30px;display:flex;flex-direction:column;gap:16px;">
+                <div style="display:flex;align-items:center;gap:8px;background:var(--field);border-radius:11px;padding:0 12px;">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ter)" stroke-width="2" stroke-linecap="round" style="flex-shrink:0;"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+                  <input value="{{ sh.query }}" onChange="{{ sh.setQuery }}" placeholder="Search 65+ premium cards" style="flex:1;border:none;background:transparent;padding:9px 0;font-size:15px;color:var(--ink);">
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                  <sc-for list="{{ sh.chips }}" as="c" hint-placeholder-count="4">
+                    <div onClick="{{ c.go }}" style="font-size:13px;font-weight:600;padding:7px 15px;border-radius:999px;cursor:pointer;background:{{ c.bg }};color:{{ c.fg }};border:1px solid {{ c.brd }};">{{ c.label }}</div>
+                  </sc-for>
+                </div>
+                <div>
+                  <div style="font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.06em;color:var(--ter);text-transform:uppercase;padding:0 6px 8px;">Popular</div>
+                  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;">
+                    <sc-for list="{{ sh.rows }}" as="r" hint-placeholder-count="5">
+                      <div style="display:flex;align-items:center;padding-left:16px;">
+                        <div style="width:44px;height:29px;border-radius:6px;background:{{ r.color }};margin-right:12px;flex-shrink:0;"></div>
+                        <div style="flex:1;display:flex;align-items:center;padding:13px 14px 13px 0;border-bottom:{{ r.sep }};">
+                          <div style="flex:1;"><div style="font-size:15px;font-weight:600;">{{ r.name }}</div><div style="font-size:12.5px;color:var(--sec);font-variant-numeric:tabular-nums;">{{ r.sub }}</div></div>
+                          <span onClick="{{ r.add }}" style="font-size:12px;font-weight:600;padding:6px 13px;border-radius:8px;cursor:pointer;background:{{ r.abg }};color:{{ r.afg }};">{{ r.alabel }}</span>
+                        </div>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ sh.empty }}"><div style="padding:15px 16px;font-size:13.5px;color:var(--ter);">No cards match — try an issuer name.</div></sc-if>
+                  </div>
+                  <div style="font-size:12px;color:var(--ter);padding:8px 6px 0;">No bank login required — credits are tracked manually.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+    </sc-if>
+
+    </div>
+  </x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{
+  &quot;theme&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;honey&quot;, &quot;onyx&quot;], &quot;default&quot;: &quot;honey&quot;, &quot;tsType&quot;: &quot;'honey' | 'onyx'&quot;, &quot;section&quot;: &quot;Appearance&quot; },
+  &quot;startAt&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;welcome&quot;, &quot;app&quot;], &quot;default&quot;: &quot;welcome&quot;, &quot;tsType&quot;: &quot;'welcome' | 'app'&quot;, &quot;section&quot;: &quot;Flow&quot; },
+  &quot;showRail&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Review&quot; }
+}">
+class Component extends DCLogic {
+  state = {
+    theme: null, screen: null, obStep: 0, tab: 'review', push: null, ntRead: [],
+    cardId: 'platinum', creditId: 'p2', crFrom: 'benefits', sheet: false,
+    selCards: ['platinum', 'gold'], cats: ['Dining', 'Travel'],
+    notif: { expiry: true, digest: true, renewal: false, smart: true },
+    obQuery: '', bQuery: '', bFilter: 'monthly', eRange: 'week', shQuery: '', shChip: 'All',
+    wallet: ['platinum', 'sapphire', 'gold', 'green'],
+    credits: [
+      { id: 'p1', cardId: 'platinum', name: 'Uber Cash', amount: 15, cycle: 'monthly', days: 23, used: false, yUsed: 165, yTotal: 200 },
+      { id: 'p2', cardId: 'platinum', name: 'Digital entertainment', amount: 20, cycle: 'monthly', days: 3, used: false, yUsed: 160, yTotal: 240 },
+      { id: 'p3', cardId: 'platinum', name: 'Airline fee credit', amount: 200, cycle: 'annual', days: 172, used: true, yUsed: 200, yTotal: 200 },
+      { id: 'p4', cardId: 'platinum', name: 'Hotel credit', amount: 200, cycle: 'annual', days: 172, used: true, yUsed: 200, yTotal: 200 },
+      { id: 'p5', cardId: 'platinum', name: 'Saks credit', amount: 50, cycle: 'quarterly', days: 50, used: false, yUsed: 100, yTotal: 150 },
+      { id: 'g1', cardId: 'gold', name: 'Dining credit', amount: 10, cycle: 'monthly', days: 3, used: false, yUsed: 70, yTotal: 120 },
+      { id: 'g2', cardId: 'gold', name: 'Uber Cash', amount: 10, cycle: 'monthly', days: 23, used: true, yUsed: 110, yTotal: 120 },
+      { id: 'g3', cardId: 'gold', name: 'Resy credit', amount: 50, cycle: 'quarterly', days: 50, used: false, yUsed: 150, yTotal: 200 },
+      { id: 'g4', cardId: 'gold', name: "Dunkin' credit", amount: 7, cycle: 'monthly', days: 19, used: true, yUsed: 49, yTotal: 84 },
+      { id: 's1', cardId: 'sapphire', name: 'DoorDash credit', amount: 5, cycle: 'monthly', days: 23, used: false, yUsed: 30, yTotal: 60 },
+      { id: 's2', cardId: 'sapphire', name: 'Travel credit', amount: 300, cycle: 'annual', days: 100, used: true, yUsed: 300, yTotal: 300 },
+      { id: 's3', cardId: 'sapphire', name: 'StubHub credit', amount: 75, cycle: 'quarterly', days: 50, used: true, yUsed: 225, yTotal: 300 },
+      { id: 's4', cardId: 'sapphire', name: 'Lyft credit', amount: 10, cycle: 'monthly', days: 23, used: false, yUsed: 60, yTotal: 120 },
+      { id: 'e1', cardId: 'green', name: 'CLEAR Plus credit', amount: 189, cycle: 'annual', days: 130, used: false, yUsed: 0, yTotal: 189 },
+      { id: 'e2', cardId: 'green', name: 'LoungeBuddy credit', amount: 100, cycle: 'annual', days: 130, used: true, yUsed: 100, yTotal: 100 },
+      { id: 'v1', cardId: 'venturex', name: 'Travel credit', amount: 300, cycle: 'annual', days: 200, used: false, yUsed: 0, yTotal: 300 },
+      { id: 'v2', cardId: 'venturex', name: 'Anniversary miles', amount: 100, cycle: 'annual', days: 200, used: false, yUsed: 0, yTotal: 100 },
+      { id: 'b1', cardId: 'brilliant', name: 'Dining credit', amount: 25, cycle: 'monthly', days: 23, used: false, yUsed: 150, yTotal: 300 },
+      { id: 'b2', cardId: 'brilliant', name: 'Free night credit', amount: 300, cycle: 'annual', days: 150, used: false, yUsed: 0, yTotal: 300 },
+      { id: 'a1', cardId: 'aspire', name: 'Resort credit', amount: 50, cycle: 'quarterly', days: 50, used: false, yUsed: 100, yTotal: 200 },
+      { id: 'a2', cardId: 'aspire', name: 'Flight credit', amount: 50, cycle: 'quarterly', days: 50, used: false, yUsed: 100, yTotal: 200 },
+    ],
+  };
+
+  CARDS = {
+    platinum: { name: 'Amex Platinum', art: 'Platinum', color: '#3A4048', fee: 695, last4: '2004', renew: 'Mar 2027', tag: 'Amex', issuer: 'American Express', value: 1400, nCredits: 5 },
+    sapphire: { name: 'Sapphire Reserve', art: 'Sapphire', color: '#127C6B', fee: 550, last4: '8841', renew: 'Jan 2027', tag: 'Chase', issuer: 'Chase', value: 1150, nCredits: 4 },
+    gold: { name: 'Amex Gold', art: 'Gold', color: '#B08A3E', fee: 325, last4: '3007', renew: 'Sep 2026', tag: 'Amex', issuer: 'American Express', value: 704, nCredits: 4 },
+    green: { name: 'Amex Green', art: 'Green', color: '#5E7355', fee: 150, last4: '1174', renew: 'Nov 2026', tag: 'Amex', issuer: 'American Express', value: 389, nCredits: 2 },
+    venturex: { name: 'Venture X', art: 'Venture X', color: '#1B1B1F', fee: 395, last4: '5512', renew: 'Jul 2027', tag: 'Capital One', issuer: 'Capital One', value: 1100, nCredits: 2 },
+    brilliant: { name: 'Marriott Brilliant', art: 'Brilliant', color: '#6B2F3A', fee: 650, last4: '9020', renew: 'Feb 2027', tag: 'Marriott', issuer: 'Marriott / Amex', value: 1060, nCredits: 2 },
+    aspire: { name: 'Hilton Aspire', art: 'Aspire', color: '#7A2E3B', fee: 550, last4: '4406', renew: 'Oct 2026', tag: 'Hilton', issuer: 'Hilton / Amex', value: 960, nCredits: 2 },
+  };
+
+  OB_GRID = ['platinum', 'sapphire', 'gold', 'venturex', 'brilliant', 'aspire'];
+
+  OB_EXTRA = {
+    preferred: { name: 'Sapphire Preferred', color: '#2B4B7E', fee: 95, value: 550, issuer: 'Chase', tag: 'Chase' },
+    delta: { name: 'Delta Reserve', color: '#5A6C7A', fee: 650, value: 560, issuer: 'Delta / Amex', tag: 'Amex' },
+    ritz: { name: 'Ritz-Carlton Card', color: '#2E2A33', fee: 450, value: 900, issuer: 'Chase', tag: 'Chase' },
+  };
+
+  OB_EXP = {
+    platinum: [['Digital entertainment', 3, 20], ['Uber Cash', 5, 15]],
+    gold: [['Dining credit', 3, 10]],
+    sapphire: [['DoorDash credit', 6, 5]],
+    venturex: [['Travel credit', 7, 25]],
+    brilliant: [['Dining credit', 3, 25]],
+    aspire: [['Resort credit', 6, 50]],
+  };
+
+  CATS = [['Dining', 6], ['Travel', 5], ['Groceries', 2], ['Streaming', 3], ['Rideshare', 4], ['Hotels', 5], ['Airlines', 3], ['Shopping', 2], ['Wellness', 2]];
+
+  NOTIF_META = [
+    ['expiry', 'Expiry alerts', 'A nudge before each credit resets'],
+    ['digest', 'Weekly digest', "Monday summary of what's available"],
+    ['renewal', 'Renewal alerts', '30 days before an annual fee posts'],
+    ['smart', 'Smart reminders', 'Only when a credit is realistically usable'],
+  ];
+
+  fmt(n) { return (n < 0 ? '−$' : '$') + Math.abs(n).toLocaleString('en-US'); }
+  fmtNet(n) { return (n >= 0 ? '+$' : '−$') + Math.abs(n).toLocaleString('en-US'); }
+
+  set(patch) { return () => this.setState(patch); }
+
+  markUsed(id, e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    this.setState(s => ({
+      credits: s.credits.map(c => c.id === id
+        ? { ...c, used: !c.used, yUsed: Math.max(0, Math.min(c.yTotal, c.yUsed + (c.used ? -c.amount : c.amount))) }
+        : c),
+    }));
+  }
+
+  snooze(id, e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    this.setState(s => ({ credits: s.credits.map(c => c.id === id ? { ...c, days: c.days + 30 } : c) }));
+  }
+
+  toggleSel(id, e) {
+    if (e && e.stopPropagation) e.stopPropagation();
+    this.setState(s => ({ selCards: s.selCards.includes(id) ? s.selCards.filter(x => x !== id) : [...s.selCards, id] }));
+  }
+
+  toggleNotif(key) { this.setState(s => ({ notif: { ...s.notif, [key]: !s.notif[key] } })); }
+
+  openCredit(id, from) { this.setState({ push: 'credit', creditId: id, crFrom: from }); }
+
+  renderVals() {
+    const s = this.state;
+    const P = this.props || {};
+    const theme = s.theme ?? (P.theme || 'honey');
+    const screen = s.screen ?? (P.startAt === 'app' ? 'app' : 'welcome');
+    const showRail = P.showRail ?? true;
+    const isOnyx = theme === 'onyx';
+    const $ = this.fmt.bind(this);
+    const $n = this.fmtNet.bind(this);
+    const C = this.CARDS;
+    const sepStyle = (i, arr) => i < arr.length - 1 ? '1px solid var(--sep)' : 'none';
+
+    // ---------- shared theme controls ----------
+    const segSel = { bg: 'var(--surface)', fg: 'var(--ink)', sh: '0 1px 3px rgba(33,29,22,.14)' };
+    const segOff = { bg: 'transparent', fg: 'var(--sec)', sh: 'none' };
+
+    // ---------- app derived data ----------
+    const inWallet = c => s.wallet.includes(c.cardId);
+    const wCredits = s.credits.filter(inWallet);
+    const captured = wCredits.reduce((a, c) => a + c.yUsed, 0);
+    const yTotalSum = wCredits.reduce((a, c) => a + c.yTotal, 0);
+    const fees = s.wallet.reduce((a, id) => a + C[id].fee, 0);
+    const net = captured - fees;
+    const pct = yTotalSum ? Math.round(captured / yTotalSum * 100) : 0;
+    const remaining = wCredits.filter(c => !c.used && c.cycle === 'monthly').reduce((a, c) => a + c.amount, 0);
+    const atRisk3 = wCredits.filter(c => !c.used && c.days <= 3).reduce((a, c) => a + c.amount, 0);
+    const cardStats = {};
+    s.wallet.forEach(id => {
+      const cap = s.credits.filter(c => c.cardId === id).reduce((a, c) => a + c.yUsed, 0);
+      cardStats[id] = { cap, net: cap - C[id].fee };
+    });
+
+    // ---------- navigation ----------
+    const goApp = (tab, push, extra) => () => this.setState({ screen: 'app', tab: tab || s.tab, push: push || null, sheet: false, ...(extra || {}) });
+
+    // ---------- rail ----------
+    const railDef = [
+      ['Auth', [
+        ['Welcome', () => this.setState({ screen: 'welcome' }), screen === 'welcome'],
+        ['Sign up', () => this.setState({ screen: 'signup' }), screen === 'signup'],
+        ['Sign in', () => this.setState({ screen: 'signin' }), screen === 'signin'],
+      ]],
+      ['Onboarding', [
+        ['Wallet', () => this.setState({ screen: 'onb', obStep: 0 }), screen === 'onb' && s.obStep === 0],
+        ['Spending', () => this.setState({ screen: 'onb', obStep: 1 }), screen === 'onb' && s.obStep === 1],
+        ['Reminders', () => this.setState({ screen: 'onb', obStep: 2 }), screen === 'onb' && s.obStep === 2],
+        ['Notif. primer', () => this.setState({ screen: 'primer' }), screen === 'primer'],
+        ['Reveal', () => this.setState({ screen: 'onb', obStep: 3 }), screen === 'onb' && s.obStep === 3],
+      ]],
+      ['App', [
+        ['Review', goApp('review'), screen === 'app' && !s.push && !s.sheet && s.tab === 'review'],
+        ['Benefits', goApp('benefits'), screen === 'app' && !s.push && !s.sheet && s.tab === 'benefits'],
+        ['Cards', goApp('cards'), screen === 'app' && !s.push && !s.sheet && s.tab === 'cards'],
+        ['Card detail', goApp('cards', 'card', { cardId: 'platinum' }), screen === 'app' && s.push === 'card'],
+        ['Credit detail', goApp('benefits', 'credit', { creditId: 'p2', crFrom: 'benefits' }), screen === 'app' && s.push === 'credit'],
+        ['Add a card', () => this.setState({ screen: 'app', tab: 'cards', push: null, sheet: true }), screen === 'app' && s.sheet],
+        ['Notifications', goApp('review', 'alerts'), screen === 'app' && s.push === 'alerts'],
+        ['Settings', goApp('review', 'settings'), screen === 'app' && s.push === 'settings'],
+      ]],
+    ];
+    let n = 0;
+    const rail = railDef.map(([name, items]) => ({
+      name,
+      items: items.map(([label, go, active]) => ({
+        label, go, n: String(++n).padStart(2, '0'),
+        fw: active ? 600 : 500,
+        fg: active ? 'var(--accent)' : 'var(--sec)',
+        bg: active ? 'var(--accentsoft)' : 'transparent',
+      })),
+    }));
+
+    // ---------- onboarding ----------
+    const catAll = { ...C, ...this.OB_EXTRA };
+    const obCounter = s.selCards.reduce((a, id) => a + (catAll[id] ? catAll[id].value : 0), 0);
+    const obSteps = ['Wallet', 'Spending', 'Reminders', 'Review'].map((label, i) => {
+      const done = i < s.obStep, cur = i === s.obStep;
+      return {
+        label, mark: done ? '✓' : String(i + 1),
+        go: () => this.setState({ screen: 'onb', obStep: i }),
+        cbg: done || cur ? 'var(--accent)' : 'transparent',
+        cbrd: done || cur ? '1.5px solid var(--accent)' : '1.5px solid var(--border)',
+        cfg: done || cur ? 'var(--onaccent)' : 'var(--ter)',
+        lfg: cur ? 'var(--ink)' : 'var(--ter)',
+      };
+    });
+    const obMk = (id, arr, i) => {
+      const c = catAll[id.id || id]; const cid = id.id || id;
+      const sel = s.selCards.includes(cid);
+      return {
+        id: cid, name: c.name, color: c.color,
+        meta: '$' + c.fee + '/yr · ' + $(c.value) + ' value',
+        sub: c.issuer + ' · $' + c.fee + '/yr',
+        sel, toggle: (e) => this.toggleSel(cid, e),
+        brd: sel ? 'var(--accent)' : 'var(--border)',
+        ring: sel ? '0 0 0 3px var(--accentsoft)' : '0 1px 2px rgba(33,29,22,.05)',
+        abg: sel ? 'var(--accentsoft)' : 'var(--accent)',
+        afg: sel ? 'var(--accent)' : 'var(--onaccent)',
+        alabel: sel ? 'Added ✓' : 'Add',
+        sep: sepStyle(i, arr),
+      };
+    };
+    const obCatalog = this.OB_GRID.map((id, i, arr) => obMk(id, arr, i));
+    const q = s.obQuery.trim().toLowerCase();
+    const searchPool = Object.keys(catAll);
+    const obResultIds = q ? searchPool.filter(id => (catAll[id].name + ' ' + catAll[id].issuer).toLowerCase().includes(q)) : [];
+    const obResults = obResultIds.map((id, i, arr) => obMk(id, arr, i));
+    const catCount = s.cats.reduce((a, name) => { const f = this.CATS.find(x => x[0] === name); return a + (f ? f[1] : 0); }, 0);
+    const notifRows = this.NOTIF_META.map(([key, title, desc], i, arr) => ({
+      key, title, desc,
+      on: s.notif[key],
+      toggle: () => this.toggleNotif(key),
+      tbg: s.notif[key] ? 'var(--accent)' : 'var(--track)',
+      just: s.notif[key] ? 'flex-end' : 'flex-start',
+      sep: sepStyle(i, arr),
+    }));
+    const soonSel = s.selCards.filter(id => this.OB_EXP[id]).flatMap(id => this.OB_EXP[id].map(([nm, d, a]) => ({ nm, d, a, card: catAll[id].name, color: catAll[id].color }))).sort((a, b) => a.d - b.d);
+    const soonest = soonSel[0];
+    const notifHead = soonest ? soonest.nm + ' resets in ' + soonest.d + ' days' : 'Dining credit resets in 2 days';
+    const notifBody = soonest ? 'Use your ' + $(soonest.a) + ' ' + soonest.card + ' credit before it disappears.' : 'Use your $10 Amex Gold credit before it disappears.';
+    const revItems = soonSel.filter(x => x.d <= 7).slice(0, 5);
+    const revTotalN = revItems.reduce((a, x) => a + x.a, 0);
+    const remOn = Object.values(s.notif).filter(Boolean).length;
+    const ob = {
+      stepLabel: 'Step ' + (s.obStep + 1) + ' of 4',
+      steps: obSteps,
+      isWallet: s.obStep === 0, isSpending: s.obStep === 1, isReminders: s.obStep === 2, isReveal: s.obStep === 3,
+      catalog: obCatalog,
+      query: s.obQuery, setQuery: (e) => this.setState({ obQuery: e.target.value }),
+      hasQuery: q.length > 0, results: obResults, noResults: q.length > 0 && obResults.length === 0,
+      cats: this.CATS.map(([name]) => {
+        const sel = s.cats.includes(name);
+        return {
+          name, toggle: () => this.setState(st => ({ cats: sel ? st.cats.filter(x => x !== name) : [...st.cats, name] })),
+          bg: sel ? 'var(--accent)' : 'var(--surface)', fg: sel ? 'var(--onaccent)' : 'var(--ink)', brd: sel ? 'var(--accent)' : 'var(--border)',
+        };
+      }),
+      catMsg: s.cats.length ? 'Nice — ' + catCount + ' matching credits move to the top of your feed.' : "Pick a few — we'll rank every credit around them.",
+      notifRows, notifHead, notifBody,
+      notifDim: s.notif.expiry ? 1 : 0.35,
+      revTotal: $(revTotalN),
+      revSub: revItems.length + ' credit' + (revItems.length === 1 ? '' : 's') + ' reset within a week across your wallet. This is what OfferBee will surface the moment you sign in.',
+      revItems: revItems.map((x, i, arr) => ({ days: x.d, name: x.nm, card: x.card, color: x.color, amt: $(x.a), sep: sepStyle(i, arr) })),
+      revEmpty: revItems.length === 0,
+      stCards: String(s.selCards.length), stTracked: $(obCounter), stRem: remOn + ' of 4',
+      counter: $(obCounter),
+      showBack: s.obStep > 0,
+      back: () => this.setState({ obStep: Math.max(0, s.obStep - 1) }),
+      next: () => {
+        if (s.obStep === 2) this.setState({ screen: 'primer' });
+        else if (s.obStep === 3) this.setState({ screen: 'app', tab: 'review', push: null });
+        else this.setState({ obStep: s.obStep + 1 });
+      },
+      nextLabel: s.obStep === 3 ? 'Enter OfferBee →' : 'Continue',
+    };
+
+    // ---------- review home ----------
+    const soon = wCredits.filter(c => !c.used && c.days <= 7).sort((a, b) => a.days - b.days);
+    const rv = {
+      captured: $(captured), net: $n(net), netColor: net >= 0 ? 'var(--accent)' : 'var(--warn)',
+      sub: 'against ' + $(fees) + ' in annual fees · ' + s.wallet.length + ' cards',
+      pctW: pct + '%', pct: pct + '%', pctLabel: net >= 0 ? 'BREAK-EVEN CLEARED' : 'BELOW BREAK-EVEN',
+      remaining: $(remaining), atRisk: $(atRisk3),
+      bellCount: 0, bellShow: 'none',
+      soon: soon.slice(0, 3).map((c, i, arr) => ({
+        name: c.name, color: C[c.cardId].color,
+        sub: C[c.cardId].name + ' · ' + $(c.amount) + ' · resets in ' + c.days + 'd',
+        open: () => this.openCredit(c.id, 'review'),
+        use: (e) => this.markUsed(c.id, e),
+        sep: sepStyle(i, Math.min(arr.length, 3) === arr.length ? arr : arr),
+      })),
+      soonEmpty: soon.length === 0,
+      soonFoot: soon.length ? soon.length + ' credit' + (soon.length === 1 ? '' : 's') + ' worth ' + $(soon.reduce((a, c) => a + c.amount, 0)) + ' reset within a week.' : 'New credits appear here as reset dates approach.',
+    };
+
+    // ---------- benefits ----------
+    const bq = s.bQuery.trim().toLowerCase();
+    const bfPool = wCredits.filter(c => c.cycle === s.bFilter).filter(c => !bq || (c.name + ' ' + C[c.cardId].name).toLowerCase().includes(bq));
+    const bfAll = wCredits.filter(c => c.cycle === s.bFilter);
+    const bfCapt = bfAll.filter(c => c.used).reduce((a, c) => a + c.amount, 0);
+    const bfTotal = bfAll.reduce((a, c) => a + c.amount, 0);
+    const bfAvailN = bfAll.filter(c => !c.used).length;
+    const cycleWord = { monthly: 'Monthly', quarterly: 'Quarterly', annual: 'Annual' };
+    const sumWord = { monthly: 'July · captured', quarterly: 'Q3 · captured', annual: '2026 · captured' };
+    const bf = {
+      query: s.bQuery, setQuery: (e) => this.setState({ bQuery: e.target.value }),
+      segs: ['monthly', 'quarterly', 'annual'].map(f => ({
+        label: cycleWord[f], go: () => this.setState({ bFilter: f }), fw: f === s.bFilter ? 600 : 500,
+        ...(f === s.bFilter ? segSel : segOff),
+      })),
+      sumLabel: sumWord[s.bFilter], sumStr: $(bfCapt) + ' / ' + $(bfTotal),
+      pctW: (bfTotal ? Math.round(bfCapt / bfTotal * 100) : 0) + '%',
+      groupLabel: cycleWord[s.bFilter] + ' credits · ' + bfPool.length,
+      rows: bfPool.map((c, i, arr) => ({
+        name: c.name, color: C[c.cardId].color,
+        sub: c.used ? 'Used this cycle' : C[c.cardId].name + ' · ' + $(c.amount) + (c.days <= 7 ? ' · resets ' + c.days + 'd' : ''),
+        subC: !c.used && c.days <= 3 ? 'var(--warn)' : 'var(--sec)',
+        subW: !c.used && c.days <= 3 ? 600 : 400,
+        blabel: c.used ? 'Used ✓' : 'Mark used',
+        bbg: c.used ? 'var(--accentsoft)' : 'var(--accent)',
+        bfg: c.used ? 'var(--accent)' : 'var(--onaccent)',
+        toggle: (e) => this.markUsed(c.id, e),
+        open: () => this.openCredit(c.id, 'benefits'),
+        sep: sepStyle(i, arr),
+      })),
+      empty: bfPool.length === 0,
+      foot: $(bfAll.filter(c => !c.used).reduce((a, c) => a + c.amount, 0)) + ' still available across ' + bfAvailN + ' credit' + (bfAvailN === 1 ? '' : 's') + '.',
+    };
+
+    // ---------- expiring ----------
+    const urgent = wCredits.filter(c => !c.used && c.days <= 7).sort((a, b) => a.days - b.days);
+    const later = wCredits.filter(c => !c.used && c.days > 7 && c.days <= 31).sort((a, b) => a.days - b.days);
+    const ex = {
+      segs: [['week', 'This week'], ['month', 'This month']].map(([k, label]) => ({
+        label, go: () => this.setState({ eRange: k }), fw: k === s.eRange ? 600 : 500,
+        ...(k === s.eRange ? segSel : segOff),
+      })),
+      urgentSum: $(urgent.reduce((a, c) => a + c.amount, 0)) + ' at risk',
+      urgent: urgent.map((c, i, arr) => ({
+        days: c.days, name: c.name + ' · ' + $(c.amount),
+        sub: C[c.cardId].name + ' · resets Jul ' + (12 + c.days),
+        use: (e) => this.markUsed(c.id, e),
+        open: () => this.openCredit(c.id, 'review'),
+        sep: sepStyle(i, arr),
+      })),
+      urgentEmpty: urgent.length === 0,
+      showLater: s.eRange === 'month' && later.length > 0,
+      laterSum: $(later.reduce((a, c) => a + c.amount, 0)),
+      later: later.map((c, i, arr) => ({
+        days: c.days, name: c.name + ' · ' + $(c.amount),
+        sub: C[c.cardId].name + ' · ' + c.cycle,
+        snooze: (e) => this.snooze(c.id, e),
+        open: () => this.openCredit(c.id, 'review'),
+        sep: sepStyle(i, arr),
+      })),
+      weekFoot: s.eRange === 'week' && later.length > 0,
+      weekFootStr: later.length + ' more credit' + (later.length === 1 ? '' : 's') + ' reset later this month →',
+      goMonth: () => this.setState({ eRange: 'month' }),
+    };
+
+    // ---------- notifications ----------
+    const ntRead = s.ntRead || [];
+    const ntItems = [
+      ...urgent.slice(0, 3).map((c, i) => ({
+        id: 'exp-' + c.id, group: 'New',
+        icon: '◷', iconBg: 'var(--warnsoft)', iconFg: 'var(--warn)',
+        title: $(c.amount) + ' ' + c.name + ' resets in ' + c.days + ' day' + (c.days === 1 ? '' : 's'),
+        body: C[c.cardId].name + ' · use it before it disappears',
+        when: c.days <= 2 ? 'Today' : i + 1 + 'h ago',
+        actionLabel: 'Use', actionKind: 'primary',
+        action: (e) => this.markUsed(c.id, e),
+        open: () => this.openCredit(c.id, 'review'),
+      })),
+      { id: 'reset-jul', group: 'Earlier', icon: '↻', iconBg: 'var(--accentsoft)', iconFg: 'var(--accent)',
+        title: 'Your monthly credits just reset', body: 'A fresh ' + $(remaining) + ' is available across your wallet.',
+        when: 'Jul 1', actionLabel: 'View', actionKind: 'ghost',
+        action: () => this.setState({ push: null, tab: 'benefits' }), open: () => this.setState({ push: null, tab: 'benefits' }) },
+      { id: 'fee-plat', group: 'Earlier', icon: '$', iconBg: 'var(--tile)', iconFg: 'var(--sec)',
+        title: 'Platinum annual fee posts in 3 weeks', body: 'Captured ' + $(captured) + ' so far — we\'ll send a keep-or-cancel verdict.',
+        when: 'Jun 28', actionLabel: 'Details', actionKind: 'ghost',
+        action: () => this.setState({ push: 'card', tab: 'cards', cardId: 'platinum' }), open: () => this.setState({ push: 'card', tab: 'cards', cardId: 'platinum' }) },
+    ];
+    const ntUnread = ntItems.filter(it => !ntRead.includes(it.id));
+    const ntGroups = ['New', 'Earlier'].map(label => {
+      const rows = ntItems.filter(it => it.group === label);
+      return {
+        label: (() => { const u = rows.filter(r => !ntRead.includes(r.id)).length; return label === 'New' && u ? 'New · ' + u : label; })(),
+        rows: rows.map((it, i, arr) => {
+          const read = ntRead.includes(it.id);
+          const primary = it.actionKind === 'primary';
+          return {
+            ...it,
+            sep: sepStyle(i, arr),
+            rowBg: read ? 'transparent' : 'rgba(232,104,14,.045)',
+            titleW: read ? 500 : 600,
+            dot: read ? 'none' : 'block',
+            hasAction: true,
+            actionBg: primary ? 'var(--accent)' : 'transparent',
+            actionFg: primary ? 'var(--onaccent)' : 'var(--sec)',
+            actionBrd: primary ? 'none' : '1px solid var(--btnbrd)',
+          };
+        }),
+      };
+    }).filter(g => g.rows.length);
+    rv.bellCount = ntUnread.length;
+    rv.bellShow = ntUnread.length ? 'flex' : 'none';
+    const nt = {
+      groups: ntGroups,
+      empty: ntItems.length === 0,
+      markColor: ntUnread.length ? 'var(--accent)' : 'var(--ter)',
+      markAll: () => this.setState({ ntRead: ntItems.map(it => it.id) }),
+      back: () => this.setState({ push: null, tab: 'review' }),
+      goSettings: () => this.setState({ push: 'settings' }),
+    };
+
+    // ---------- cards ----------
+    const cs = {
+      netLabel: 'Net across ' + s.wallet.length + ' cards',
+      net: $n(net), netColor: net >= 0 ? 'var(--accent)' : 'var(--warn)',
+      sub: $(captured) + ' captured · ' + $(fees) + ' in fees',
+      rows: s.wallet.map((id, i, arr) => {
+        const st = cardStats[id];
+        return {
+          name: C[id].name, color: C[id].color,
+          sub: '$' + C[id].fee + ' fee · ' + $(st.cap) + ' captured',
+          net: $n(st.net), netColor: st.net >= 0 ? 'var(--accent)' : 'var(--warn)',
+          verdict: st.net >= 0 ? 'Keep' : 'Review',
+          open: () => this.setState({ push: 'card', cardId: id }),
+          sep: sepStyle(i, arr),
+        };
+      }),
+    };
+
+    // ---------- card detail ----------
+    const cardId = s.cardId && s.wallet.includes(s.cardId) ? s.cardId : s.wallet[0];
+    const cdCard = C[cardId];
+    const cdStats = cardStats[cardId] || { cap: 0, net: -cdCard.fee };
+    const cdCredits = s.credits.filter(c => c.cardId === cardId);
+    const cdPct = Math.min(100, Math.round(cdStats.cap / cdCard.fee * 100));
+    const cd = {
+      name: cdCard.name, artName: cdCard.art, color: cdCard.color,
+      last4: '•••• ' + cdCard.last4,
+      terms: 'Annual fee $' + cdCard.fee + ' · renews ' + cdCard.renew,
+      captured: $(cdStats.cap), ofFee: 'of $' + cdCard.fee,
+      verdict: cdStats.net >= 0 ? 'Keep' : 'Review',
+      vbg: cdStats.net >= 0 ? 'var(--accentsoft)' : 'var(--warnsoft)',
+      vfg: cdStats.net >= 0 ? 'var(--accent)' : 'var(--warn)',
+      pctW: cdPct + '%',
+      barColor: cdStats.net >= 0 ? 'var(--accent)' : 'var(--warn)',
+      netColor: cdStats.net >= 0 ? 'var(--accent)' : 'var(--warn)',
+      netLine: cdStats.net >= 0 ? '+' + $(cdStats.net) + ' over the fee · break-even cleared' : $(Math.abs(cdStats.net)) + ' under the fee · worth a review',
+      creditsLabel: 'Credits · ' + cdCredits.length,
+      rows: cdCredits.map((c, i, arr) => ({
+        name: c.name,
+        sub: c.used ? cycleWord[c.cycle] + ' · used this cycle' : (c.days <= 7 ? $(c.amount) + ' expires in ' + c.days + ' days' : cycleWord[c.cycle] + ' · available'),
+        subC: !c.used && c.days <= 7 ? 'var(--warn)' : 'var(--sec)',
+        subW: !c.used && c.days <= 7 ? 600 : 400,
+        frac: '$' + c.yUsed + '/' + c.yTotal,
+        fracC: c.yUsed === 0 ? 'var(--ter)' : (c.yUsed >= c.yTotal ? 'var(--accent)' : 'var(--ink)'),
+        open: () => this.openCredit(c.id, 'card'),
+        sep: sepStyle(i, arr),
+      })),
+      back: () => this.setState({ push: null, tab: 'cards' }),
+    };
+
+    // ---------- credit detail ----------
+    const credit = s.credits.find(c => c.id === s.creditId) || s.credits[0];
+    const crCard = C[credit.cardId];
+    const crUrgent = !credit.used && credit.days <= 7;
+    const backMap = { benefits: ['Benefits', () => this.setState({ push: null, tab: 'benefits' })], expiring: ['Review', () => this.setState({ push: null, tab: 'review' })], review: ['Review', () => this.setState({ push: null, tab: 'review' })], card: [crCard.name, () => this.setState({ push: 'card', cardId: credit.cardId })] };
+    const [backLabel, backGo] = backMap[s.crFrom] || backMap.benefits;
+    const crPct = Math.round(credit.yUsed / credit.yTotal * 100);
+    const cr = {
+      name: credit.name, card: crCard.name, color: crCard.color,
+      amount: $(credit.amount),
+      status: credit.used ? 'used this cycle ✓' : 'resets in ' + credit.days + ' days',
+      statusC: credit.used ? 'var(--accent)' : (crUrgent ? 'var(--warn)' : 'var(--sec)'),
+      days: String(credit.days),
+      tileBg: crUrgent ? 'var(--warnsoft)' : 'var(--tile)',
+      tileFg: crUrgent ? 'var(--warn)' : 'var(--sec)',
+      pctW: crPct + '%',
+      yearLine: $(credit.yUsed) + ' of ' + $(credit.yTotal) + ' captured in 2026 · ' + crPct + '%',
+      blabel: credit.used ? 'Used this cycle ✓' : 'Mark used',
+      bbg: credit.used ? 'var(--accentsoft)' : 'var(--accent)',
+      bfg: credit.used ? 'var(--accent)' : 'var(--onaccent)',
+      bsh: credit.used ? 'none' : '0 6px 16px rgba(232,104,14,.22)',
+      toggle: () => this.markUsed(credit.id),
+      cycle: cycleWord[credit.cycle],
+      resets: credit.days + ' days',
+      perYear: $(credit.yTotal),
+      openCard: () => this.setState({ push: 'card', cardId: credit.cardId }),
+      backLabel, back: backGo,
+    };
+
+    // ---------- settings ----------
+    const st = {
+      notifRows,
+      back: () => this.setState({ push: null, tab: 'review' }),
+      signOut: () => this.setState({ screen: 'welcome', push: null, sheet: false, tab: 'review' }),
+    };
+
+    // ---------- add-card sheet ----------
+    const shq = s.shQuery.trim().toLowerCase();
+    const chipList = ['All', 'Amex', 'Chase', 'Capital One', 'Hilton', 'Marriott'];
+    const shPool = Object.keys(C)
+      .filter(id => s.shChip === 'All' || C[id].tag === s.shChip)
+      .filter(id => !shq || (C[id].name + ' ' + C[id].issuer).toLowerCase().includes(shq));
+    const sh = {
+      query: s.shQuery, setQuery: (e) => this.setState({ shQuery: e.target.value }),
+      chips: chipList.map(label => {
+        const sel = label === s.shChip;
+        return { label, go: () => this.setState({ shChip: label }), bg: sel ? 'var(--accent)' : 'var(--surface)', fg: sel ? 'var(--onaccent)' : 'var(--sec)', brd: sel ? 'var(--accent)' : 'var(--border)' };
+      }),
+      rows: shPool.map((id, i, arr) => {
+        const added = s.wallet.includes(id);
+        return {
+          name: C[id].name, color: C[id].color,
+          sub: '$' + C[id].fee + ' fee · ' + C[id].nCredits + ' credits',
+          alabel: added ? 'Added ✓' : 'Add',
+          abg: added ? 'var(--accentsoft)' : 'var(--accent)',
+          afg: added ? 'var(--accent)' : 'var(--onaccent)',
+          add: (e) => { if (e && e.stopPropagation) e.stopPropagation(); if (!added) this.setState(x => ({ wallet: [...x.wallet, id] })); },
+          sep: sepStyle(i, arr),
+        };
+      }),
+      empty: shPool.length === 0,
+    };
+
+    const tabIn = 'var(--tabin)', tabOn = 'var(--accent)';
+    const activeTab = k => screen === 'app' && !s.push && s.tab === k;
+
+    return {
+      theme, isOnyx, showRail, rail,
+      setHoney: () => this.setState({ theme: 'honey' }),
+      setOnyx: () => this.setState({ theme: 'onyx' }),
+      segHoneyBg: !isOnyx ? segSel.bg : segOff.bg, segHoneyFg: !isOnyx ? segSel.fg : segOff.fg, segHoneySh: !isOnyx ? segSel.sh : 'none',
+      segOnyxBg: isOnyx ? segSel.bg : segOff.bg, segOnyxFg: isOnyx ? segSel.fg : segOff.fg, segOnyxSh: isOnyx ? segSel.sh : 'none',
+
+      isWelcome: screen === 'welcome', isSignup: screen === 'signup', isSignin: screen === 'signin',
+      isOnb: screen === 'onb', isPrimer: screen === 'primer', isApp: screen === 'app',
+      goWelcome: () => this.setState({ screen: 'welcome' }),
+      goSignup: () => this.setState({ screen: 'signup' }),
+      goSignin: () => this.setState({ screen: 'signin' }),
+      authSignup: () => this.setState({ screen: 'onb', obStep: 0 }),
+      authSignin: () => this.setState({ screen: 'app', tab: 'review', push: null }),
+      primerDone: () => this.setState({ screen: 'onb', obStep: 3 }),
+
+      ob, rv, bf, ex, cs, cd, cr, st, sh,
+
+      tHome: activeTab('review'), tBenefits: activeTab('benefits'), tCards: activeTab('cards'),
+      pCard: screen === 'app' && s.push === 'card',
+      pCredit: screen === 'app' && s.push === 'credit',
+      pSettings: screen === 'app' && s.push === 'settings',
+      pAlerts: screen === 'app' && s.push === 'alerts',
+      nt,
+      tabHome: () => this.setState({ tab: 'review', push: null }),
+      tabBenefits: () => this.setState({ tab: 'benefits', push: null }),
+      tabCards: () => this.setState({ tab: 'cards', push: null }),
+      cHome: activeTab('review') ? tabOn : tabIn,
+      cBenefits: activeTab('benefits') ? tabOn : tabIn,
+      cCards: activeTab('cards') ? tabOn : tabIn,
+      goSettings: () => this.setState({ push: 'settings' }),
+      goBenefits: () => this.setState({ tab: 'benefits', push: null }),
+      goCards: () => this.setState({ tab: 'cards', push: null }),
+      goAlerts: () => this.setState({ push: 'alerts' }),
+      openSheet: () => this.setState({ sheet: true }),
+      closeSheet: () => this.setState({ sheet: false }),
+      sheetOpen: s.sheet,
+    };
+  }
+}
+</script>
+</body>
+</html>
