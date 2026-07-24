@@ -20,6 +20,7 @@ import { useCredits } from "@/features/credits/CreditsProvider";
 import { netStr, usd } from "@/features/credits/derive";
 import { useReviewExpiring } from "@/features/credits/useReviewExpiring";
 import { CreditRow } from "@/features/credits/components/CreditRow";
+import { LocationPrimerSheet } from "@/features/nearby/LocationPrimerSheet";
 import { monthKicker } from "@/lib/dates";
 
 /** Tappable "at a glance" row: icon chip + label, trailing mono value + chevron. */
@@ -105,6 +106,7 @@ export default function ReviewScreen() {
         ),
       }}
     >
+      <LocationPrimerSheet />
       {isLoading ? (
         <View style={{ gap: spacing.md }}>
           <Skeleton height={150} borderRadius={18} />
