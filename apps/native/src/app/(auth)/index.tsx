@@ -117,7 +117,7 @@ export default function Welcome() {
           color="tertiary"
           style={{ textAlign: "center", fontSize: 10, letterSpacing: 0.7 }}
         >
-          No bank login · Tracked manually
+          Read-only bank link · Every credit tracked
         </Text>
       </View>
     </View>

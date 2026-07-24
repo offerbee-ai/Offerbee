@@ -9,6 +9,7 @@ import { spacing } from "@/theme";
 import { fontFamilies } from "@/theme/typography";
 import { AuthField, OAuthButtons, OrDivider } from "@/features/auth/components";
 import { clerkError } from "@/features/auth/errors";
+import { LegalConsentRow, needsLegalConsent } from "@/features/auth/legal";
 
 export default function SignUp() {
   const { isLoaded, signUp, setActive } = useSignUp();
@@ -16,16 +17,28 @@ export default function SignUp() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
+  const [legalAccepted, setLegalAccepted] = useState(false);
   const [pendingVerification, setPendingVerification] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const onContinue = async () => {
-    if (!isLoaded || busy) return;
+    if (!isLoaded || busy || !legalAccepted) return;
     setBusy(true);
     setError(null);
     try {
-      await signUp.create({ emailAddress: email.trim(), password });
+      // Clerk requires express legal consent (Configure → Legal); without
+      // legalAccepted it parks the sign-up at missing_requirements instead of
+      // throwing, and prepareEmailAddressVerification then fails.
+      const created = await signUp.create({
+        emailAddress: email.trim(),
+        password,
+        legalAccepted,
+      });
+      if (needsLegalConsent(created)) {
+        setError("Please accept the Terms of Service and Privacy Policy to continue.");
+        return;
+      }
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setPendingVerification(true);
     } catch (err) {
@@ -102,7 +115,7 @@ export default function SignUp() {
           </>
         ) : (
           <>
-            <OAuthButtons />
+            <OAuthButtons legalAccepted={legalAccepted} />
             <OrDivider />
             <AuthField
               label="Email"
@@ -121,6 +134,7 @@ export default function SignUp() {
               autoComplete="password-new"
               placeholder="At least 8 characters"
             />
+            <LegalConsentRow value={legalAccepted} onValueChange={setLegalAccepted} disabled={busy} />
             {error ? (
               <Text variant="subtext" color="alert">
                 {error}
@@ -129,7 +143,7 @@ export default function SignUp() {
             <Button
               label="Continue"
               loading={busy}
-              disabled={!email.trim() || !password}
+              disabled={!email.trim() || !password || !legalAccepted}
               onPress={onContinue}
             />
             <View style={{ flexDirection: "row", justifyContent: "center", gap: 4 }}>
@@ -145,10 +159,6 @@ export default function SignUp() {
           </>
         )}
       </Card>
-
-      <Text variant="caption" color="tertiary" style={{ marginTop: spacing.base, textAlign: "center" }}>
-        By continuing you agree to the Terms and Privacy Policy.
-      </Text>
     </Screen>
   );
 }
