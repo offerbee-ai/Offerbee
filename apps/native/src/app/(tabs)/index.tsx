@@ -18,6 +18,7 @@ import { spacing, useTheme } from "@/theme";
 import { useCredits } from "@/features/credits/CreditsProvider";
 import { netStr, usd } from "@/features/credits/derive";
 import { CreditRow } from "@/features/credits/components/CreditRow";
+import { LocationPrimerSheet } from "@/features/nearby/LocationPrimerSheet";
 import { monthKicker } from "@/lib/dates";
 
 /** Tappable "at a glance" row: icon chip + label, trailing mono value + chevron. */
@@ -97,6 +98,7 @@ export default function ReviewScreen() {
 
   return (
     <Screen withTabBarClearance>
+      <LocationPrimerSheet />
       <ScreenHeader
         title="Review"
         kicker={monthKicker(now)}
